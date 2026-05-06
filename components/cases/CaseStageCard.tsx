@@ -103,7 +103,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload })
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              disabled={isUploading || !stage.filesColumnId}
+              disabled={isUploading}
               className="w-fit rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
             >
               {isUploading ? 'Enviando...' : 'Fazer upload de novas imagens'}
@@ -159,18 +159,12 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload })
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            disabled={isUploading || !stage.filesColumnId}
+            disabled={isUploading}
             className="mt-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
           >
             {isUploading ? 'Enviando...' : 'Fazer upload'}
           </button>
         </div>
-      )}
-
-      {!stage.filesColumnId && (
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          Coluna Arquivos nao encontrada neste subitem.
-        </p>
       )}
 
       {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

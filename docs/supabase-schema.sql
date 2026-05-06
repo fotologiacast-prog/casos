@@ -30,8 +30,15 @@ create table if not exists public.clients (
   -- ID da pasta, nao o nome.
   drive_folder_id text,
 
+  -- Campos de espelho operacional no Monday.
+  monday_board_id text,
+  monday_client_label text,
+
   active boolean not null default true
 );
+
+alter table public.clients add column if not exists monday_board_id text;
+alter table public.clients add column if not exists monday_client_label text;
 
 create index if not exists clients_case_public_token_idx
   on public.clients (case_public_token);
@@ -79,6 +86,8 @@ returns table (
   case_board_id text,
   case_client_label text,
   drive_folder_id text,
+  monday_board_id text,
+  monday_client_label text,
   active boolean
 )
 language sql
@@ -94,6 +103,8 @@ as $$
     c.case_board_id,
     c.case_client_label,
     c.drive_folder_id,
+    c.monday_board_id,
+    c.monday_client_label,
     c.active
   from public.clients c
   where c.case_public_token = p_token
@@ -104,3 +115,106 @@ $$;
 revoke all on function public.get_client_by_case_token(text) from public;
 grant execute on function public.get_client_by_case_token(text) to anon, authenticated;
 
+create table if not exists public.cases (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  client_id bigint not null references public.clients(id) on delete cascade,
+
+  patient_name text not null,
+  age integer,
+  gender text,
+  procedure text,
+  procedure_description text,
+  notes text,
+
+  status text not null default 'em_andamento',
+  drive_folder_id text,
+  monday_item_id text
+);
+
+create index if not exists cases_client_id_idx
+  on public.cases (client_id);
+
+create index if not exists cases_created_at_idx
+  on public.cases (created_at desc);
+
+drop trigger if exists cases_set_updated_at on public.cases;
+create trigger cases_set_updated_at
+before update on public.cases
+for each row
+execute function public.set_updated_at();
+
+create table if not exists public.case_stages (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  case_id uuid not null references public.cases(id) on delete cascade,
+
+  stage_key text not null,
+  stage_name text not null,
+  sort_order integer not null,
+  status text not null default 'fazer',
+  drive_folder_id text,
+  monday_subitem_id text,
+
+  unique(case_id, stage_key)
+);
+
+create index if not exists case_stages_case_id_idx
+  on public.case_stages (case_id);
+
+drop trigger if exists case_stages_set_updated_at on public.case_stages;
+create trigger case_stages_set_updated_at
+before update on public.case_stages
+for each row
+execute function public.set_updated_at();
+
+create table if not exists public.case_files (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  client_id bigint not null references public.clients(id) on delete cascade,
+  case_id uuid not null references public.cases(id) on delete cascade,
+  stage_id uuid not null references public.case_stages(id) on delete cascade,
+
+  drive_file_id text not null unique,
+  file_name text not null,
+  mime_type text,
+  size_bytes bigint,
+  web_view_link text,
+  web_content_link text
+);
+
+create index if not exists case_files_case_id_idx
+  on public.case_files (case_id);
+
+create index if not exists case_files_stage_id_idx
+  on public.case_files (stage_id);
+
+create index if not exists case_files_client_id_idx
+  on public.case_files (client_id);
+
+alter table public.cases enable row level security;
+alter table public.case_stages enable row level security;
+alter table public.case_files enable row level security;
+
+drop policy if exists "No public direct access to cases" on public.cases;
+create policy "No public direct access to cases"
+  on public.cases
+  for all
+  using (false)
+  with check (false);
+
+drop policy if exists "No public direct access to case_stages" on public.case_stages;
+create policy "No public direct access to case_stages"
+  on public.case_stages
+  for all
+  using (false)
+  with check (false);
+
+drop policy if exists "No public direct access to case_files" on public.case_files;
+create policy "No public direct access to case_files"
+  on public.case_files
+  for all
+  using (false)
+  with check (false);

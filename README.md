@@ -2,16 +2,16 @@
 
 App React/Vite para dentistas cadastrarem casos de pacientes sem acessar o Monday.
 
-Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquele cliente, permite criar novos casos e envia os arquivos das etapas para subitens no Monday.
+Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquele cliente, permite criar novos casos, organiza as pastas no Google Drive e usa o Supabase como banco de dados. O Monday fica como espelho operacional/status.
 
 ## Fluxo
 
 1. O cliente acessa `#/casos/<token-do-cliente>`.
 2. O app identifica o cliente no Supabase.
 3. O cliente cadastra um paciente.
-4. O app cria o item principal no Monday.
-5. O app cria automaticamente 10 subitens de captura.
-6. Cada upload em uma etapa vai para o subitem correspondente e muda o status para `Capturado`.
+4. O backend cria/acha a pasta do paciente dentro da pasta do cliente no Google Drive.
+5. O app cria automaticamente 10 etapas de captura no Supabase.
+6. Cada upload em uma etapa cria/acha a pasta da etapa no Drive, sobe o arquivo direto do navegador para o Google e muda o status para `Capturado`.
 
 ## Colunas esperadas no item principal
 
@@ -107,15 +107,17 @@ VITE_DEFAULT_MONDAY_CASE_BOARD_ID=18411843992
 
 ## Upload de arquivos
 
-O navegador nunca envia arquivos direto para `https://api.monday.com/v2/file`.
+O navegador nao envia arquivos para a nossa API nem para o Monday. O backend so prepara o upload e salva o resultado.
 
 Fluxo usado:
 
-1. O frontend envia `multipart/form-data` para `/api/monday-upload`.
-2. O backend encaminha o stream para `https://api.monday.com/v2/file` com `MONDAY_TOKEN`.
-3. O Monday grava o arquivo na coluna `Arquivos` do subitem.
+1. O frontend pede para `/api/drive-upload` iniciar o upload da etapa.
+2. O backend autentica com a service account, cria/acha a pasta da etapa e retorna uma URL resumable do Google Drive.
+3. O navegador envia o arquivo direto para essa URL do Google.
+4. O frontend confirma em `/api/drive-upload`.
+5. O backend salva o arquivo em `case_files` e marca a etapa como `capturado`.
 
-Isso evita CORS no browser e mantem o token fora do frontend.
+Para mostrar imagens privadas na galeria, o app usa `/api/drive-file?fileId=<id>` como preview autenticado pelo backend.
 
 ## Google Drive
 

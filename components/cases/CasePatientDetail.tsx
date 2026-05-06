@@ -1,7 +1,7 @@
 import React from 'react';
 import { CasePatient, CaseStage } from '../../types';
 import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
-import { uploadCaseStageFiles } from '../../services/caseMondayService';
+import { uploadStageFilesToDrive } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
 
@@ -30,12 +30,12 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
 
   const handleUpload = async (stage: CaseStage, files: File[]) => {
     if (stage.id.startsWith('missing-')) {
-      throw new Error('Este subitem ainda nao existe no Monday.');
+      throw new Error('Esta etapa ainda nao existe para este paciente.');
     }
     if (onUploadStageFiles) {
       await onUploadStageFiles(stage, files);
     } else {
-      await uploadCaseStageFiles(stage, files);
+      await uploadStageFilesToDrive(stage, files);
     }
     await onRefreshPatient(patient.id);
   };

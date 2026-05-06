@@ -120,6 +120,61 @@ export const findOrCreateDriveFolder = async (accessToken: string, parentId: str
   return createDriveFolder(accessToken, parentId, name);
 };
 
+export const startDriveResumableUpload = async (input: {
+  accessToken: string;
+  folderId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes?: number;
+}) => {
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,size,webViewLink,webContentLink",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": input.mimeType || "application/octet-stream",
+        ...(input.sizeBytes ? { "X-Upload-Content-Length": String(input.sizeBytes) } : {}),
+      },
+      body: JSON.stringify({
+        name: input.fileName,
+        parents: [input.folderId],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error?.message || "Falha ao iniciar upload resumable no Drive.");
+  }
+
+  const uploadUrl = response.headers.get("location");
+  if (!uploadUrl) throw new Error("Google Drive nao retornou URL de upload.");
+  return uploadUrl;
+};
+
+export const getDriveFile = async (accessToken: string, fileId: string) =>
+  driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink&supportsAllDrives=true`);
+
+export const getDriveMediaResponse = async (accessToken: string, fileId: string) => {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error?.message || "Falha ao buscar arquivo no Google Drive.");
+  }
+
+  return response;
+};
+
 export const sanitizeDriveFolderName = (value: string) =>
   value
     .replace(/[\\/:*?"<>|#%{}~&]/g, "-")
