@@ -265,6 +265,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const set = (colName: string, value: unknown) => {
             const col = findCol(colName);
             if (!col || value === undefined || value === null || String(value).trim() === "") return;
+            
+            // Prevent updating read-only/auto-calculated columns
+            const readOnlyTypes = ["formula", "creation_log", "last_updated", "auto_number", "item_id", "progress", "lookup", "board_relation", "subtasks"];
+            if (readOnlyTypes.includes(col.type)) {
+              console.log(`[Cases API] Ignorando coluna "${colName}" porque o tipo "${col.type}" é somente leitura.`);
+              return;
+            }
+
             const text = String(value).trim();
             const type = col.type;
             if (type === "status" || type === "color") columnValues[col.id] = { label: text };
