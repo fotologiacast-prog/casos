@@ -17,18 +17,39 @@ const requestAdminClients = async (
   password: string,
   options: RequestInit & { query?: string } = {}
 ) => {
-  const response = await fetch(`/api/admin-clients${options.query || ''}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Password': password,
-      ...(options.headers || {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api/admin-clients${options.query || ''}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Password': password,
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : 'Falha de rede ao chamar o admin.');
+  }
 
-  const data = await response.json().catch(() => ({}));
+  const responseText = await response.text();
+  let data: any = {};
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    data = {};
+  }
+
   if (!response.ok) {
-    throw new Error(data.error || data.details || 'Falha ao comunicar com admin.');
+    const details = typeof data.details === 'string' ? data.details : '';
+    const fallback = responseText
+      ? responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220)
+      : '';
+    throw new Error(
+      data.error ||
+        details ||
+        fallback ||
+        `Falha ao comunicar com admin. HTTP ${response.status}`
+    );
   }
   return data;
 };

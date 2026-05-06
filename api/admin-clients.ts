@@ -21,6 +21,14 @@ const isAuthorized = (req: VercelRequest) => {
   return headerPassword === configuredPassword;
 };
 
+const getEnvStatus = () => ({
+  hasSupabaseUrl: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+  hasSupabaseServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  hasAdminPassword: Boolean(process.env.ADMIN_PASSWORD),
+  hasDriveRootFolderId: Boolean(process.env.DRIVE_ROOT_FOLDER_ID || process.env.VITE_DRIVE_ROOT_FOLDER_ID),
+  hasGoogleServiceAccount: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
+});
+
 const normalizeClientPayload = (body: any) => ({
   name: String(body.name || "").trim(),
   boardId: String(body.boardId || body.monday_board_id || body.case_board_id || "18411843992").trim(),
@@ -70,6 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (req.method === "GET" && String(req.query.health || "") === "1") {
+      return res.status(200).json({ ok: true, env: getEnvStatus() });
+    }
+
     const supabase = getSupabaseAdmin();
 
     if (req.method === "GET") {
