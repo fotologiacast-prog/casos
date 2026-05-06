@@ -29,7 +29,7 @@ const requestDriveUploadStart = async (stageId: string, file: File): Promise<Dri
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.details || 'Falha ao preparar upload no Drive.');
+  if (!response.ok) throw new Error(data.details || data.error || 'Falha ao preparar upload no Drive.');
   return data;
 };
 
@@ -44,7 +44,7 @@ const requestDriveUploadComplete = async (stageId: string, driveFileId: string):
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.details || 'Falha ao salvar arquivo no banco.');
+  if (!response.ok) throw new Error(data.details || data.error || 'Falha ao salvar arquivo no banco.');
   return data;
 };
 
