@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { CaseStage } from '../../types';
+import { CaseStage, CaseStageMoment } from '../../types';
 
 interface CaseStageCardProps {
   index: number;
@@ -17,12 +17,36 @@ const isVideoFile = (file: CaseStage['files'][number]) => {
   return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
 };
 
+const momentStyles: Record<CaseStageMoment, { border: string; chip: string; count: string }> = {
+  Planejamento: {
+    border: 'border-l-lime-400',
+    chip: 'bg-lime-100 text-lime-800 ring-lime-200',
+    count: 'bg-lime-50 text-lime-700',
+  },
+  Procedimento: {
+    border: 'border-l-orange-400',
+    chip: 'bg-orange-100 text-orange-800 ring-orange-200',
+    count: 'bg-orange-50 text-orange-700',
+  },
+  Entrega: {
+    border: 'border-l-pink-500',
+    chip: 'bg-pink-100 text-pink-800 ring-pink-200',
+    count: 'bg-pink-50 text-pink-700',
+  },
+  Evento: {
+    border: 'border-l-yellow-400',
+    chip: 'bg-yellow-100 text-yellow-800 ring-yellow-200',
+    count: 'bg-yellow-50 text-yellow-700',
+  },
+};
+
 const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
+  const momentStyle = momentStyles[(stage.moment || stage.title) as CaseStageMoment] || momentStyles.Planejamento;
 
   const handleFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -45,7 +69,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload })
       className={`rounded-lg p-5 shadow-sm transition-all ${
         isCaptured
           ? 'border-2 border-emerald-300 bg-emerald-50/60 shadow-emerald-100'
-          : 'border border-slate-200 bg-white'
+          : `border border-l-4 border-slate-200 ${momentStyle.border} bg-white`
       }`}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -76,13 +100,28 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload })
             className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
               isCaptured
                 ? 'bg-emerald-600 text-white ring-emerald-600'
-                : 'bg-slate-100 text-slate-600 ring-slate-200'
+                : momentStyle.chip
             }`}
           >
             {isCaptured ? 'Capturado' : 'Fazer'}
           </span>
         </div>
       </div>
+
+      {!!stage.expectedItems?.length && (
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {stage.expectedItems.map(item => (
+              <div key={item} className="flex gap-2 text-xs font-semibold text-slate-600">
+                <span className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${momentStyle.count}`}>
+                  {item.slice(0, 2)}
+                </span>
+                <span className="leading-5">{item.replace(/^\d+\.\s*/, '')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <input
         ref={inputRef}

@@ -153,6 +153,7 @@ create table if not exists public.case_stages (
 
   stage_key text not null,
   stage_name text not null,
+  moment text,
   sort_order integer not null,
   status text not null default 'fazer',
   drive_folder_id text,
@@ -160,6 +161,8 @@ create table if not exists public.case_stages (
 
   unique(case_id, stage_key)
 );
+
+alter table public.case_stages add column if not exists moment text;
 
 create index if not exists case_stages_case_id_idx
   on public.case_stages (case_id);

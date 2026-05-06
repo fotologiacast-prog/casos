@@ -59,11 +59,15 @@ export type CaseProcedure =
 
 export type CaseStageStatus = 'Fazer' | 'Capturado';
 
+export type CaseStageMoment = 'Planejamento' | 'Procedimento' | 'Entrega' | 'Evento';
+
 export interface CaseStage {
   id: string;
   boardId: string;
   parentItemId: string;
   title: string;
+  moment?: CaseStageMoment | string | null;
+  expectedItems?: string[];
   status: CaseStageStatus | string;
   statusColumnId: string;
   filesColumnId: string;

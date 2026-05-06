@@ -3,7 +3,7 @@ import { CasePatient, Client } from '../../types';
 import { getDriveSetupWarning } from '../../services/driveService';
 import { createSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
-import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
+import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
 import CasePatientDetail from './CasePatientDetail';
 import CasePatientList from './CasePatientList';
@@ -164,11 +164,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           procedureDescription: payload.procedureDescription,
           notes: payload.notes,
           createdAt: new Date(),
-          stages: CASE_STAGE_TITLES.map((title, index) => ({
+          stages: CASE_STAGE_DEFINITIONS.map((stage, index) => ({
             id: `${patientId}-stage-${index + 1}`,
             boardId: portalClient.boardId,
             parentItemId: patientId,
-            title,
+            title: stage.title,
+            moment: stage.moment,
+            expectedItems: [...stage.expectedItems],
             status: 'Fazer',
             statusColumnId: 'demo-status',
             filesColumnId: 'demo-files',

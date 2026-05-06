@@ -1,5 +1,5 @@
 import { CasePatient } from '../types';
-import { CASE_STAGE_TITLES } from './caseConstants';
+import { CASE_STAGE_DEFINITIONS } from './caseConstants';
 
 const sampleImages = [
   'https://images.unsplash.com/photo-1606811971618-4486d14f3f99?auto=format&fit=crop&w=900&q=80',
@@ -9,14 +9,16 @@ const sampleImages = [
 ];
 
 const makeStages = (parentItemId: string, capturedIndexes: number[]) =>
-  CASE_STAGE_TITLES.map((title, index) => {
+  CASE_STAGE_DEFINITIONS.map((stage, index) => {
     const captured = capturedIndexes.includes(index);
-    const isVideoStage = title.toLowerCase().includes('video');
+    const isVideoStage = stage.title.toLowerCase().includes('video');
     return {
       id: `${parentItemId}-stage-${index + 1}`,
       boardId: 'demo-board',
       parentItemId,
-      title,
+      title: stage.title,
+      moment: stage.moment,
+      expectedItems: [...stage.expectedItems],
       status: captured ? 'Capturado' : 'Fazer',
       statusColumnId: 'demo-status',
       filesColumnId: 'demo-files',

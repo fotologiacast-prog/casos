@@ -37,7 +37,10 @@ const ensureStageFolder = async (input: {
   const caseFolderId = input.stage.cases?.drive_folder_id;
   if (!caseFolderId) throw new Error("Pasta do paciente no Drive nao encontrada.");
 
-  const stageName = `${String(input.stage.sort_order).padStart(2, "0")} ${input.stage.stage_name}`;
+  const currentStageName = String(input.stage.stage_name || "").trim();
+  const stageName = /^\d{2}\./.test(currentStageName)
+    ? currentStageName
+    : `${String(input.stage.sort_order).padStart(2, "0")} ${currentStageName}`;
   const folder = await findOrCreateDriveFolder(input.accessToken, caseFolderId, sanitizeDriveFolderName(stageName));
 
   const { error } = await input.supabase

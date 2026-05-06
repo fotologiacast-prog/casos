@@ -1,6 +1,6 @@
 import React from 'react';
 import { CasePatient, CaseStage } from '../../types';
-import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
+import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
 import { uploadStageFilesToDrive } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
@@ -15,12 +15,14 @@ interface CasePatientDetailProps {
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onUploadStageFiles }) => {
   const progress = getPatientProgress(patient);
 
-  const orderedStages = CASE_STAGE_TITLES.map(title => {
-    return patient.stages.find(stage => stage.title === title) || {
-      id: `missing-${title}`,
+  const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
+    return patient.stages.find(stage => stage.title === definition.title) || {
+      id: `missing-${definition.title}`,
       boardId: patient.boardId,
       parentItemId: patient.id,
-      title,
+      title: definition.title,
+      moment: definition.moment,
+      expectedItems: [...definition.expectedItems],
       status: 'Fazer',
       statusColumnId: '',
       filesColumnId: '',

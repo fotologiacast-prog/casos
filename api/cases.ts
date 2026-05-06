@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { CASE_STAGE_TITLES } from "../utils/caseConstants";
+import { CASE_STAGE_DEFINITIONS, getCaseStageExpectedItems, getCaseStageMoment } from "../utils/caseConstants";
 import { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } from "./_googleDrive";
 
 const getSupabaseAdmin = () => {
@@ -46,6 +46,8 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
         boardId: caseRow.monday_item_id || caseRow.id,
         parentItemId: caseRow.id,
         title: stage.stage_name,
+        moment: stage.moment || getCaseStageMoment(stage.stage_name),
+        expectedItems: getCaseStageExpectedItems(stage.stage_name),
         status: stage.status === "capturado" ? "Capturado" : "Fazer",
         statusColumnId: stage.monday_subitem_id || "",
         filesColumnId: stage.drive_folder_id || "",
@@ -139,10 +141,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
       if (caseError) throw caseError;
 
-      const stageRows = CASE_STAGE_TITLES.map((stageName, index) => ({
+      const stageRows = CASE_STAGE_DEFINITIONS.map((stage, index) => ({
         case_id: createdCase.id,
-        stage_key: stageName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
-        stage_name: stageName,
+        stage_key: stage.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+        stage_name: stage.title,
+        moment: stage.moment,
         sort_order: index + 1,
         status: "fazer",
       }));
