@@ -51,12 +51,14 @@ const requestAdminClients = async (
 
   if (!response.ok) {
     const details = typeof data.details === 'string' ? data.details : '';
+    const message = details && data.error
+      ? `${data.error} ${details}`
+      : details || data.error;
     const fallback = responseText
       ? responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220)
       : '';
     throw new AdminApiError(
-      data.error ||
-        details ||
+      message ||
         fallback ||
         `Falha ao comunicar com admin. HTTP ${response.status}`,
       response.status
