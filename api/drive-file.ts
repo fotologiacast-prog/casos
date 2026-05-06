@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDriveMediaResponse, getGoogleAccessToken } from "./_googleDrive";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -13,6 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fileId = String(req.query.fileId || "").trim();
     if (!fileId) return res.status(400).json({ error: "fileId ausente." });
 
+    const { getDriveMediaResponse, getGoogleAccessToken } = await import("./_googleDrive.js");
     const accessToken = await getGoogleAccessToken();
     const driveResponse = await getDriveMediaResponse(accessToken, fileId);
     const contentType = driveResponse.headers.get("content-type") || "application/octet-stream";

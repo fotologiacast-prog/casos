@@ -1,21 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import {
-  findOrCreateDriveFolder,
-  getDriveFile,
-  getGoogleAccessToken,
-  sanitizeDriveFolderName,
-  startDriveResumableUpload,
-} from "./_googleDrive";
 
-const getSupabaseAdmin = () => {
+const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) throw new Error("Supabase admin env vars ausentes.");
+  const { createClient } = await import("@supabase/supabase-js");
   return createClient(supabaseUrl, serviceRoleKey);
 };
 
-const getStageContext = async (supabase: ReturnType<typeof getSupabaseAdmin>, stageId: string) => {
+const getStageContext = async (supabase: any, stageId: string) => {
   const { data, error } = await supabase
     .from("case_stages")
     .select("*, cases(*, clients(*))")
@@ -29,7 +22,7 @@ const getStageContext = async (supabase: ReturnType<typeof getSupabaseAdmin>, st
 
 const ensureStageFolder = async (input: {
   accessToken: string;
-  supabase: ReturnType<typeof getSupabaseAdmin>;
+  supabase: any;
   stage: any;
 }) => {
   if (input.stage.drive_folder_id) return input.stage.drive_folder_id as string;
@@ -41,6 +34,7 @@ const ensureStageFolder = async (input: {
   const stageName = /^\d{2}\./.test(currentStageName)
     ? currentStageName
     : `${String(input.stage.sort_order).padStart(2, "0")} ${currentStageName}`;
+  const { findOrCreateDriveFolder, sanitizeDriveFolderName } = await import("./_googleDrive.js");
   const folder = await findOrCreateDriveFolder(input.accessToken, caseFolderId, sanitizeDriveFolderName(stageName));
 
   const { error } = await input.supabase
@@ -65,7 +59,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const stageId = String(req.body?.stageId || "").trim();
     if (!stageId) return res.status(400).json({ error: "stageId ausente." });
 
-    const supabase = getSupabaseAdmin();
+    const supabase = await getSupabaseAdmin();
+    const {
+      getDriveFile,
+      getGoogleAccessToken,
+      startDriveResumableUpload,
+    } = await import("./_googleDrive.js");
     const accessToken = await getGoogleAccessToken();
     const stage = await getStageContext(supabase, stageId);
 
