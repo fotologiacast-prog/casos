@@ -1,8 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } from "./_googleDrive";
 
-const getSupabaseAdmin = () => {
+const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -10,6 +8,7 @@ const getSupabaseAdmin = () => {
     throw new Error("Supabase admin env vars ausentes.");
   }
 
+  const { createClient } = await import("@supabase/supabase-js");
   return createClient(supabaseUrl, serviceRoleKey);
 };
 
@@ -56,6 +55,7 @@ const ensureClientDriveFolder = async (payload: ReturnType<typeof normalizeClien
   if (!rootFolderId) return payload;
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return payload;
 
+  const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive");
   const accessToken = await getGoogleAccessToken();
   const folder = await findOrCreateDriveFolder(accessToken, rootFolderId, sanitizeDriveFolderName(payload.name));
   return {
@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, env: getEnvStatus() });
     }
 
-    const supabase = getSupabaseAdmin();
+    const supabase = await getSupabaseAdmin();
 
     if (req.method === "GET") {
       const { data, error } = await supabase.from("clients").select("*").order("name");
