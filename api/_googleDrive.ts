@@ -46,6 +46,25 @@ const signJwt = async (serviceAccount: ServiceAccount) => {
 };
 
 export const getGoogleAccessToken = async () => {
+  if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error_description || data.error || "Falha ao renovar token OAuth do Google.");
+    }
+    return data.access_token as string;
+  }
+
   const serviceAccount = getServiceAccount();
   const assertion = await signJwt(serviceAccount);
 
