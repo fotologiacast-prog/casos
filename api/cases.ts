@@ -231,7 +231,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // --- Monday.com integration (non-blocking) ---
       const mondayToken = process.env.MONDAY_TOKEN;
-      const mondayBoardId = client.monday_board_id || client.case_board_id || client.board_id;
+      const mondayBoardId = process.env.MONDAY_BOARD_ID || client.monday_board_id || client.case_board_id || client.board_id;
       if (mondayToken && mondayBoardId) {
         try {
           // Fetch board columns to build column values
