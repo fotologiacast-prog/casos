@@ -1,5 +1,15 @@
 import { Client } from '../types';
 
+export class AdminApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'AdminApiError';
+    this.status = status;
+  }
+}
+
 export type ClientPayload = {
   name: string;
   boardId: string;
@@ -28,7 +38,7 @@ const requestAdminClients = async (
       },
     });
   } catch (error) {
-    throw new Error(error instanceof Error ? error.message : 'Falha de rede ao chamar o admin.');
+    throw new AdminApiError(error instanceof Error ? error.message : 'Falha de rede ao chamar o admin.', 0);
   }
 
   const responseText = await response.text();
@@ -44,11 +54,12 @@ const requestAdminClients = async (
     const fallback = responseText
       ? responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220)
       : '';
-    throw new Error(
+    throw new AdminApiError(
       data.error ||
         details ||
         fallback ||
-        `Falha ao comunicar com admin. HTTP ${response.status}`
+        `Falha ao comunicar com admin. HTTP ${response.status}`,
+      response.status
     );
   }
   return data;

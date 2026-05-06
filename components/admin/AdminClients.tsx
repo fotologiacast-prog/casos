@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Client } from '../../types';
 import { DEFAULT_MONDAY_CASE_BOARD_ID } from '../../config';
 import {
+  AdminApiError,
   ClientPayload,
   createAdminClient,
   deleteAdminClient,
@@ -66,8 +67,10 @@ const AdminClients: React.FC = () => {
       setClients(loadedClients);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nao foi possivel carregar clientes.');
-      localStorage.removeItem('cases_admin_password');
-      setPassword('');
+      if (err instanceof AdminApiError && err.status === 401) {
+        localStorage.removeItem('cases_admin_password');
+        setPassword('');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +82,7 @@ const AdminClients: React.FC = () => {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
+    setError(null);
     localStorage.setItem('cases_admin_password', passwordInput);
     setPassword(passwordInput);
   };
@@ -159,6 +163,7 @@ const AdminClients: React.FC = () => {
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-300">Admin</p>
           <h1 className="mt-3 text-3xl font-semibold">Cadastro de clientes</h1>
           <p className="mt-3 text-sm text-slate-300">Entre com a senha configurada em `ADMIN_PASSWORD`.</p>
+          {error && <p className="mt-4 rounded-lg bg-red-500/15 px-4 py-3 text-sm font-semibold text-red-100 ring-1 ring-red-400/30">{error}</p>}
           <input
             type="password"
             value={passwordInput}
