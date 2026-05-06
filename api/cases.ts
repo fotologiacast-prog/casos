@@ -55,6 +55,29 @@ const getCaseStageMoment = (title: string) =>
 const getCaseStageExpectedItems = (title: string) =>
   getCaseStageDefinition(title)?.expectedItems || [];
 
+const serializeApiError = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const parts = [
+      record.code,
+      record.message,
+      record.details,
+      record.hint,
+    ]
+      .filter(Boolean)
+      .map(String);
+
+    if (parts.length > 0) return parts.join(" ");
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Erro desconhecido.";
+    }
+  }
+  return String(error);
+};
+
 const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -214,7 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     return res.status(500).json({
       error: "Falha na API de casos.",
-      details: error instanceof Error ? error.message : String(error),
+      details: serializeApiError(error),
     });
   }
 }
