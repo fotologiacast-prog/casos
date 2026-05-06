@@ -1,0 +1,102 @@
+import { createClient } from "@supabase/supabase-js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase admin env vars ausentes.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+};
+
+const isAuthorized = (req: VercelRequest) => {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  if (!configuredPassword) return false;
+
+  const headerPassword = req.headers["x-admin-password"];
+  return headerPassword === configuredPassword;
+};
+
+const normalizeClientPayload = (body: any) => ({
+  name: String(body.name || "").trim(),
+  boardId: String(body.boardId || body.case_board_id || "").trim(),
+  avatar_url: body.avatar_url ? String(body.avatar_url).trim() : null,
+  case_public_token: String(body.case_public_token || "").trim(),
+  case_board_id: body.case_board_id ? String(body.case_board_id).trim() : null,
+  case_client_label: body.case_client_label ? String(body.case_client_label).trim() : null,
+  drive_folder_id: body.drive_folder_id ? String(body.drive_folder_id).trim() : null,
+  active: body.active !== false,
+});
+
+const validateClientPayload = (payload: ReturnType<typeof normalizeClientPayload>) => {
+  if (!payload.name) return "Nome do cliente e obrigatorio.";
+  if (!payload.boardId) return "Board ID do Monday e obrigatorio.";
+  if (!payload.case_public_token) return "Token publico e obrigatorio.";
+  return null;
+};
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Password");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ error: "Senha admin invalida." });
+  }
+
+  try {
+    const supabase = getSupabaseAdmin();
+
+    if (req.method === "GET") {
+      const { data, error } = await supabase.from("clients").select("*").order("name");
+      if (error) throw error;
+      return res.status(200).json({ clients: data || [] });
+    }
+
+    if (req.method === "POST") {
+      const payload = normalizeClientPayload(req.body);
+      const validationError = validateClientPayload(payload);
+      if (validationError) return res.status(400).json({ error: validationError });
+
+      const { data, error } = await supabase.from("clients").insert([payload]).select().single();
+      if (error) throw error;
+      return res.status(201).json({ client: data });
+    }
+
+    if (req.method === "PUT") {
+      const id = String(req.query.id || req.body?.id || "").trim();
+      if (!id) return res.status(400).json({ error: "ID do cliente ausente." });
+
+      const payload = normalizeClientPayload(req.body);
+      const validationError = validateClientPayload(payload);
+      if (validationError) return res.status(400).json({ error: validationError });
+
+      const { data, error } = await supabase.from("clients").update(payload).eq("id", id).select().single();
+      if (error) throw error;
+      return res.status(200).json({ client: data });
+    }
+
+    if (req.method === "DELETE") {
+      const id = String(req.query.id || "").trim();
+      if (!id) return res.status(400).json({ error: "ID do cliente ausente." });
+
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+      if (error) throw error;
+      return res.status(200).json({ ok: true });
+    }
+
+    return res.status(405).json({ error: "Metodo nao permitido." });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Falha na API de clientes.",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+}

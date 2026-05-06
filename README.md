@@ -69,6 +69,23 @@ npm run dev
 
 O Vite roda em `http://localhost:3000`.
 
+## Admin de clientes
+
+Depois de configurar `ADMIN_PASSWORD`, acesse:
+
+```text
+/#/admin/clientes
+```
+
+Essa tela cadastra o mapa de cada cliente:
+
+- nome;
+- token do link publico;
+- board do Monday;
+- label do cliente no Monday;
+- pasta do Google Drive;
+- avatar opcional.
+
 ## Variaveis de ambiente
 
 Os proxies em `api/monday.ts` e `api/monday-upload.ts` precisam de:

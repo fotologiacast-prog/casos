@@ -39,6 +39,7 @@ export interface Client {
   case_public_token?: string;
   case_client_label?: string;
   drive_folder_id?: string;
+  active?: boolean;
 }
 
 export type CaseGender = 'Feminino' | 'Masculino' | 'Outro' | 'Prefere nao informar';

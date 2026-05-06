@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import AdminClients from './components/admin/AdminClients';
 import CasePortal from './components/cases/CasePortal';
 
 const getCurrentHash = () => window.location.hash || '#/';
@@ -14,6 +15,10 @@ const App: React.FC = () => {
 
   const route = hash.split('?')[0];
   const caseRouteMatch = route.match(/^#\/casos\/([^/?]+)/);
+
+  if (route === '#/admin/clientes') {
+    return <AdminClients />;
+  }
 
   if (caseRouteMatch) {
     return <CasePortal token={decodeURIComponent(caseRouteMatch[1])} />;
