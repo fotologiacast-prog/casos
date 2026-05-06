@@ -75,12 +75,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!fileName) return res.status(400).json({ error: "Nome do arquivo ausente." });
 
       const folderId = await ensureStageFolder({ accessToken, supabase, stage });
+      const origin = req.headers.origin || req.headers.host ? `https://${req.headers.host}` : "*";
       const uploadUrl = await startDriveResumableUpload({
         accessToken,
         folderId,
         fileName,
         mimeType,
         sizeBytes,
+        origin,
       });
 
       return res.status(200).json({ uploadUrl, folderId });

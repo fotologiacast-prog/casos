@@ -145,6 +145,7 @@ export const startDriveResumableUpload = async (input: {
   fileName: string;
   mimeType: string;
   sizeBytes?: number;
+  origin?: string;
 }) => {
   const response = await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,size,webViewLink,webContentLink",
@@ -155,6 +156,7 @@ export const startDriveResumableUpload = async (input: {
         "Content-Type": "application/json; charset=UTF-8",
         "X-Upload-Content-Type": input.mimeType || "application/octet-stream",
         ...(input.sizeBytes ? { "X-Upload-Content-Length": String(input.sizeBytes) } : {}),
+        ...(input.origin ? { Origin: input.origin } : {}),
       },
       body: JSON.stringify({
         name: input.fileName,
