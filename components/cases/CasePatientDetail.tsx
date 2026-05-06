@@ -1,7 +1,7 @@
 import React from 'react';
 import { CasePatient, CaseStage } from '../../types';
 import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
-import { uploadStageFilesToDrive } from '../../services/driveUploadService';
+import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
 
@@ -9,7 +9,7 @@ interface CasePatientDetailProps {
   patient: CasePatient;
   onBack: () => void;
   onRefreshPatient: (patientId: string) => Promise<void>;
-  onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => Promise<void>;
+  onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
 }
 
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onUploadStageFiles }) => {
@@ -30,7 +30,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
     };
   });
 
-  const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => {
+  const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => {
     if (stage.id.startsWith('missing-')) return; // placeholder — upload disabled in CaseStageCard
     if (onUploadStageFiles) {
       await onUploadStageFiles(stage, files, onProgress);

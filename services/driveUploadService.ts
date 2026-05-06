@@ -48,7 +48,13 @@ const requestDriveUploadComplete = async (stageId: string, driveFileId: string):
   return data;
 };
 
-const putFileDirectlyToDrive = async (uploadUrl: string, file: File, onProgress?: (percentage: number) => void) => {
+export interface UploadProgressInfo {
+  percentage: number;
+  loaded: number;
+  total: number;
+}
+
+const putFileDirectlyToDrive = async (uploadUrl: string, file: File, onProgress?: (info: UploadProgressInfo) => void) => {
   if (file.size <= 0) throw new Error(`O arquivo "${file.name}" esta vazio.`);
 
   return new Promise<{ id: string }>((resolve, reject) => {
@@ -61,7 +67,7 @@ const putFileDirectlyToDrive = async (uploadUrl: string, file: File, onProgress?
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percentage = Math.round((event.loaded / event.total) * 100);
-          onProgress(percentage);
+          onProgress({ percentage, loaded: event.loaded, total: event.total });
         }
       };
     }
@@ -87,7 +93,7 @@ const putFileDirectlyToDrive = async (uploadUrl: string, file: File, onProgress?
   });
 };
 
-export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => {
+export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => {
   for (const file of files) {
     const { uploadUrl } = await requestDriveUploadStart(stage.id, file);
     const uploadedFile = await putFileDirectlyToDrive(uploadUrl, file, onProgress);

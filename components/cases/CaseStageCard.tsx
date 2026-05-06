@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { CaseStage, CaseStageMoment } from '../../types';
+import { UploadProgressInfo } from '../../services/driveUploadService';
 
 interface CaseStageCardProps {
   index: number;
   stage: CaseStage;
-  onUpload: (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => Promise<void>;
+  onUpload: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   isPlaceholder?: boolean;
 }
 
@@ -32,10 +33,18 @@ const momentLabel: Record<CaseStageMoment, string> = {
   Evento: 'Evento',
 };
 
+const formatBytes = (bytes: number) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
 const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +56,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     if (files.length === 0 || isPlaceholder) return;
     setError(null);
     setIsUploading(true);
-    setUploadProgress(0);
+    setUploadProgress(null);
     try {
-      await onUpload(stage, files, (percentage) => setUploadProgress(percentage));
+      await onUpload(stage, files, (info) => setUploadProgress(info));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao enviar arquivos.');
     } finally {
@@ -158,10 +167,10 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
                 >
                   {isUploading && uploadProgress !== null && (
-                    <div className="absolute inset-0 bg-zinc-100 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    <div className="absolute inset-0 bg-zinc-100 transition-all duration-300" style={{ width: `${uploadProgress.percentage}%` }} />
                   )}
                   <span className="relative z-10">
-                    {isUploading ? `Enviando... ${uploadProgress !== null ? `${uploadProgress}%` : ''}` : '+ Adicionar'}
+                    {isUploading ? `Enviando... ${uploadProgress !== null ? `${uploadProgress.percentage}%` : ''}` : '+ Adicionar'}
                   </span>
                 </button>
               )}
@@ -254,12 +263,19 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                     className="relative overflow-hidden rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors active:scale-95"
                   >
                     {isUploading && uploadProgress !== null && (
-                      <div className="absolute inset-0 bg-white/20 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      <div className="absolute inset-0 bg-white/20 transition-all duration-300" style={{ width: `${uploadProgress.percentage}%` }} />
                     )}
                     {isUploading ? (
-                      <span className="relative z-10 flex items-center gap-2">
-                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        Enviando... {uploadProgress !== null ? `${uploadProgress}%` : ''}
+                      <span className="relative z-10 flex flex-col items-center gap-0.5">
+                        <span className="flex items-center gap-2">
+                          <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                          Enviando... {uploadProgress !== null ? `${uploadProgress.percentage}%` : ''}
+                        </span>
+                        {uploadProgress !== null && (
+                          <span className="text-[10px] font-medium text-white/70">
+                            {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span className="relative z-10">Selecionar arquivos</span>
