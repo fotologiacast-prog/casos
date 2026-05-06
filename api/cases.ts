@@ -222,7 +222,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         case_id: createdCase.id,
         stage_key: stage.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
         stage_name: stage.title,
-        moment: stage.moment,
         sort_order: index + 1,
         status: "fazer",
       }));
