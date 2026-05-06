@@ -1,9 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { CASE_STAGE_DEFINITIONS, getCaseStageExpectedItems, getCaseStageMoment } from "../utils/caseConstants";
-import { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } from "./_googleDrive";
 
-const getSupabaseAdmin = () => {
+const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -11,10 +9,11 @@ const getSupabaseAdmin = () => {
     throw new Error("Supabase admin env vars ausentes.");
   }
 
+  const { createClient } = await import("@supabase/supabase-js");
   return createClient(supabaseUrl, serviceRoleKey);
 };
 
-const getClientByToken = async (supabase: ReturnType<typeof getSupabaseAdmin>, token: string) => {
+const getClientByToken = async (supabase: any, token: string) => {
   const { data, error } = await supabase
     .from("clients")
     .select("*")
@@ -89,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const token = String(req.query.token || req.body?.token || "").trim();
     if (!token) return res.status(400).json({ error: "Token ausente." });
 
-    const supabase = getSupabaseAdmin();
+    const supabase = await getSupabaseAdmin();
     const client = await getClientByToken(supabase, token);
 
     if (req.method === "GET") {
@@ -120,6 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let caseDriveFolderId: string | null = null;
       if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON)) {
+        const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive.js");
         const accessToken = await getGoogleAccessToken();
         const folder = await findOrCreateDriveFolder(
           accessToken,

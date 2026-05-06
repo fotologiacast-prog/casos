@@ -6,10 +6,32 @@ const mapCasePatient = (item: any): CasePatient => ({
   createdAt: item.createdAt ? new Date(item.createdAt) : null,
 });
 
+const readApiResponse = async (response: Response, fallbackMessage: string) => {
+  const responseText = await response.text();
+  let data: any = {};
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    const details = typeof data.details === 'string' ? data.details : '';
+    const message = details && data.error
+      ? `${data.error} ${details}`
+      : details || data.error;
+    const fallback = responseText
+      ? responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 220)
+      : '';
+    throw new Error(message || fallback || `${fallbackMessage} HTTP ${response.status}`);
+  }
+
+  return data;
+};
+
 export const fetchSupabaseCasePatients = async (token: string): Promise<CasePatient[]> => {
   const response = await fetch(`/api/cases?token=${encodeURIComponent(token)}`);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.details || 'Falha ao buscar casos.');
+  const data = await readApiResponse(response, 'Falha ao buscar casos.');
   return (data.cases || []).map(mapCasePatient);
 };
 
@@ -19,7 +41,6 @@ export const createSupabaseCasePatient = async (token: string, payload: NewCaseP
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, ...payload }),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.details || 'Falha ao criar caso.');
+  const data = await readApiResponse(response, 'Falha ao criar caso.');
   return data.caseId;
 };
