@@ -43,13 +43,5 @@ export const createSupabaseCasePatient = async (token: string, payload: NewCaseP
   });
   const data = await readApiResponse(response, 'Falha ao criar caso.');
   
-  if (data.monday && data.monday.error) {
-    alert("Atenção: O paciente foi criado no Supabase, mas falhou ao enviar para o Monday.\nErro detalhado:\n" + JSON.stringify(data.monday.error, null, 2));
-  } else if (data.monday && data.monday.skipped) {
-    alert("Aviso: O envio para o Monday foi ignorado. Verifique se o MONDAY_BOARD_ID e MONDAY_TOKEN estão preenchidos na Vercel.");
-  } else if (data.monday && data.monday.success) {
-    alert(`Sucesso! O paciente foi criado no Monday com o ID do Item: ${data.monday.itemId}. Se não estiver vendo no painel, pesquise por esse número ou verifique se o MONDAY_BOARD_ID está apontando para o Board correto.`);
-  }
-  
   return data.caseId;
 };

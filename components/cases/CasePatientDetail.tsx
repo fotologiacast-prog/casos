@@ -9,7 +9,7 @@ interface CasePatientDetailProps {
   patient: CasePatient;
   onBack: () => void;
   onRefreshPatient: (patientId: string) => Promise<void>;
-  onUploadStageFiles?: (stage: CaseStage, files: File[]) => Promise<void>;
+  onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => Promise<void>;
 }
 
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onUploadStageFiles }) => {
@@ -30,12 +30,12 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
     };
   });
 
-  const handleUpload = async (stage: CaseStage, files: File[]) => {
+  const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => {
     if (stage.id.startsWith('missing-')) return; // placeholder — upload disabled in CaseStageCard
     if (onUploadStageFiles) {
-      await onUploadStageFiles(stage, files);
+      await onUploadStageFiles(stage, files, onProgress);
     } else {
-      await uploadStageFilesToDrive(stage, files);
+      await uploadStageFilesToDrive(stage, files, onProgress);
     }
     await onRefreshPatient(patient.id);
   };

@@ -48,38 +48,49 @@ const requestDriveUploadComplete = async (stageId: string, driveFileId: string):
   return data;
 };
 
-const putFileDirectlyToDrive = async (uploadUrl: string, file: File) => {
+const putFileDirectlyToDrive = async (uploadUrl: string, file: File, onProgress?: (percentage: number) => void) => {
   if (file.size <= 0) throw new Error(`O arquivo "${file.name}" esta vazio.`);
 
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-      'Content-Range': `bytes 0-${file.size - 1}/${file.size}`,
-    },
-    body: file,
+  return new Promise<{ id: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentage = Math.round((event.loaded / event.total) * 100);
+          onProgress(percentage);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      let data: any = {};
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+      } catch {
+        data = xhr.responseText ? { error: xhr.responseText } : {};
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (!data.id) return reject(new Error('O Google Drive nao retornou o ID do arquivo enviado.'));
+        resolve(data as { id: string });
+      } else {
+        reject(new Error(data.error?.message || data.error || `Falha ao enviar "${file.name}" para o Drive.`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error(`Erro de rede ao enviar "${file.name}" para o Drive.`));
+    xhr.send(file);
   });
-
-  const text = await response.text();
-  let data: any = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = text ? { error: text } : {};
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error?.message || data.error || `Falha ao enviar "${file.name}" para o Drive.`);
-  }
-
-  if (!data.id) throw new Error('O Google Drive nao retornou o ID do arquivo enviado.');
-  return data as { id: string };
 };
 
-export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[]) => {
+export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[], onProgress?: (percentage: number) => void) => {
   for (const file of files) {
     const { uploadUrl } = await requestDriveUploadStart(stage.id, file);
-    const uploadedFile = await putFileDirectlyToDrive(uploadUrl, file);
+    const uploadedFile = await putFileDirectlyToDrive(uploadUrl, file, onProgress);
     await requestDriveUploadComplete(stage.id, uploadedFile.id);
   }
 };
