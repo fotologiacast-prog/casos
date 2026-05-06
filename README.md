@@ -43,8 +43,18 @@ Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquel
 
 ## Supabase
 
-A tabela `clients` deve conter, alem dos campos ja existentes:
+Este app deve usar um Supabase proprio ou uma tabela nova limpa. Nao reutilize a tabela antiga do app de criativos sem migrar os campos.
 
+Crie a tabela com o SQL em:
+
+```text
+docs/supabase-schema.sql
+```
+
+A tabela `clients` deve conter:
+
+- `name`: nome visivel do cliente.
+- `boardId`: fallback para o board do Monday.
 - `case_public_token`: token usado no link publico.
 - `case_board_id`: board central de casos, opcional. Se vazio, o app usa `boardId`.
 - `case_client_label`: nome que deve ser gravado na coluna `Cliente` do Monday, opcional. Se vazio, o app usa `name`.
@@ -64,7 +74,15 @@ O Vite roda em `http://localhost:3000`.
 Os proxies em `api/monday.ts` e `api/monday-upload.ts` precisam de:
 
 ```bash
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_anon_key_do_supabase
 MONDAY_TOKEN=seu_token_do_monday
+SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key_para_admin
+ADMIN_PASSWORD=sua_senha_do_admin
+GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=sua_chave_google_em_base64
+DRIVE_ROOT_FOLDER_ID=1aUtI6yDclwJVxIktMKsewuwnrAgSLWLX
+VITE_DRIVE_ROOT_FOLDER_ID=1aUtI6yDclwJVxIktMKsewuwnrAgSLWLX
+VITE_DRIVE_SERVICE_ACCOUNT_EMAIL=drive-uploader@smash-balloon-479213.iam.gserviceaccount.com
 ```
 
 ## Upload de arquivos

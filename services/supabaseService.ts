@@ -2,6 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../config';
 import { Client } from '../types';
 
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('[Supabase] Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para conectar o portal.');
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const getErrorMessage = (error: any) => error.message || 'Erro desconhecido';
