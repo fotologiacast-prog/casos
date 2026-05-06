@@ -38,6 +38,8 @@ export interface Client {
   case_board_id?: string;
   case_public_token?: string;
   case_client_label?: string;
+  monday_board_id?: string;
+  monday_client_label?: string;
   drive_folder_id?: string;
   active?: boolean;
 }

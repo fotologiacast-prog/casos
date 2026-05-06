@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } from "./_googleDrive";
 
 const getSupabaseAdmin = () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -22,11 +23,13 @@ const isAuthorized = (req: VercelRequest) => {
 
 const normalizeClientPayload = (body: any) => ({
   name: String(body.name || "").trim(),
-  boardId: String(body.boardId || body.case_board_id || "").trim(),
+  boardId: String(body.boardId || body.monday_board_id || body.case_board_id || "18411843992").trim(),
   avatar_url: body.avatar_url ? String(body.avatar_url).trim() : null,
   case_public_token: String(body.case_public_token || "").trim(),
-  case_board_id: body.case_board_id ? String(body.case_board_id).trim() : null,
-  case_client_label: body.case_client_label ? String(body.case_client_label).trim() : null,
+  case_board_id: body.case_board_id || body.monday_board_id ? String(body.case_board_id || body.monday_board_id).trim() : "18411843992",
+  case_client_label: body.case_client_label || body.monday_client_label ? String(body.case_client_label || body.monday_client_label).trim() : null,
+  monday_board_id: body.monday_board_id || body.case_board_id ? String(body.monday_board_id || body.case_board_id).trim() : "18411843992",
+  monday_client_label: body.monday_client_label || body.case_client_label ? String(body.monday_client_label || body.case_client_label).trim() : null,
   drive_folder_id: body.drive_folder_id ? String(body.drive_folder_id).trim() : null,
   active: body.active !== false,
 });
@@ -36,6 +39,21 @@ const validateClientPayload = (payload: ReturnType<typeof normalizeClientPayload
   if (!payload.boardId) return "Board ID do Monday e obrigatorio.";
   if (!payload.case_public_token) return "Token publico e obrigatorio.";
   return null;
+};
+
+const ensureClientDriveFolder = async (payload: ReturnType<typeof normalizeClientPayload>) => {
+  if (payload.drive_folder_id) return payload;
+
+  const rootFolderId = process.env.DRIVE_ROOT_FOLDER_ID || process.env.VITE_DRIVE_ROOT_FOLDER_ID;
+  if (!rootFolderId) return payload;
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return payload;
+
+  const accessToken = await getGoogleAccessToken();
+  const folder = await findOrCreateDriveFolder(accessToken, rootFolderId, sanitizeDriveFolderName(payload.name));
+  return {
+    ...payload,
+    drive_folder_id: folder.id,
+  };
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -61,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
-      const payload = normalizeClientPayload(req.body);
+      const payload = await ensureClientDriveFolder(normalizeClientPayload(req.body));
       const validationError = validateClientPayload(payload);
       if (validationError) return res.status(400).json({ error: validationError });
 
@@ -74,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const id = String(req.query.id || req.body?.id || "").trim();
       if (!id) return res.status(400).json({ error: "ID do cliente ausente." });
 
-      const payload = normalizeClientPayload(req.body);
+      const payload = await ensureClientDriveFolder(normalizeClientPayload(req.body));
       const validationError = validateClientPayload(payload);
       if (validationError) return res.status(400).json({ error: validationError });
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CasePatient, Client } from '../../types';
-import { createCasePatient, fetchCasePatient, fetchCasePatients } from '../../services/caseMondayService';
 import { getDriveSetupWarning } from '../../services/driveService';
+import { createSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
@@ -101,12 +101,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         setPatients(MOCK_CASE_PATIENTS);
         return;
       }
-      const loaded = await fetchCasePatients(client.boardId, client.clientName, undefined, true);
+      const loaded = await fetchSupabaseCasePatients(token);
       setPatients(loaded);
     } finally {
       if (refreshing) setIsRefreshing(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,9 +145,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const handleRefreshPatient = async (patientId: string) => {
     if (!portalClient) return;
     if (portalClient.isDemo) return;
-    const updated = await fetchCasePatient(patientId, portalClient.clientName);
-    if (!updated) return;
-    setPatients(prev => prev.map(patient => patient.id === patientId ? updated : patient));
+    await loadPatients(portalClient, true);
   };
 
   const handleCreatePatient = async (payload: NewCasePatientPayload) => {
@@ -184,11 +182,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       return;
     }
 
-    const patientId = await createCasePatient({
-      boardId: portalClient.boardId,
-      clientName: portalClient.clientName,
-      ...payload,
-    });
+    const patientId = await createSupabaseCasePatient(token, payload);
     await loadPatients(portalClient, true);
     setSelectedPatientId(patientId);
     setMode('list');

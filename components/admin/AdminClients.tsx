@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Client } from '../../types';
+import { DEFAULT_MONDAY_CASE_BOARD_ID } from '../../config';
 import {
   ClientPayload,
   createAdminClient,
@@ -10,11 +11,13 @@ import {
 
 const emptyForm: ClientPayload = {
   name: '',
-  boardId: '',
+  boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
   avatar_url: '',
   case_public_token: '',
-  case_board_id: '',
+  case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_client_label: '',
+  monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
+  monday_client_label: '',
   drive_folder_id: '',
   active: true,
 };
@@ -87,8 +90,10 @@ const AdminClients: React.FC = () => {
       boardId: client.boardId,
       avatar_url: client.avatar_url || '',
       case_public_token: client.case_public_token || '',
-      case_board_id: client.case_board_id || '',
+      case_board_id: client.case_board_id || client.monday_board_id || client.boardId || DEFAULT_MONDAY_CASE_BOARD_ID,
       case_client_label: client.case_client_label || '',
+      monday_board_id: client.monday_board_id || client.case_board_id || client.boardId || DEFAULT_MONDAY_CASE_BOARD_ID,
+      monday_client_label: client.monday_client_label || client.case_client_label || client.name,
       drive_folder_id: client.drive_folder_id || '',
       active: client.active !== false,
     });
@@ -260,6 +265,7 @@ const AdminClients: React.FC = () => {
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Pasta Drive ID</span>
               <input value={form.drive_folder_id || ''} onChange={event => setForm(prev => ({ ...prev, drive_folder_id: event.target.value }))} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 font-mono outline-none focus:border-sky-400" />
+              <span className="mt-1 block text-xs text-slate-400">Se ficar vazio, o sistema cria/localiza a pasta pelo nome do cliente.</span>
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Avatar URL</span>

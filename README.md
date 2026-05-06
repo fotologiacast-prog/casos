@@ -51,6 +51,8 @@ Crie a tabela com o SQL em:
 docs/supabase-schema.sql
 ```
 
+Esse schema bloqueia leitura direta da tabela para usuarios anonimos e libera apenas a busca por token via RPC `get_client_by_case_token`.
+
 A tabela `clients` deve conter:
 
 - `name`: nome visivel do cliente.
@@ -100,6 +102,7 @@ GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=sua_chave_google_em_base64
 DRIVE_ROOT_FOLDER_ID=1aUtI6yDclwJVxIktMKsewuwnrAgSLWLX
 VITE_DRIVE_ROOT_FOLDER_ID=1aUtI6yDclwJVxIktMKsewuwnrAgSLWLX
 VITE_DRIVE_SERVICE_ACCOUNT_EMAIL=drive-uploader@smash-balloon-479213.iam.gserviceaccount.com
+VITE_DEFAULT_MONDAY_CASE_BOARD_ID=18411843992
 ```
 
 ## Upload de arquivos

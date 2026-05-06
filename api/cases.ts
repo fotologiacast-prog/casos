@@ -1,0 +1,161 @@
+import { createClient } from "@supabase/supabase-js";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { CASE_STAGE_TITLES } from "../utils/caseConstants";
+import { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } from "./_googleDrive";
+
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase admin env vars ausentes.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey);
+};
+
+const getClientByToken = async (supabase: ReturnType<typeof getSupabaseAdmin>, token: string) => {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .eq("case_public_token", token)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Cliente nao encontrado.");
+  return data;
+};
+
+const normalizeCasePayload = (body: any) => ({
+  patient_name: String(body.name || body.patient_name || "").trim(),
+  age: body.age ? Number(body.age) : null,
+  gender: body.gender ? String(body.gender).trim() : null,
+  procedure: body.procedure ? String(body.procedure).trim() : null,
+  procedure_description: body.procedureDescription || body.procedure_description ? String(body.procedureDescription || body.procedure_description).trim() : null,
+  notes: body.notes ? String(body.notes).trim() : null,
+});
+
+const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = []) =>
+  caseRows.map(caseRow => {
+    const stages = stageRows
+      .filter(stage => stage.case_id === caseRow.id)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(stage => ({
+        id: stage.id,
+        boardId: caseRow.monday_item_id || caseRow.id,
+        parentItemId: caseRow.id,
+        title: stage.stage_name,
+        status: stage.status === "capturado" ? "Capturado" : "Fazer",
+        statusColumnId: stage.monday_subitem_id || "",
+        filesColumnId: stage.drive_folder_id || "",
+        files: fileRows
+          .filter(file => file.stage_id === stage.id)
+          .map(file => ({
+            id: file.id,
+            name: file.file_name,
+            public_url: file.web_view_link || "#",
+            type: file.mime_type || undefined,
+          })),
+      }));
+
+    return {
+      id: caseRow.id,
+      boardId: caseRow.monday_item_id || caseRow.id,
+      name: caseRow.patient_name,
+      clientName: caseRow.clients?.name || "",
+      age: caseRow.age,
+      gender: caseRow.gender,
+      procedure: caseRow.procedure,
+      procedureDescription: caseRow.procedure_description,
+      notes: caseRow.notes,
+      createdAt: caseRow.created_at,
+      stages,
+    };
+  });
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  try {
+    const token = String(req.query.token || req.body?.token || "").trim();
+    if (!token) return res.status(400).json({ error: "Token ausente." });
+
+    const supabase = getSupabaseAdmin();
+    const client = await getClientByToken(supabase, token);
+
+    if (req.method === "GET") {
+      const { data: cases, error: casesError } = await supabase
+        .from("cases")
+        .select("*, clients(name)")
+        .eq("client_id", client.id)
+        .order("created_at", { ascending: false });
+      if (casesError) throw casesError;
+
+      const caseIds = (cases || []).map(item => item.id);
+      const { data: stages, error: stagesError } = caseIds.length
+        ? await supabase.from("case_stages").select("*").in("case_id", caseIds)
+        : { data: [], error: null };
+      if (stagesError) throw stagesError;
+
+      const { data: files, error: filesError } = caseIds.length
+        ? await supabase.from("case_files").select("*").in("case_id", caseIds)
+        : { data: [], error: null };
+      if (filesError) throw filesError;
+
+      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || []) });
+    }
+
+    if (req.method === "POST") {
+      const payload = normalizeCasePayload(req.body);
+      if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
+
+      let caseDriveFolderId: string | null = null;
+      if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON)) {
+        const accessToken = await getGoogleAccessToken();
+        const folder = await findOrCreateDriveFolder(
+          accessToken,
+          client.drive_folder_id,
+          sanitizeDriveFolderName(payload.patient_name)
+        );
+        caseDriveFolderId = folder.id;
+      }
+
+      const { data: createdCase, error: caseError } = await supabase
+        .from("cases")
+        .insert([{
+          client_id: client.id,
+          ...payload,
+          drive_folder_id: caseDriveFolderId,
+          status: "em_andamento",
+        }])
+        .select()
+        .single();
+      if (caseError) throw caseError;
+
+      const stageRows = CASE_STAGE_TITLES.map((stageName, index) => ({
+        case_id: createdCase.id,
+        stage_key: stageName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+        stage_name: stageName,
+        sort_order: index + 1,
+        status: "fazer",
+      }));
+
+      const { error: stagesError } = await supabase.from("case_stages").insert(stageRows);
+      if (stagesError) throw stagesError;
+
+      return res.status(201).json({ caseId: createdCase.id });
+    }
+
+    return res.status(405).json({ error: "Metodo nao permitido." });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Falha na API de casos.",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
