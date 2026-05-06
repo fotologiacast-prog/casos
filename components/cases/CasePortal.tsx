@@ -110,31 +110,27 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
 
   useEffect(() => {
     let cancelled = false;
-
     const initialize = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const resolvedClient = await resolveClientFromToken(token);
         if (!resolvedClient) {
-          throw new Error('Link de casos nao encontrado. Verifique se o link esta correto.');
+          throw new Error('Link de casos não encontrado. Verifique se o link está correto.');
         }
         if (cancelled) return;
         setPortalClient(resolvedClient);
         await loadPatients(resolvedClient);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Nao foi possivel abrir o portal.');
+          setError(err instanceof Error ? err.message : 'Não foi possível abrir o portal.');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
-
     initialize();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [loadPatients, token]);
 
   const handleRefresh = async () => {
@@ -143,8 +139,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   };
 
   const handleRefreshPatient = async (patientId: string) => {
-    if (!portalClient) return;
-    if (portalClient.isDemo) return;
+    if (!portalClient || portalClient.isDemo) return;
     await loadPatients(portalClient, true);
   };
 
@@ -183,7 +178,6 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       setMode('list');
       return;
     }
-
     const patientId = await createSupabaseCasePatient(token, payload);
     await loadPatients(portalClient, true);
     setSelectedPatientId(patientId);
@@ -215,65 +209,81 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     }));
   };
 
+  // Loading state
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <main className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 rounded-full border-4 border-slate-200 border-t-sky-500 animate-spin" />
-          <p className="mt-4 text-sm font-semibold text-slate-500">Carregando portal...</p>
+          <div className="mx-auto h-12 w-12 rounded-2xl border-[3px] border-zinc-200 border-t-black animate-spin" />
+          <p className="mt-5 text-sm font-semibold text-zinc-500">Carregando portal...</p>
         </div>
       </main>
     );
   }
 
+  // Error state
   if (error || !portalClient) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="max-w-lg rounded-lg border border-red-100 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-950">Nao foi possivel abrir o portal</h1>
-          <p className="mt-3 text-sm text-slate-600">{error}</p>
+      <main className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 text-zinc-500">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-zinc-900">Não foi possível abrir o portal</h1>
+          <p className="mt-3 text-sm text-zinc-600 leading-relaxed">{error}</p>
         </div>
       </main>
     );
   }
 
+  const avatarInitials = portalClient.displayName.slice(0, 2).toUpperCase();
+
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-zinc-50">
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             {portalClient.avatarUrl ? (
-              <img src={portalClient.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+              <img src={portalClient.avatarUrl} alt="" className="h-9 w-9 rounded-xl object-cover" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
-                {portalClient.displayName.slice(0, 2).toUpperCase()}
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white">
+                {avatarInitials}
               </div>
             )}
             <div>
-              <p className="text-sm font-semibold text-slate-950">{portalClient.displayName}</p>
-              <p className="text-xs text-slate-500">Portal de casos</p>
+              <p className="text-sm font-bold text-zinc-900 leading-tight">{portalClient.displayName}</p>
+              <p className="text-xs text-zinc-500 leading-tight">Portal de casos</p>
             </div>
           </div>
-          <div className="hidden text-right sm:block">
+          <div className="hidden sm:flex items-center gap-2">
             {driveWarning ? (
-              <p className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
-                Drive pendente
-              </p>
+              <div className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
+                <span className="text-xs font-semibold text-zinc-600">Drive pendente</span>
+              </div>
             ) : (
-              <p className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                Drive conectado
-              </p>
+              <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                <span className="text-xs font-bold text-white">Drive conectado</span>
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         {driveWarning && !portalClient.isDemo && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {driveWarning}
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0 text-zinc-500">
+              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+            </svg>
+            <p className="text-sm font-medium text-zinc-700">{driveWarning}</p>
           </div>
         )}
+
         {mode === 'create' ? (
           <NewCasePatientForm
             clientName={portalClient.displayName}

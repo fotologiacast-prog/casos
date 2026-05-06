@@ -230,6 +230,99 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { error: stagesError } = await supabase.from("case_stages").insert(stageRows);
       if (stagesError) throw stagesError;
 
+      // --- Monday.com integration (non-blocking) ---
+      const mondayToken = process.env.MONDAY_TOKEN;
+      const mondayBoardId = client.monday_board_id || client.case_board_id || client.board_id;
+      if (mondayToken && mondayBoardId) {
+        try {
+          // Fetch board columns to build column values
+          const colsResponse = await fetch("https://api.monday.com/v2", {
+            method: "POST",
+            headers: {
+              Authorization: mondayToken.trim(),
+              "Content-Type": "application/json",
+              "API-Version": "2024-10",
+            },
+            body: JSON.stringify({
+              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type } } }`,
+              variables: { boardIds: [String(mondayBoardId)] },
+            }),
+          });
+          const colsData = await colsResponse.json();
+          const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
+
+          const normalizeKey = (v: string) =>
+            v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+          const findCol = (name: string) =>
+            columns.find((c) => normalizeKey(c.title) === normalizeKey(name));
+
+          const columnValues: Record<string, unknown> = {};
+
+          const set = (colName: string, value: unknown) => {
+            const col = findCol(colName);
+            if (!col || value === undefined || value === null || String(value).trim() === "") return;
+            const text = String(value).trim();
+            const type = col.type;
+            if (type === "status" || type === "color") columnValues[col.id] = { label: text };
+            else if (type === "dropdown") columnValues[col.id] = { labels: [text] };
+            else if (type === "date") columnValues[col.id] = { date: text };
+            else if (type === "long_text" || type === "long-text") columnValues[col.id] = { text };
+            else if (type === "numbers" || type === "numeric") columnValues[col.id] = text;
+            else columnValues[col.id] = text;
+          };
+
+          const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
+          set("Cliente", clientLabel);
+          if (payload.age) set("Idade", payload.age);
+          if (payload.gender) set("Genero", payload.gender);
+          if (payload.procedure) set("Procedimento", payload.procedure);
+          if (payload.procedure_description) set("Descricao do procedimento", payload.procedure_description);
+          if (payload.notes) set("Observacoes", payload.notes);
+          set("Data", new Date().toISOString().slice(0, 10));
+
+          const createMutation = `mutation ($boardId: ID!, $itemName: String!, $columnValues: JSON) {
+            create_item(board_id: $boardId, item_name: $itemName, column_values: $columnValues) { id }
+          }`;
+
+          const createResponse = await fetch("https://api.monday.com/v2", {
+            method: "POST",
+            headers: {
+              Authorization: mondayToken.trim(),
+              "Content-Type": "application/json",
+              "API-Version": "2024-10",
+            },
+            body: JSON.stringify({
+              query: createMutation,
+              variables: {
+                boardId: String(mondayBoardId),
+                itemName: payload.patient_name,
+                columnValues: JSON.stringify(columnValues),
+              },
+            }),
+          });
+
+          const createData = await createResponse.json();
+          const mondayItemId = createData?.data?.create_item?.id;
+
+          if (mondayItemId) {
+            // Save monday_item_id back to the case row (best-effort)
+            await supabase
+              .from("cases")
+              .update({ monday_item_id: mondayItemId })
+              .eq("id", createdCase.id);
+
+            console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
+          } else {
+            console.warn("[Cases API] Monday nao retornou item ID.", JSON.stringify(createData));
+          }
+        } catch (mondayError) {
+          // Non-blocking: log the error but don't fail the whole request
+          console.error("[Cases API] Falha ao criar item no Monday (nao bloqueante):", mondayError);
+        }
+      }
+      // --- fim Monday.com integration ---
+
       return res.status(201).json({ caseId: createdCase.id });
     }
 

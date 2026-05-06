@@ -28,117 +28,157 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setFormData(prev => ({ ...prev, [key]: e.target.value }));
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-
     const age = Number(formData.age);
     if (!Number.isFinite(age) || age <= 0) {
-      setError('Informe uma idade valida.');
+      setError('Informe uma idade válida.');
       return;
     }
-
     setIsSubmitting(true);
     try {
-      await onSubmit({
-        ...formData,
-        name: formData.name.trim(),
-        age,
-      });
+      await onSubmit({ ...formData, name: formData.name.trim(), age });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nao foi possivel criar o paciente.');
+      setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const inputClass = 'mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition-all placeholder:text-zinc-400';
+  const labelClass = 'text-[11px] font-bold uppercase tracking-widest text-zinc-500';
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <button type="button" onClick={onCancel} className="mb-6 text-sm font-semibold text-slate-500 hover:text-slate-950">
+    <div className="max-w-2xl mx-auto animate-fade-in">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="mb-5 inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm hover:border-zinc-400 hover:bg-zinc-50 transition-all active:scale-95"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M7.793 14.707a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414l4-4a1 1 0 1 1 1.414 1.414L5.5 9H17a1 1 0 1 1 0 2H5.5l2.293 2.293a1 1 0 0 1 0 1.414Z" clipRule="evenodd" />
+        </svg>
         Voltar
       </button>
 
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
-        <div className="border-b border-slate-200 p-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-600">{clientName}</p>
-          <h1 className="mt-2 text-2xl font-semibold text-slate-950">Novo paciente</h1>
+      <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="h-1.5 bg-black" />
+        <div className="border-b border-zinc-100 px-6 py-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">{clientName}</p>
+          <h1 className="mt-1.5 text-2xl font-bold text-zinc-900">Novo paciente</h1>
+          <p className="mt-1 text-sm text-zinc-500">Preencha os dados para cadastrar o caso clínico.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Nome do paciente</span>
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
+          {/* Name */}
+          <div>
+            <label className={labelClass}>Nome do paciente *</label>
             <input
               required
               value={formData.name}
-              onChange={event => setFormData(prev => ({ ...prev, name: event.target.value }))}
-              className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+              onChange={set('name')}
+              placeholder="Ex: Maria da Silva"
+              className={inputClass}
             />
-          </label>
+          </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label>
-              <span className="text-sm font-semibold text-slate-700">Idade</span>
+          {/* Age + Gender + Procedure */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className={labelClass}>Idade *</label>
               <input
                 required
                 min="1"
+                max="120"
                 type="number"
                 value={formData.age}
-                onChange={event => setFormData(prev => ({ ...prev, age: event.target.value }))}
-                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+                onChange={set('age')}
+                placeholder="Ex: 35"
+                className={inputClass}
               />
-            </label>
-
-            <label>
-              <span className="text-sm font-semibold text-slate-700">Genero</span>
+            </div>
+            <div>
+              <label className={labelClass}>Gênero</label>
               <select
                 value={formData.gender}
-                onChange={event => setFormData(prev => ({ ...prev, gender: event.target.value }))}
-                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+                onChange={set('gender')}
+                className={inputClass}
               >
                 {CASE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
-            </label>
-
-            <label>
-              <span className="text-sm font-semibold text-slate-700">Procedimento</span>
+            </div>
+            <div>
+              <label className={labelClass}>Procedimento</label>
               <select
                 value={formData.procedure}
-                onChange={event => setFormData(prev => ({ ...prev, procedure: event.target.value }))}
-                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+                onChange={set('procedure')}
+                className={inputClass}
               >
                 {CASE_PROCEDURES.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
-            </label>
+            </div>
           </div>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Descricao do procedimento</span>
+          {/* Procedure description */}
+          <div>
+            <label className={labelClass}>Descrição do procedimento</label>
             <textarea
               rows={3}
               value={formData.procedureDescription}
-              onChange={event => setFormData(prev => ({ ...prev, procedureDescription: event.target.value }))}
-              className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+              onChange={set('procedureDescription')}
+              placeholder="Descreva o que será realizado..."
+              className={`${inputClass} resize-none`}
             />
-          </label>
+          </div>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Observacoes do caso</span>
+          {/* Notes */}
+          <div>
+            <label className={labelClass}>Observações do caso</label>
             <textarea
               rows={3}
               value={formData.notes}
-              onChange={event => setFormData(prev => ({ ...prev, notes: event.target.value }))}
-              className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-sky-400"
+              onChange={set('notes')}
+              placeholder="Informações adicionais relevantes..."
+              className={`${inputClass} resize-none`}
             />
-          </label>
+          </div>
 
-          {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-red-500">
+                <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm font-medium text-red-700">{error}</p>
+            </div>
+          )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
-            <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          {/* Actions */}
+          <div className="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 transition-all"
+            >
               Cancelar
             </button>
-            <button type="submit" disabled={isSubmitting} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60">
-              {isSubmitting ? 'Criando...' : 'Criar paciente'}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-xl bg-black px-6 py-3 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition-all active:scale-95"
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Criando...
+                </span>
+              ) : (
+                'Criar paciente'
+              )}
             </button>
           </div>
         </form>

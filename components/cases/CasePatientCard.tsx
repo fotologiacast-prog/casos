@@ -7,63 +7,84 @@ interface CasePatientCardProps {
   onOpen: (patient: CasePatient) => void;
 }
 
-const statusStyles: Record<string, string> = {
-  Completo: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'Em andamento': 'bg-sky-50 text-sky-700 border-sky-200',
-  'Com pendencias': 'bg-amber-50 text-amber-700 border-amber-200',
+const statusConfig: Record<string, { label: string; className: string }> = {
+  Completo: {
+    label: 'Completo',
+    className: 'bg-black text-white',
+  },
+  'Em andamento': {
+    label: 'Em andamento',
+    className: 'bg-zinc-800 text-white',
+  },
+  'Com pendencias': {
+    label: 'Pendente',
+    className: 'bg-zinc-200 text-zinc-800',
+  },
 };
 
 const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen }) => {
   const progress = getPatientProgress(patient);
   const status = getPatientStatus(patient);
+  const config = statusConfig[status] || statusConfig['Em andamento'];
 
   return (
     <button
       type="button"
       onClick={() => onOpen(patient)}
-      className="group text-left bg-white border border-slate-200 rounded-lg p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all"
+      className="group w-full text-left rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-zinc-400 transition-all duration-200 active:scale-[0.98]"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Paciente</p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-950 truncate">{patient.name}</h3>
+      {/* Name + status */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Paciente</p>
+          <h3 className="mt-1 text-lg font-bold text-zinc-900 truncate leading-tight">{patient.name}</h3>
         </div>
-        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[status]}`}>
-          {status}
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${config.className}`}>
+          {config.label}
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600">
-        <div>
-          <p className="text-xs text-slate-400">Cadastro</p>
-          <p className="font-medium text-slate-700">{formatDate(patient.createdAt)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-400">Perfil</p>
-          <p className="font-medium text-slate-700">
-            {patient.age ? `${patient.age} anos` : 'Idade n/i'} · {patient.gender || 'Genero n/i'}
-          </p>
-        </div>
+      {/* Info row */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {patient.procedure && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            {patient.procedure}
+          </span>
+        )}
+        {patient.age && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            {patient.age} anos
+          </span>
+        )}
+        {patient.createdAt && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500">
+            {formatDate(patient.createdAt)}
+          </span>
+        )}
       </div>
 
+      {/* Progress bar */}
       <div className="mt-4">
-        <p className="text-xs text-slate-400">Procedimento</p>
-        <p className="mt-1 text-sm font-medium text-slate-800 line-clamp-2">
-          {patient.procedure || 'Nao informado'}
-        </p>
-      </div>
-
-      <div className="mt-5">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-          <span>{progress.captured}/{progress.total} etapas capturadas</span>
-          <span>{progress.percentage}%</span>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold text-zinc-500">{progress.captured}/{progress.total} etapas</span>
+          <span className="text-xs font-bold text-zinc-900">{progress.percentage}%</span>
         </div>
-        <div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
           <div
-            className="h-full rounded-full bg-sky-500 transition-all"
+            className="h-full rounded-full bg-black transition-all duration-500"
             style={{ width: `${progress.percentage}%` }}
           />
         </div>
+      </div>
+
+      {/* Arrow hint */}
+      <div className="mt-3 flex items-center justify-end">
+        <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-zinc-700 transition-colors flex items-center gap-1">
+          Ver etapas
+          <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+            <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </span>
       </div>
     </button>
   );

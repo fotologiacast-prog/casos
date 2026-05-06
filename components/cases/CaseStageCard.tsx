@@ -5,6 +5,7 @@ interface CaseStageCardProps {
   index: number;
   stage: CaseStage;
   onUpload: (stage: CaseStage, files: File[]) => Promise<void>;
+  isPlaceholder?: boolean;
 }
 
 const isImageFile = (file: CaseStage['files'][number]) => {
@@ -17,42 +18,32 @@ const isVideoFile = (file: CaseStage['files'][number]) => {
   return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
 };
 
-const momentStyles: Record<CaseStageMoment, { border: string; chip: string; count: string }> = {
-  Planejamento: {
-    border: 'border-l-lime-400',
-    chip: 'bg-lime-100 text-lime-800 ring-lime-200',
-    count: 'bg-lime-50 text-lime-700',
-  },
-  Procedimento: {
-    border: 'border-l-orange-400',
-    chip: 'bg-orange-100 text-orange-800 ring-orange-200',
-    count: 'bg-orange-50 text-orange-700',
-  },
-  Entrega: {
-    border: 'border-l-pink-500',
-    chip: 'bg-pink-100 text-pink-800 ring-pink-200',
-    count: 'bg-pink-50 text-pink-700',
-  },
-  Evento: {
-    border: 'border-l-yellow-400',
-    chip: 'bg-yellow-100 text-yellow-800 ring-yellow-200',
-    count: 'bg-yellow-50 text-yellow-700',
-  },
+const momentAccent: Record<CaseStageMoment, string> = {
+  Planejamento: 'bg-zinc-900',
+  Procedimento: 'bg-zinc-700',
+  Entrega: 'bg-zinc-500',
+  Evento: 'bg-zinc-300',
 };
 
-const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload }) => {
+const momentLabel: Record<CaseStageMoment, string> = {
+  Planejamento: 'Planejamento',
+  Procedimento: 'Procedimento',
+  Entrega: 'Entrega',
+  Evento: 'Evento',
+};
+
+const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
-  const momentStyle = momentStyles[(stage.moment || stage.title) as CaseStageMoment] || momentStyles.Planejamento;
+  const moment = (stage.moment || stage.title) as CaseStageMoment;
+  const accentClass = momentAccent[moment] || momentAccent.Planejamento;
 
-  const handleFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
-    if (files.length === 0) return;
-
+  const handleFiles = async (files: File[]) => {
+    if (files.length === 0 || isPlaceholder) return;
     setError(null);
     setIsUploading(true);
     try {
@@ -64,149 +55,232 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload })
     }
   };
 
+  const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    await handleFiles(files);
+  };
+
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragging(false);
+    if (isPlaceholder) return;
+    const files = Array.from(event.dataTransfer.files);
+    await handleFiles(files);
+  };
+
   return (
     <div
-      className={`rounded-lg p-5 shadow-sm transition-all ${
+      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
         isCaptured
-          ? 'border-2 border-emerald-300 bg-emerald-50/60 shadow-emerald-100'
-          : `border border-l-4 border-slate-200 ${momentStyle.border} bg-white`
+          ? 'border-black/20 bg-white shadow-sm'
+          : 'border-zinc-200 bg-white'
       }`}
     >
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                isCaptured
-                  ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
-                  : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              {isCaptured ? '✓' : index + 1}
-            </span>
-            <div className="min-w-0">
-              <h3 className="font-semibold text-slate-950">{stage.title}</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {stage.files.length > 0
-                  ? `${stage.files.length} arquivo${stage.files.length === 1 ? '' : 's'} enviado${stage.files.length === 1 ? '' : 's'}`
-                  : 'Nenhum arquivo enviado'}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Moment accent strip */}
+      <div className={`h-1 w-full ${isCaptured ? 'bg-black' : accentClass} opacity-60`} />
 
-        <div className="flex shrink-0 items-center gap-2">
+      <div className="p-5">
+        {/* Header row */}
+        <div className="flex items-center gap-4">
           <span
-            className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${
-              isCaptured
-                ? 'bg-emerald-600 text-white ring-emerald-600'
-                : momentStyle.chip
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+              isCaptured ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-600'
             }`}
           >
-            {isCaptured ? 'Capturado' : 'Fazer'}
+            {isCaptured ? (
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              index + 1
+            )}
           </span>
-        </div>
-      </div>
 
-      {!!stage.expectedItems?.length && (
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {stage.expectedItems.map(item => (
-              <div key={item} className="flex gap-2 text-xs font-semibold text-slate-600">
-                <span className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${momentStyle.count}`}>
-                  {item.slice(0, 2)}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-bold text-zinc-900">{stage.title}</h3>
+              {isPlaceholder && (
+                <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-500">
+                  Pendente sincronização
                 </span>
-                <span className="leading-5">{item.replace(/^\d+\.\s*/, '')}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept="image/*,video/*"
-        onChange={handleFiles}
-        className="hidden"
-      />
-
-      {stage.files.length > 0 && (
-        <div className="mt-5 border-t border-emerald-200/80 pt-4">
-          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Arquivos capturados</p>
-              <p className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{stage.files.length}</p>
+              )}
+              {isCaptured && !isPlaceholder && (
+                <span className="rounded-full bg-black px-2.5 py-0.5 text-[11px] font-bold text-white">
+                  Capturado
+                </span>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={isUploading}
-              className="w-fit rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-            >
-              {isUploading ? 'Enviando...' : 'Fazer upload de novas imagens'}
-            </button>
+            <p className="mt-0.5 text-sm text-zinc-500">
+              {isPlaceholder
+                ? 'Esta etapa será criada após sincronização'
+                : stage.files.length > 0
+                ? `${stage.files.length} arquivo${stage.files.length === 1 ? '' : 's'} enviado${stage.files.length === 1 ? '' : 's'}`
+                : 'Nenhum arquivo enviado ainda'}
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {stage.files.map(file => (
-            <a
-              key={file.id}
-              href={file.public_url}
-              target="_blank"
-              rel="noreferrer"
-              className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 hover:border-sky-300 hover:shadow-sm transition-all"
-            >
-              <div className="relative aspect-[4/3] bg-slate-100">
-                {isImageFile(file) && file.public_url !== '#' ? (
-                  <img
-                    src={file.public_url}
-                    alt={file.name}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                  />
-                ) : isVideoFile(file) && file.public_url !== '#' ? (
-                  <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
-                      {isVideoFile(file) ? '▶' : '📎'}
-                    </span>
-                    <span className="px-2 text-center text-xs font-semibold">
-                      {isVideoFile(file) ? 'Video' : 'Arquivo'}
-                    </span>
-                  </div>
-                )}
-                {isVideoFile(file) && (
-                  <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                    Video
+        </div>
+
+        {/* Expected items checklist */}
+        {!!stage.expectedItems?.length && (
+          <div className="mt-4 rounded-xl bg-zinc-50 p-4">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+              Itens esperados
+            </p>
+            <div className="space-y-2">
+              {stage.expectedItems.map(item => (
+                <div key={item} className="flex items-start gap-2.5">
+                  <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold ${isCaptured ? 'bg-black text-white' : 'bg-zinc-200 text-zinc-600'}`}>
+                    {isCaptured ? '✓' : item.match(/^(\d+)/)?.[1] || '·'}
                   </span>
-                )}
-              </div>
-              <div className="border-t border-slate-200 px-3 py-2">
-                <p className="truncate text-xs font-semibold text-slate-700">{file.name}</p>
-              </div>
-            </a>
-          ))}
+                  <span className="text-sm leading-5 text-zinc-700">{item.replace(/^\d+\.\s*/, '')}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!isCaptured && (
-        <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
-          <p className="text-sm text-slate-500">Aguardando envio de arquivos para esta etapa.</p>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={isUploading}
-            className="mt-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-          >
-            {isUploading ? 'Enviando...' : 'Fazer upload'}
-          </button>
-        </div>
-      )}
+        {/* Uploaded files */}
+        {stage.files.length > 0 && (
+          <div className="mt-5 border-t border-zinc-100 pt-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                Arquivos capturados <span className="ml-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-white text-[10px]">{stage.files.length}</span>
+              </p>
+              {!isPlaceholder && (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={isUploading}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+                >
+                  {isUploading ? 'Enviando...' : '+ Adicionar'}
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {stage.files.map(file => (
+                <a
+                  key={file.id}
+                  href={file.public_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 hover:border-zinc-400 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="relative aspect-[4/3] bg-zinc-100">
+                    {isImageFile(file) && file.public_url !== '#' ? (
+                      <img
+                        src={file.public_url}
+                        alt={file.name}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : isVideoFile(file) && file.public_url !== '#' ? (
+                      <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-400">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-500 shadow-sm text-xl">
+                          {isVideoFile(file) ? '▶' : '📎'}
+                        </span>
+                      </div>
+                    )}
+                    {isVideoFile(file) && (
+                      <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
+                        Vídeo
+                      </span>
+                    )}
+                  </div>
+                  <div className="border-t border-zinc-200 px-3 py-2">
+                    <p className="truncate text-xs font-semibold text-zinc-700">{file.name}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {/* Upload zone */}
+        {!isCaptured && (
+          <div className="mt-4">
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleInputChange}
+              className="hidden"
+              disabled={isPlaceholder}
+            />
+
+            {isPlaceholder ? (
+              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-5 text-center">
+                <p className="text-sm font-medium text-zinc-400">Upload disponível após sincronização do paciente</p>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                className={`rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-200 ${
+                  isDragging
+                    ? 'border-black bg-zinc-50 scale-[1.01]'
+                    : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6 text-zinc-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-700">
+                      {isDragging ? 'Solte os arquivos aqui' : 'Arraste fotos/vídeos ou'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-zinc-400">Imagens e vídeos aceitos</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    disabled={isUploading}
+                    className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors active:scale-95"
+                  >
+                    {isUploading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        Enviando...
+                      </span>
+                    ) : (
+                      'Selecionar arquivos'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add more files when already captured */}
+        {isCaptured && stage.files.length > 0 && !isPlaceholder && (
+          <div className="mt-3">
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleInputChange}
+              className="hidden"
+            />
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3">
+            <span className="text-red-500">⚠</span>
+            <p className="text-sm font-medium text-red-700">{error}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
