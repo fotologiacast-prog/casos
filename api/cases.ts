@@ -230,9 +230,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (stagesError) throw stagesError;
 
       // --- Monday.com integration (non-blocking) ---
+      let mondayResult: any = { success: false, skipped: true };
       const mondayToken = process.env.MONDAY_TOKEN;
       const mondayBoardId = process.env.MONDAY_BOARD_ID || client.monday_board_id || client.case_board_id || client.board_id;
       if (mondayToken && mondayBoardId) {
+        mondayResult.skipped = false;
         try {
           // Fetch board columns to build column values
           const colsResponse = await fetch("https://api.monday.com/v2", {
@@ -248,6 +250,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }),
           });
           const colsData = await colsResponse.json();
+          if (colsData.errors) mondayResult.colsError = colsData.errors;
+          
           const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
 
           const normalizeKey = (v: string) =>
@@ -305,6 +309,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const mondayItemId = createData?.data?.create_item?.id;
 
           if (mondayItemId) {
+            mondayResult.success = true;
+            mondayResult.itemId = mondayItemId;
             // Save monday_item_id back to the case row (best-effort)
             await supabase
               .from("cases")
@@ -313,16 +319,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
           } else {
+            mondayResult.error = createData;
             console.warn("[Cases API] Monday nao retornou item ID.", JSON.stringify(createData));
           }
         } catch (mondayError) {
+          mondayResult.error = mondayError instanceof Error ? mondayError.message : String(mondayError);
           // Non-blocking: log the error but don't fail the whole request
           console.error("[Cases API] Falha ao criar item no Monday (nao bloqueante):", mondayError);
         }
       }
       // --- fim Monday.com integration ---
 
-      return res.status(201).json({ caseId: createdCase.id });
+      return res.status(201).json({ caseId: createdCase.id, monday: mondayResult });
     }
 
     return res.status(405).json({ error: "Metodo nao permitido." });

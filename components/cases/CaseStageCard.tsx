@@ -113,7 +113,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             </div>
             <p className="mt-0.5 text-sm text-zinc-500">
               {isPlaceholder
-                ? 'Esta etapa será criada após sincronização'
+                ? 'Esta etapa será habilitada automaticamente'
                 : stage.files.length > 0
                 ? `${stage.files.length} arquivo${stage.files.length === 1 ? '' : 's'} enviado${stage.files.length === 1 ? '' : 's'}`
                 : 'Nenhum arquivo enviado ainda'}
@@ -214,7 +214,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
             {isPlaceholder ? (
               <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-5 text-center">
-                <p className="text-sm font-medium text-zinc-400">Upload disponível após sincronização do paciente</p>
+                <p className="text-sm font-medium text-zinc-400">Upload será habilitado automaticamente</p>
               </div>
             ) : (
               <div
