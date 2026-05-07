@@ -10,15 +10,9 @@ import {
   updateAdminClient,
 } from '../../services/adminClientService';
 
-const defaultPrimaryColor = '#18181b';
-const defaultAccentColor = '#22c55e';
-
 const emptyForm: ClientPayload = {
   name: '',
   boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
-  logo_url: '',
-  brand_primary_color: defaultPrimaryColor,
-  brand_accent_color: defaultAccentColor,
   case_public_token: '',
   case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_client_label: '',
@@ -56,79 +50,6 @@ const getInitials = (name: string) =>
 
 const inputClass = 'mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10';
 const labelSpanClass = 'text-[10px] font-bold uppercase tracking-widest text-zinc-500';
-
-const ColorField: React.FC<{
-  label: string;
-  value?: string;
-  onChange: (value: string) => void;
-}> = ({ label, value, onChange }) => {
-  const color = value || defaultPrimaryColor;
-  const swatchColor = /^#[0-9a-f]{6}$/i.test(color) ? color : defaultPrimaryColor;
-  return (
-    <label className="block">
-      <span className={labelSpanClass}>{label}</span>
-      <div className="mt-1.5 flex overflow-hidden rounded-xl border border-zinc-200 bg-white focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10">
-        <input
-          type="color"
-          value={swatchColor}
-          onChange={event => onChange(event.target.value)}
-          className="h-12 w-14 cursor-pointer border-0 bg-transparent p-1"
-        />
-        <input
-          value={color}
-          onChange={event => onChange(event.target.value)}
-          className="min-w-0 flex-1 px-3 text-sm font-mono text-zinc-900 outline-none"
-          placeholder="#18181b"
-        />
-      </div>
-    </label>
-  );
-};
-
-const BrandPreview: React.FC<{ form: ClientPayload }> = ({ form }) => {
-  const primary = form.brand_primary_color || defaultPrimaryColor;
-  const accent = form.brand_accent_color || defaultAccentColor;
-  const logoUrl = form.logo_url || '';
-  const name = form.name || 'Nome do cliente';
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-10 max-w-36 rounded-xl object-contain" />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-bold text-white" style={{ backgroundColor: primary }}>
-              {getInitials(name)}
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-zinc-900">{name}</p>
-            <p className="text-xs text-zinc-500">Portal de casos</p>
-          </div>
-        </div>
-        <div className="rounded-xl border border-zinc-200 bg-zinc-100 p-1">
-          <span className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold shadow-sm" style={{ color: primary }}>
-            Casos
-          </span>
-        </div>
-      </div>
-      <div className="grid grid-cols-[1fr_72px] gap-3 p-4">
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Preview</p>
-          <h3 className="mt-2 text-xl font-bold text-zinc-900">Casos de pacientes</h3>
-          <div className="mt-4 h-2 rounded-full bg-zinc-200">
-            <div className="h-2 w-2/3 rounded-full" style={{ backgroundColor: accent }} />
-          </div>
-          <button type="button" className="mt-4 rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ backgroundColor: primary }}>
-            Novo paciente
-          </button>
-        </div>
-        <div className="rounded-xl" style={{ background: `linear-gradient(180deg, ${primary}, ${accent})` }} />
-      </div>
-    </div>
-  );
-};
 
 const AdminClients: React.FC = () => {
   const [password, setPassword] = useState(() => localStorage.getItem('cases_admin_password') || '');
@@ -194,9 +115,6 @@ const AdminClients: React.FC = () => {
     setForm({
       name: client.name,
       boardId: client.boardId,
-      logo_url: client.logo_url || '',
-      brand_primary_color: client.brand_primary_color || defaultPrimaryColor,
-      brand_accent_color: client.brand_accent_color || defaultAccentColor,
       case_public_token: client.case_public_token || '',
       case_board_id: client.case_board_id || client.monday_board_id || client.boardId || DEFAULT_MONDAY_CASE_BOARD_ID,
       case_client_label: client.case_client_label || '',
@@ -420,31 +338,6 @@ const AdminClients: React.FC = () => {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900">Identidade visual</h3>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <label className="block md:col-span-2">
-                      <span className={labelSpanClass}>Logotipo URL</span>
-                      <input
-                        value={form.logo_url || ''}
-                        onChange={event => setForm(prev => ({ ...prev, logo_url: event.target.value }))}
-                        className={inputClass}
-                        placeholder="https://..."
-                      />
-                    </label>
-                    <ColorField
-                      label="Cor principal"
-                      value={form.brand_primary_color}
-                      onChange={value => setForm(prev => ({ ...prev, brand_primary_color: value }))}
-                    />
-                    <ColorField
-                      label="Cor de destaque"
-                      value={form.brand_accent_color}
-                      onChange={value => setForm(prev => ({ ...prev, brand_accent_color: value }))}
-                    />
-                  </div>
-                </div>
-
-                <div>
                   <h3 className="text-sm font-bold text-zinc-900">Link e integrações</h3>
                   <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <label className="block">
@@ -471,7 +364,6 @@ const AdminClients: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <BrandPreview form={form} />
                 <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
                   <div className="relative">
                     <input
@@ -558,30 +450,19 @@ const AdminClients: React.FC = () => {
               </div>
             ) : (
               <div className="divide-y divide-zinc-100">
-                {filteredClients.map(client => {
-                  const primary = client.brand_primary_color || defaultPrimaryColor;
-                  const accent = client.brand_accent_color || defaultAccentColor;
-                  const logoUrl = client.logo_url || '';
-                  return (
+                {filteredClients.map(client => (
                     <div key={client.id} className="flex flex-col gap-3 p-4 transition-colors hover:bg-zinc-50/70 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-3">
-                          {logoUrl ? (
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white p-1">
-                              <img src={logoUrl} alt="" className="max-h-full max-w-full object-contain" />
-                            </div>
-                          ) : (
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold text-white" style={{ backgroundColor: primary }}>
-                              {getInitials(client.name)}
-                            </div>
-                          )}
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-[11px] font-bold text-white">
+                            {getInitials(client.name)}
+                          </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <h2 className="font-bold text-zinc-900">{client.name}</h2>
                               {client.active === false && (
                                 <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500">Inativo</span>
                               )}
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: accent }} />
                             </div>
                             <p className="mt-0.5 truncate text-xs text-zinc-500">
                               <span className="font-mono">{client.case_public_token}</span>
@@ -616,8 +497,7 @@ const AdminClients: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                  );
-                })}
+                ))}
               </div>
             )}
           </div>

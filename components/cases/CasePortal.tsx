@@ -17,9 +17,6 @@ type PortalClient = {
   boardId: string;
   clientName: string;
   displayName: string;
-  logoUrl?: string;
-  primaryColor?: string;
-  accentColor?: string;
   driveFolderId?: string;
   isDemo?: boolean;
 };
@@ -37,8 +34,6 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: 'demo-board',
       clientName: 'Clínica Demo',
       displayName: 'Clínica Demo',
-      primaryColor: '#111827',
-      accentColor: '#22c55e',
       driveFolderId: 'demo-drive-folder',
       isDemo: true,
     };
@@ -68,9 +63,6 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: client.case_board_id || client.boardId,
       clientName: client.case_client_label || client.name,
       displayName: client.name,
-      logoUrl: client.logo_url,
-      primaryColor: client.brand_primary_color,
-      accentColor: client.brand_accent_color,
       driveFolderId: client.drive_folder_id,
     };
   }
@@ -80,8 +72,6 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: fallbackBoardId,
       clientName: fallbackClientName,
       displayName: fallbackClientName,
-      primaryColor: params.get('primaryColor') || undefined,
-      accentColor: params.get('accentColor') || undefined,
       driveFolderId: params.get('driveFolderId') || undefined,
     };
   }
@@ -268,29 +258,16 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   }
 
   const clientInitials = portalClient.displayName.slice(0, 2).toUpperCase();
-  const primaryColor = portalClient.primaryColor || '#18181b';
-  const accentColor = portalClient.accentColor || '#22c55e';
-  const logoUrl = portalClient.logoUrl;
 
   return (
-    <main
-      className="min-h-screen bg-zinc-50"
-      style={{
-        '--portal-primary': primaryColor,
-        '--portal-accent': accentColor,
-      } as React.CSSProperties}
-    >
+    <main className="min-h-screen bg-zinc-50">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img src={logoUrl} alt="" className="h-10 max-w-32 rounded-xl object-contain" />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-white" style={{ backgroundColor: primaryColor }}>
-                {clientInitials}
-              </div>
-            )}
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white">
+              {clientInitials}
+            </div>
             <div>
               <p className="text-sm font-bold text-zinc-900 leading-tight">{portalClient.displayName}</p>
               <p className="text-xs text-zinc-500 leading-tight">Portal de casos</p>
@@ -305,7 +282,6 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                   ? 'bg-white text-zinc-950 shadow-sm'
                   : 'text-zinc-500 hover:text-zinc-900'
               }`}
-              style={activeTab === 'cases' ? { color: primaryColor } : undefined}
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
@@ -320,7 +296,6 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                   ? 'bg-white text-zinc-950 shadow-sm'
                   : 'text-zinc-500 hover:text-zinc-900'
               }`}
-              style={activeTab === 'testimonials' ? { color: primaryColor } : undefined}
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />

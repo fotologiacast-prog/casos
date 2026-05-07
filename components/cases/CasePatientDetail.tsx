@@ -109,7 +109,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
       {/* Patient header card */}
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
         {/* Black top bar */}
-        <div className="h-2" style={{ backgroundColor: 'var(--portal-primary)' }} />
+        <div className="h-2 bg-black" />
 
         <div className="p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -133,8 +133,8 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
               </div>
               <div className="mt-3 h-2.5 rounded-full bg-zinc-200 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progress.percentage}%`, backgroundColor: 'var(--portal-primary)' }}
+                  className="h-full rounded-full bg-black transition-all duration-500"
+                  style={{ width: `${progress.percentage}%` }}
                 />
               </div>
               <p className="mt-2 text-xs text-zinc-500">{progress.percentage}% capturado</p>

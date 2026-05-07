@@ -33,9 +33,6 @@ export interface Client {
   id: number;
   name: string;
   boardId: string;
-  logo_url?: string;
-  brand_primary_color?: string;
-  brand_accent_color?: string;
   critical_days_threshold?: number;
   case_board_id?: string;
   case_public_token?: string;

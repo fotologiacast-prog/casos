@@ -117,8 +117,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
           <button
             type="button"
             onClick={onCreate}
-            className="rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-colors active:scale-95"
-            style={{ backgroundColor: 'var(--portal-primary)' }}
+            className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors active:scale-95"
           >
             + Novo paciente
           </button>
@@ -143,10 +142,9 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
           onClick={() => setFiltersOpen(o => !o)}
           className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
             hasActiveFilters
-              ? 'text-white'
+              ? 'border-zinc-900 bg-zinc-900 text-white'
               : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'
           }`}
-          style={hasActiveFilters ? { borderColor: 'var(--portal-primary)', backgroundColor: 'var(--portal-primary)' } : undefined}
         >
           <span className="flex items-center gap-2">
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -222,8 +220,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             <button
               type="button"
               onClick={onCreate}
-              className="mt-5 rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors"
-              style={{ backgroundColor: 'var(--portal-primary)' }}
+              className="mt-5 rounded-xl bg-black px-6 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors"
             >
               + Novo paciente
             </button>

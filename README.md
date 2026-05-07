@@ -80,8 +80,7 @@ Essa tela cadastra o mapa de cada cliente:
 - token do link publico;
 - board do Monday;
 - label do cliente no Monday;
-- pasta do Google Drive;
-- logotipo e cores do portal.
+- pasta do Google Drive.
 
 ## Variaveis de ambiente
 
