@@ -88,6 +88,24 @@ export interface CasePatient {
   stages: CaseStage[];
 }
 
+export interface TestimonialAsset {
+  id: string;
+  name: string;
+  public_url: string;
+}
+
+export interface ReadyTestimonial {
+  id: string;
+  caseId: string;
+  patientName: string;
+  mondayItemId: string;
+  subitemId: string;
+  title: string;
+  status?: string | null;
+  updatedAt?: string | null;
+  assets: TestimonialAsset[];
+}
+
 export interface CaseColumnConfig {
   clientColumn: string;
   ageColumn: string;

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CasePatient, Client } from '../../types';
-import { getDriveSetupWarning } from '../../services/driveService';
 import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
@@ -8,6 +7,7 @@ import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
 import CasePatientDetail from './CasePatientDetail';
 import CasePatientList from './CasePatientList';
 import NewCasePatientForm, { NewCasePatientPayload } from './NewCasePatientForm';
+import ReadyTestimonials from './ReadyTestimonials';
 
 interface CasePortalProps {
   token: string;
@@ -21,6 +21,8 @@ type PortalClient = {
   driveFolderId?: string;
   isDemo?: boolean;
 };
+
+type PortalTab = 'cases' | 'testimonials';
 
 const getHashParams = () => {
   const search = window.location.hash.split('?')[1] || '';
@@ -84,6 +86,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [patients, setPatients] = useState<CasePatient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'create'>('list');
+  const [activeTab, setActiveTab] = useState<PortalTab>('cases');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +95,6 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     () => patients.find(patient => patient.id === selectedPatientId) || null,
     [patients, selectedPatientId]
   );
-  const driveWarning = portalClient ? getDriveSetupWarning(portalClient.driveFolderId) : null;
 
   const loadPatients = useCallback(async (client: PortalClient, refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
@@ -136,6 +138,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const handleRefresh = async () => {
     if (!portalClient) return;
     await loadPatients(portalClient, true);
+  };
+
+  const handleSetTab = (tab: PortalTab) => {
+    setActiveTab(tab);
+    setMode('list');
+    setSelectedPatientId(null);
   };
 
   const handleRefreshPatient = async (patientId: string) => {
@@ -271,33 +279,48 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               <p className="text-xs text-zinc-500 leading-tight">Portal de casos</p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2">
-            {driveWarning ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
-                <span className="text-xs font-semibold text-zinc-600">Drive pendente</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                <span className="text-xs font-bold text-white">Drive conectado</span>
-              </div>
-            )}
+          <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-1">
+            <button
+              type="button"
+              onClick={() => handleSetTab('cases')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                activeTab === 'cases'
+                  ? 'bg-white text-zinc-950 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
+              </svg>
+              Casos
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetTab('testimonials')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                activeTab === 'testimonials'
+                  ? 'bg-white text-zinc-950 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Depoimentos Prontos</span>
+              <span className="sm:hidden">Prontos</span>
+            </button>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-        {driveWarning && !portalClient.isDemo && (
-          <div className="mb-5 flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0 text-zinc-500">
-              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm font-medium text-zinc-700">{driveWarning}</p>
-          </div>
-        )}
-
-        {mode === 'create' ? (
+        {activeTab === 'testimonials' ? (
+          <ReadyTestimonials
+            token={token}
+            clientName={portalClient.displayName}
+            isDemo={portalClient.isDemo}
+          />
+        ) : mode === 'create' ? (
           <NewCasePatientForm
             clientName={portalClient.displayName}
             onCancel={() => setMode('list')}
