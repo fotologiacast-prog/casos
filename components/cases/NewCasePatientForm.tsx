@@ -6,8 +6,6 @@ export interface NewCasePatientPayload {
   birthDate: string;
   gender: string;
   procedure: string;
-  keywords: string;
-  procedureDescription: string;
   notes: string;
 }
 
@@ -23,8 +21,6 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     birthDate: '',
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
-    keywords: '',
-    procedureDescription: '',
     notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +38,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     }
     setIsSubmitting(true);
     try {
-      await onSubmit({ ...formData, name: formData.name.trim(), keywords: formData.keywords.trim() });
+      await onSubmit({ ...formData, name: formData.name.trim(), notes: formData.notes.trim() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
     } finally {
@@ -120,28 +116,6 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
                 {CASE_PROCEDURES.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Palavras-chave</label>
-            <input
-              value={formData.keywords}
-              onChange={set('keywords')}
-              placeholder="Ex: facetas, sorriso, reabilitação"
-              className={inputClass}
-            />
-          </div>
-
-          {/* Procedure description */}
-          <div>
-            <label className={labelClass}>Descrição do procedimento</label>
-            <textarea
-              rows={3}
-              value={formData.procedureDescription}
-              onChange={set('procedureDescription')}
-              placeholder="Descreva o que será realizado..."
-              className={`${inputClass} resize-none`}
-            />
           </div>
 
           {/* Notes */}

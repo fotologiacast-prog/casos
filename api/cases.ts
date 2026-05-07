@@ -125,8 +125,6 @@ const normalizeCasePayload = (body: any) => ({
   birth_date: toDateString(body.birthDate || body.birth_date || null),
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
-  keywords: body.keywords ? String(body.keywords).trim() : null,
-  procedure_description: body.procedureDescription || body.procedure_description ? String(body.procedureDescription || body.procedure_description).trim() : null,
   notes: body.notes ? String(body.notes).trim() : null,
 });
 
@@ -166,7 +164,6 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
       birthDate: caseRow.birth_date,
       gender: caseRow.gender,
       procedure: caseRow.procedure,
-      keywords: caseRow.keywords,
       procedureDescription: caseRow.procedure_description,
       notes: caseRow.notes,
       mondayItemId: caseRow.monday_item_id,
@@ -315,7 +312,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           set(["Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
           if (payload.gender) set(["Sexo", "Genero", "Gênero"], payload.gender);
           if (payload.procedure) set(["Procedimentos", "Procedimento"], payload.procedure);
-          if (payload.keywords) set(["Palavras - Chave", "Palavras-chave", "Palavras Chave"], payload.keywords);
           if (caseDriveFolderId) {
             const driveCol = findCol("Drive do cliente", "Drive", "Pasta Drive");
             if (driveCol) {
@@ -358,6 +354,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .eq("id", createdCase.id);
 
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
+            if (payload.notes) {
+              const updateResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }`,
+                  variables: {
+                    itemId: String(mondayItemId),
+                    body: payload.notes,
+                  },
+                }),
+              });
+              const updateData = await updateResponse.json().catch(() => ({}));
+              if (!updateResponse.ok || updateData.errors) {
+                mondayResult.updateError = updateData.errors || updateData;
+              }
+            }
           } else {
             mondayResult.error = createData;
             console.warn("[Cases API] Monday nao retornou item ID.", JSON.stringify(createData));

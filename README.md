@@ -16,12 +16,14 @@ Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquel
 ## Colunas esperadas no item principal
 
 - `Cliente`
+- `Nascimento`
+- `Data do Planejamento`
 - `Idade`
-- `Genero`
-- `Procedimento`
-- `Descricao do procedimento`
-- `Observacoes do caso`
-- `Data de cadastro`
+- `Sexo`
+- `Procedimentos`
+- `Drive do cliente`
+
+`Observações do caso` entram como update/balao no item do Monday.
 
 ## Colunas esperadas nos subitens
 

@@ -157,8 +157,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           birthDate: payload.birthDate,
           gender: payload.gender,
           procedure: payload.procedure,
-          keywords: payload.keywords,
-          procedureDescription: payload.procedureDescription,
+          procedureDescription: null,
           notes: payload.notes,
           createdAt: new Date(),
           stages: CASE_STAGE_DEFINITIONS.map((stage, index) => ({

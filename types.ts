@@ -80,7 +80,6 @@ export interface CasePatient {
   birthDate?: string | null;
   gender: CaseGender | string | null;
   procedure: CaseProcedure | string | null;
-  keywords?: string | null;
   procedureDescription: string | null;
   notes: string | null;
   mondayItemId?: string | null;
