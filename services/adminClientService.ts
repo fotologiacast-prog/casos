@@ -14,6 +14,9 @@ export type ClientPayload = {
   name: string;
   boardId: string;
   avatar_url?: string;
+  logo_url?: string;
+  brand_primary_color?: string;
+  brand_accent_color?: string;
   case_public_token: string;
   case_board_id?: string;
   case_client_label?: string;

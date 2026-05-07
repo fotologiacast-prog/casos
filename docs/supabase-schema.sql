@@ -14,6 +14,9 @@ create table if not exists public.clients (
 
   -- Dados opcionais de visual.
   avatar_url text,
+  logo_url text,
+  brand_primary_color text,
+  brand_accent_color text,
 
   -- Token unico que forma o link publico:
   -- https://app.com/#/casos/<case_public_token>
@@ -39,6 +42,9 @@ create table if not exists public.clients (
 
 alter table public.clients add column if not exists monday_board_id text;
 alter table public.clients add column if not exists monday_client_label text;
+alter table public.clients add column if not exists logo_url text;
+alter table public.clients add column if not exists brand_primary_color text;
+alter table public.clients add column if not exists brand_accent_color text;
 
 create index if not exists clients_case_public_token_idx
   on public.clients (case_public_token);
@@ -82,6 +88,9 @@ returns table (
   name text,
   "boardId" text,
   avatar_url text,
+  logo_url text,
+  brand_primary_color text,
+  brand_accent_color text,
   case_public_token text,
   case_board_id text,
   case_client_label text,
@@ -99,6 +108,9 @@ as $$
     c.name,
     c."boardId",
     c.avatar_url,
+    c.logo_url,
+    c.brand_primary_color,
+    c.brand_accent_color,
     c.case_public_token,
     c.case_board_id,
     c.case_client_label,

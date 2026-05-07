@@ -64,7 +64,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
 
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="h-1.5 bg-black" />
+        <div className="h-1.5" style={{ backgroundColor: 'var(--portal-primary)' }} />
         <div className="border-b border-zinc-100 px-6 py-5">
           <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">{clientName}</p>
           <h1 className="mt-1.5 text-2xl font-bold text-zinc-900">Novo paciente</h1>
@@ -151,7 +151,8 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-xl bg-black px-6 py-3 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition-all active:scale-95"
+              className="rounded-xl px-6 py-3 text-sm font-bold text-white disabled:opacity-50 transition-all active:scale-95"
+              style={{ backgroundColor: 'var(--portal-primary)' }}
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">

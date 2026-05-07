@@ -71,8 +71,8 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen }) =>
         </div>
         <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
           <div
-            className="h-full rounded-full bg-black transition-all duration-500"
-            style={{ width: `${progress.percentage}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${progress.percentage}%`, backgroundColor: 'var(--portal-primary)' }}
           />
         </div>
       </div>
