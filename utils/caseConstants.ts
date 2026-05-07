@@ -8,49 +8,25 @@ export const CASE_STAGE_MOMENTS: CaseStageMoment[] = [
 ];
 
 export const CASE_STAGE_DEFINITIONS = [
-  {
-    title: 'Planejamento',
-    moment: 'Planejamento',
-    expectedItems: [
-      '01. (CADEIRA) Fotos intraorais do antes (4 fotos)',
-      '02. (ESTUDIO) Video panoramico do antes',
-      '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
-      '04. (ESTUDIO) Video expectativa (paciente)',
-    ],
-  },
-  {
-    title: 'Procedimento',
-    moment: 'Procedimento',
-    expectedItems: [
-      '05. Imagens 3D - Planejamento do laboratorio (escaneamento)',
-      '06. Videos do procedimento',
-      '07. Fotos DETALHES em macro das proteses fora da boca',
-      '08. Imagens 3D - Tomografia e RX',
-    ],
-  },
-  {
-    title: 'Entrega',
-    moment: 'Entrega',
-    expectedItems: [
-      '09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)',
-      '10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)',
-      '11. (ESTUDIO) Retratos do depois (posados)',
-      '12. (ESTUDIO) - Fotos em close do sorriso',
-      '13. (ESTUDIO) Fotos em close artisticas do sorriso',
-      '14. (ESTUDIO) Video RESULTADO risada gostosa',
-      '15. (ESTUDIO) Video DEPOIMENTO paciente',
-      '16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega',
-    ],
-  },
-  {
-    title: 'Evento',
-    moment: 'Evento',
-    expectedItems: [
-      '17. Video DEPOIMENTO produzido - videomaker',
-      '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',
-      '19. Foto com o Doutor (O Brinde da Vitoria)',
-    ],
-  },
+  { title: '01. (CADEIRA) Fotos intraorais do antes (4 fotos)', moment: 'Planejamento' },
+  { title: '02. (ESTUDIO) Video panoramico do antes', moment: 'Planejamento' },
+  { title: '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)', moment: 'Planejamento' },
+  { title: '04. (ESTUDIO) Video expectativa (paciente)', moment: 'Planejamento' },
+  { title: '05. Imagens 3D - Planejamento do laboratorio (escaneamento)', moment: 'Procedimento' },
+  { title: '06. Videos do procedimento', moment: 'Procedimento' },
+  { title: '07. Fotos DETALHES em macro das proteses fora da boca', moment: 'Procedimento' },
+  { title: '08. Imagens 3D - Tomografia e RX', moment: 'Procedimento' },
+  { title: '09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)', moment: 'Entrega' },
+  { title: '10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)', moment: 'Entrega' },
+  { title: '11. (ESTUDIO) Retratos do depois (posados)', moment: 'Entrega' },
+  { title: '12. (ESTUDIO) - Fotos em close do sorriso', moment: 'Entrega' },
+  { title: '13. (ESTUDIO) Fotos em close artisticas do sorriso', moment: 'Entrega' },
+  { title: '14. (ESTUDIO) Video RESULTADO risada gostosa', moment: 'Entrega' },
+  { title: '15. (ESTUDIO) Video DEPOIMENTO paciente', moment: 'Entrega' },
+  { title: '16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega', moment: 'Entrega' },
+  { title: '17. Video DEPOIMENTO produzido - videomaker', moment: 'Evento' },
+  { title: '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo', moment: 'Evento' },
+  { title: '19. Foto com o Doutor (O Brinde da Vitoria)', moment: 'Evento' },
 ] as const;
 
 export const CASE_STAGE_TITLES = CASE_STAGE_DEFINITIONS.map(stage => stage.title);
@@ -61,8 +37,7 @@ export const getCaseStageMoment = (title: string): CaseStageMoment => {
 };
 
 export const getCaseStageExpectedItems = (title: string): string[] => {
-  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title);
-  return definition ? [...definition.expectedItems] : [];
+  return [];
 };
 
 export const CASE_GENDERS: CaseGender[] = [

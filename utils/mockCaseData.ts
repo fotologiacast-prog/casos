@@ -18,7 +18,7 @@ const makeStages = (parentItemId: string, capturedIndexes: number[]) =>
       parentItemId,
       title: stage.title,
       moment: stage.moment,
-      expectedItems: [...stage.expectedItems],
+      expectedItems: [],
       status: captured ? 'Capturado' : 'Fazer',
       statusColumnId: 'demo-status',
       filesColumnId: 'demo-files',

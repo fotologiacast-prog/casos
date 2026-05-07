@@ -166,7 +166,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             parentItemId: patientId,
             title: stage.title,
             moment: stage.moment,
-            expectedItems: [...stage.expectedItems],
+            expectedItems: [],
             status: 'Fazer',
             statusColumnId: 'demo-status',
             filesColumnId: 'demo-files',

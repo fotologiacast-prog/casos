@@ -1,49 +1,25 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const CASE_STAGE_DEFINITIONS = [
-  {
-    title: "Planejamento",
-    moment: "Planejamento",
-    expectedItems: [
-      "01. (CADEIRA) Fotos intraorais do antes (4 fotos)",
-      "02. (ESTUDIO) Video panoramico do antes",
-      "03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)",
-      "04. (ESTUDIO) Video expectativa (paciente)",
-    ],
-  },
-  {
-    title: "Procedimento",
-    moment: "Procedimento",
-    expectedItems: [
-      "05. Imagens 3D - Planejamento do laboratorio (escaneamento)",
-      "06. Videos do procedimento",
-      "07. Fotos DETALHES em macro das proteses fora da boca",
-      "08. Imagens 3D - Tomografia e RX",
-    ],
-  },
-  {
-    title: "Entrega",
-    moment: "Entrega",
-    expectedItems: [
-      "09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)",
-      "10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)",
-      "11. (ESTUDIO) Retratos do depois (posados)",
-      "12. (ESTUDIO) - Fotos em close do sorriso",
-      "13. (ESTUDIO) Fotos em close artisticas do sorriso",
-      "14. (ESTUDIO) Video RESULTADO risada gostosa",
-      "15. (ESTUDIO) Video DEPOIMENTO paciente",
-      "16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega",
-    ],
-  },
-  {
-    title: "Evento",
-    moment: "Evento",
-    expectedItems: [
-      "17. Video DEPOIMENTO produzido - videomaker",
-      "18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo",
-      "19. Foto com o Doutor (O Brinde da Vitoria)",
-    ],
-  },
+  { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
+  { title: "02. (ESTUDIO) Video panoramico do antes", moment: "Planejamento" },
+  { title: "03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)", moment: "Planejamento" },
+  { title: "04. (ESTUDIO) Video expectativa (paciente)", moment: "Planejamento" },
+  { title: "05. Imagens 3D - Planejamento do laboratorio (escaneamento)", moment: "Procedimento" },
+  { title: "06. Videos do procedimento", moment: "Procedimento" },
+  { title: "07. Fotos DETALHES em macro das proteses fora da boca", moment: "Procedimento" },
+  { title: "08. Imagens 3D - Tomografia e RX", moment: "Procedimento" },
+  { title: "09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)", moment: "Entrega" },
+  { title: "10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)", moment: "Entrega" },
+  { title: "11. (ESTUDIO) Retratos do depois (posados)", moment: "Entrega" },
+  { title: "12. (ESTUDIO) - Fotos em close do sorriso", moment: "Entrega" },
+  { title: "13. (ESTUDIO) Fotos em close artisticas do sorriso", moment: "Entrega" },
+  { title: "14. (ESTUDIO) Video RESULTADO risada gostosa", moment: "Entrega" },
+  { title: "15. (ESTUDIO) Video DEPOIMENTO paciente", moment: "Entrega" },
+  { title: "16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega", moment: "Entrega" },
+  { title: "17. Video DEPOIMENTO produzido - videomaker", moment: "Evento" },
+  { title: "18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo", moment: "Evento" },
+  { title: "19. Foto com o Doutor (O Brinde da Vitoria)", moment: "Evento" },
 ] as const;
 
 const getCaseStageDefinition = (title: string) =>
@@ -53,7 +29,7 @@ const getCaseStageMoment = (title: string) =>
   getCaseStageDefinition(title)?.moment || "Planejamento";
 
 const getCaseStageExpectedItems = (title: string) =>
-  getCaseStageDefinition(title)?.expectedItems || [];
+  [];
 
 const calculateAge = (birthDate: string | null) => {
   if (!birthDate) return null;
@@ -95,6 +71,14 @@ const serializeApiError = (error: unknown) => {
   return String(error);
 };
 
+const makeStageKey = (title: string) =>
+  title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+
 const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -118,6 +102,40 @@ const getClientByToken = async (supabase: any, token: string) => {
   if (error) throw error;
   if (!data) throw new Error("Cliente nao encontrado.");
   return data;
+};
+
+const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: any[]) => {
+  const missingRows = caseRows.flatMap(caseRow => {
+    const caseStages = existingStages.filter(stage => stage.case_id === caseRow.id);
+    const existingKeys = new Set(caseStages.map(stage => stage.stage_key));
+    const existingNames = new Set(caseStages.map(stage => stage.stage_name));
+
+    return CASE_STAGE_DEFINITIONS
+      .filter(stage => !existingKeys.has(makeStageKey(stage.title)) && !existingNames.has(stage.title))
+      .map((stage, index) => ({
+        case_id: caseRow.id,
+        stage_key: makeStageKey(stage.title),
+        stage_name: stage.title,
+        moment: stage.moment,
+        sort_order: index + 1,
+        status: "fazer",
+      }));
+  });
+
+  if (missingRows.length === 0) return existingStages;
+
+  const { error } = await supabase
+    .from("case_stages")
+    .upsert(missingRows, { onConflict: "case_id,stage_key" });
+  if (error) throw error;
+
+  const caseIds = caseRows.map(caseRow => caseRow.id);
+  const { data, error: reloadError } = await supabase
+    .from("case_stages")
+    .select("*")
+    .in("case_id", caseIds);
+  if (reloadError) throw reloadError;
+  return data || [];
 };
 
 const normalizeCasePayload = (body: any) => ({
@@ -196,10 +214,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (casesError) throw casesError;
 
       const caseIds = (cases || []).map(item => item.id);
-      const { data: stages, error: stagesError } = caseIds.length
+      let { data: stages, error: stagesError } = caseIds.length
         ? await supabase.from("case_stages").select("*").in("case_id", caseIds)
         : { data: [], error: null };
       if (stagesError) throw stagesError;
+      if ((cases || []).length > 0) {
+        stages = await ensureCaseStages(supabase, cases || [], stages || []);
+      }
 
       const { data: files, error: filesError } = caseIds.length
         ? await supabase.from("case_files").select("*").in("case_id", caseIds)
@@ -241,7 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const stageRows = CASE_STAGE_DEFINITIONS.map((stage, index) => ({
         case_id: createdCase.id,
-        stage_key: stage.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+        stage_key: makeStageKey(stage.title),
         stage_name: stage.title,
         moment: stage.moment,
         sort_order: index + 1,

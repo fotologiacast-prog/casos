@@ -1,6 +1,6 @@
 import React from 'react';
 import { CasePatient, CaseStage } from '../../types';
-import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
+import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS } from '../../utils/caseConstants';
 import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
@@ -27,7 +27,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
       parentItemId: patient.id,
       title: definition.title,
       moment: definition.moment,
-      expectedItems: [...definition.expectedItems],
+      expectedItems: [],
       status: 'Fazer',
       statusColumnId: '',
       filesColumnId: '',
@@ -185,16 +185,39 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
       )}
 
       {/* Stages */}
-      <div className="mt-4 space-y-3">
-        {orderedStages.map((stage, index) => (
-          <CaseStageCard
-            key={stage.id}
-            index={index}
-            stage={stage}
-            onUpload={handleUpload}
-            isPlaceholder={stage.id.startsWith('missing-')}
-          />
-        ))}
+      <div className="mt-4 space-y-5">
+        {CASE_STAGE_MOMENTS.map(moment => {
+          const stages = orderedStages.filter(stage => stage.moment === moment);
+          const captured = stages.filter(stage => stage.status === 'Capturado' || stage.files.length > 0).length;
+
+          return (
+            <section key={moment} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Momento</p>
+                  <h2 className="text-lg font-bold text-zinc-900">{moment}</h2>
+                </div>
+                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-700">
+                  {captured}/{stages.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {stages.map(stage => {
+                  const index = orderedStages.findIndex(item => item.title === stage.title);
+                  return (
+                    <CaseStageCard
+                      key={stage.id}
+                      index={index}
+                      stage={stage}
+                      onUpload={handleUpload}
+                      isPlaceholder={stage.id.startsWith('missing-')}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );

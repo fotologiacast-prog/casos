@@ -10,7 +10,7 @@ Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquel
 2. O app identifica o cliente no Supabase.
 3. O cliente cadastra um paciente.
 4. O backend cria/acha a pasta do paciente dentro da pasta do cliente no Google Drive.
-5. O app cria automaticamente 4 etapas de captura no Supabase, uma por momento.
+5. O app cria automaticamente 19 tipos de captura no Supabase, agrupados por momento.
 6. Cada upload em uma etapa cria/acha a pasta da etapa no Drive, sobe o arquivo direto do navegador para o Google e muda o status para `Capturado`.
 
 ## Colunas esperadas no item principal
@@ -30,14 +30,11 @@ Cada cliente recebe um link publico exclusivo. O app carrega os pacientes daquel
 - `Situacao da tarefa`
 - `Arquivos`
 
-## Etapas criadas automaticamente
+## Tipos de captura criados automaticamente
 
-1. `Planejamento`
-2. `Procedimento`
-3. `Entrega`
-4. `Evento`
+Os tipos ficam agrupados em `Planejamento`, `Procedimento`, `Entrega` e `Evento`.
 
-Cada etapa mostra internamente os arquivos esperados daquele momento, mas o status e o upload sao agrupados no momento.
+Cada tipo tem upload e status proprios. A pasta do tipo no Drive so e criada quando alguem envia arquivo para aquele tipo.
 
 ## Supabase
 
