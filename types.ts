@@ -33,7 +33,6 @@ export interface Client {
   id: number;
   name: string;
   boardId: string;
-  avatar_url?: string;
   logo_url?: string;
   brand_primary_color?: string;
   brand_accent_color?: string;

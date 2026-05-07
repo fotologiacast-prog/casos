@@ -16,7 +16,6 @@ const defaultAccentColor = '#22c55e';
 const emptyForm: ClientPayload = {
   name: '',
   boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
-  avatar_url: '',
   logo_url: '',
   brand_primary_color: defaultPrimaryColor,
   brand_accent_color: defaultAccentColor,
@@ -89,7 +88,7 @@ const ColorField: React.FC<{
 const BrandPreview: React.FC<{ form: ClientPayload }> = ({ form }) => {
   const primary = form.brand_primary_color || defaultPrimaryColor;
   const accent = form.brand_accent_color || defaultAccentColor;
-  const logoUrl = form.logo_url || form.avatar_url || '';
+  const logoUrl = form.logo_url || '';
   const name = form.name || 'Nome do cliente';
 
   return (
@@ -195,8 +194,7 @@ const AdminClients: React.FC = () => {
     setForm({
       name: client.name,
       boardId: client.boardId,
-      avatar_url: client.avatar_url || '',
-      logo_url: client.logo_url || client.avatar_url || '',
+      logo_url: client.logo_url || '',
       brand_primary_color: client.brand_primary_color || defaultPrimaryColor,
       brand_accent_color: client.brand_accent_color || defaultAccentColor,
       case_public_token: client.case_public_token || '',
@@ -428,7 +426,7 @@ const AdminClients: React.FC = () => {
                       <span className={labelSpanClass}>Logotipo URL</span>
                       <input
                         value={form.logo_url || ''}
-                        onChange={event => setForm(prev => ({ ...prev, logo_url: event.target.value, avatar_url: prev.avatar_url || event.target.value }))}
+                        onChange={event => setForm(prev => ({ ...prev, logo_url: event.target.value }))}
                         className={inputClass}
                         placeholder="https://..."
                       />
@@ -563,7 +561,7 @@ const AdminClients: React.FC = () => {
                 {filteredClients.map(client => {
                   const primary = client.brand_primary_color || defaultPrimaryColor;
                   const accent = client.brand_accent_color || defaultAccentColor;
-                  const logoUrl = client.logo_url || client.avatar_url || '';
+                  const logoUrl = client.logo_url || '';
                   return (
                     <div key={client.id} className="flex flex-col gap-3 p-4 transition-colors hover:bg-zinc-50/70 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 flex-1">

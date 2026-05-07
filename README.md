@@ -81,7 +81,7 @@ Essa tela cadastra o mapa de cada cliente:
 - board do Monday;
 - label do cliente no Monday;
 - pasta do Google Drive;
-- avatar opcional.
+- logotipo e cores do portal.
 
 ## Variaveis de ambiente
 

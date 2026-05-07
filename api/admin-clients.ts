@@ -31,7 +31,6 @@ const getEnvStatus = () => ({
 const normalizeClientPayload = (body: any) => ({
   name: String(body.name || "").trim(),
   boardId: String(body.boardId || body.monday_board_id || body.case_board_id || "18411843992").trim(),
-  avatar_url: body.avatar_url ? String(body.avatar_url).trim() : null,
   logo_url: body.logo_url ? String(body.logo_url).trim() : null,
   brand_primary_color: body.brand_primary_color ? String(body.brand_primary_color).trim() : null,
   brand_accent_color: body.brand_accent_color ? String(body.brand_accent_color).trim() : null,

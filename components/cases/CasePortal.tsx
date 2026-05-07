@@ -17,7 +17,6 @@ type PortalClient = {
   boardId: string;
   clientName: string;
   displayName: string;
-  avatarUrl?: string;
   logoUrl?: string;
   primaryColor?: string;
   accentColor?: string;
@@ -69,7 +68,6 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: client.case_board_id || client.boardId,
       clientName: client.case_client_label || client.name,
       displayName: client.name,
-      avatarUrl: client.avatar_url,
       logoUrl: client.logo_url,
       primaryColor: client.brand_primary_color,
       accentColor: client.brand_accent_color,
@@ -269,10 +267,10 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     );
   }
 
-  const avatarInitials = portalClient.displayName.slice(0, 2).toUpperCase();
+  const clientInitials = portalClient.displayName.slice(0, 2).toUpperCase();
   const primaryColor = portalClient.primaryColor || '#18181b';
   const accentColor = portalClient.accentColor || '#22c55e';
-  const logoUrl = portalClient.logoUrl || portalClient.avatarUrl;
+  const logoUrl = portalClient.logoUrl;
 
   return (
     <main
@@ -290,7 +288,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               <img src={logoUrl} alt="" className="h-10 max-w-32 rounded-xl object-contain" />
             ) : (
               <div className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold text-white" style={{ backgroundColor: primaryColor }}>
-                {avatarInitials}
+                {clientInitials}
               </div>
             )}
             <div>

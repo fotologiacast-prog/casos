@@ -13,7 +13,6 @@ create table if not exists public.clients (
   "boardId" text not null,
 
   -- Dados opcionais de visual.
-  avatar_url text,
   logo_url text,
   brand_primary_color text,
   brand_accent_color text,
@@ -87,7 +86,6 @@ returns table (
   id bigint,
   name text,
   "boardId" text,
-  avatar_url text,
   logo_url text,
   brand_primary_color text,
   brand_accent_color text,
@@ -107,7 +105,6 @@ as $$
     c.id,
     c.name,
     c."boardId",
-    c.avatar_url,
     c.logo_url,
     c.brand_primary_color,
     c.brand_accent_color,

@@ -13,7 +13,6 @@ export class AdminApiError extends Error {
 export type ClientPayload = {
   name: string;
   boardId: string;
-  avatar_url?: string;
   logo_url?: string;
   brand_primary_color?: string;
   brand_accent_color?: string;
