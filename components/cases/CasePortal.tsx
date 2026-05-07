@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CasePatient, Client } from '../../types';
 import { getDriveSetupWarning } from '../../services/driveService';
-import { createSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
+import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
@@ -153,9 +153,11 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           boardId: portalClient.boardId,
           name: payload.name,
           clientName: portalClient.clientName,
-          age: payload.age,
+          age: null,
+          birthDate: payload.birthDate,
           gender: payload.gender,
           procedure: payload.procedure,
+          keywords: payload.keywords,
           procedureDescription: payload.procedureDescription,
           notes: payload.notes,
           createdAt: new Date(),
@@ -207,6 +209,18 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         }),
       };
     }));
+  };
+
+  const handleDeletePatient = async (patient: CasePatient) => {
+    if (!portalClient) return;
+    if (portalClient.isDemo) {
+      setPatients(prev => prev.filter(item => item.id !== patient.id));
+      setSelectedPatientId(null);
+      return;
+    }
+    await deleteSupabaseCasePatient(token, patient.id);
+    setSelectedPatientId(null);
+    await loadPatients(portalClient, true);
   };
 
   // Loading state
@@ -295,6 +309,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             patient={selectedPatient}
             onBack={() => setSelectedPatientId(null)}
             onRefreshPatient={handleRefreshPatient}
+            onDeletePatient={handleDeletePatient}
             onUploadStageFiles={portalClient.isDemo ? handleDemoUpload : undefined}
           />
         ) : (

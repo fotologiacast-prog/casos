@@ -44,18 +44,15 @@ export interface Client {
   active?: boolean;
 }
 
-export type CaseGender = 'Feminino' | 'Masculino' | 'Outro' | 'Prefere nao informar';
+export type CaseGender = 'Feminino' | 'Masculino' | 'Pref. não informar';
 
 export type CaseProcedure =
-  | 'Lentes / Facetas'
-  | 'Clareamento'
-  | 'Implante'
-  | 'Protese'
-  | 'Ortodontia'
-  | 'Harmonizacao'
-  | 'Reabilitacao oral'
-  | 'Cirurgia'
-  | 'Outro';
+  | 'Implantes'
+  | 'Protocolo'
+  | 'Facetas'
+  | 'Próteses'
+  | 'Orto'
+  | 'Estética';
 
 export type CaseStageStatus = 'Fazer' | 'Capturado';
 
@@ -80,10 +77,14 @@ export interface CasePatient {
   name: string;
   clientName: string;
   age: number | null;
+  birthDate?: string | null;
   gender: CaseGender | string | null;
   procedure: CaseProcedure | string | null;
+  keywords?: string | null;
   procedureDescription: string | null;
   notes: string | null;
+  mondayItemId?: string | null;
+  driveFolderId?: string | null;
   createdAt: Date | null;
   stages: CaseStage[];
 }

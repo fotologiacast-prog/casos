@@ -68,7 +68,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   };
 
   const handleInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+    const files = Array.from(event.target.files || []) as File[];
     event.target.value = '';
     await handleFiles(files);
   };
@@ -77,7 +77,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     event.preventDefault();
     setIsDragging(false);
     if (isPlaceholder) return;
-    const files = Array.from(event.dataTransfer.files);
+    const files = Array.from(event.dataTransfer.files) as File[];
     await handleFiles(files);
   };
 

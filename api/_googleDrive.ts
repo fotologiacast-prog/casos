@@ -196,6 +196,23 @@ export const getDriveMediaResponse = async (accessToken: string, fileId: string)
   return response;
 };
 
+export const deleteDriveFile = async (accessToken: string, fileId: string) => {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok && response.status !== 404) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error?.message || "Falha ao excluir arquivo no Google Drive.");
+  }
+};
+
 export const sanitizeDriveFolderName = (value: string) =>
   value
     .replace(/[\\/:*?"<>|#%{}~&]/g, "-")

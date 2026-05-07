@@ -55,6 +55,23 @@ const getCaseStageMoment = (title: string) =>
 const getCaseStageExpectedItems = (title: string) =>
   getCaseStageDefinition(title)?.expectedItems || [];
 
+const calculateAge = (birthDate: string | null) => {
+  if (!birthDate) return null;
+  const birth = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+  return age;
+};
+
+const toDateString = (value: string | null) => {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+};
+
 const serializeApiError = (error: unknown) => {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object") {
@@ -105,9 +122,10 @@ const getClientByToken = async (supabase: any, token: string) => {
 
 const normalizeCasePayload = (body: any) => ({
   patient_name: String(body.name || body.patient_name || "").trim(),
-  age: body.age ? Number(body.age) : null,
+  birth_date: toDateString(body.birthDate || body.birth_date || null),
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
+  keywords: body.keywords ? String(body.keywords).trim() : null,
   procedure_description: body.procedureDescription || body.procedure_description ? String(body.procedureDescription || body.procedure_description).trim() : null,
   notes: body.notes ? String(body.notes).trim() : null,
 });
@@ -144,11 +162,15 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
       boardId: caseRow.monday_item_id || caseRow.id,
       name: caseRow.patient_name,
       clientName: caseRow.clients?.name || "",
-      age: caseRow.age,
+      age: calculateAge(caseRow.birth_date) ?? caseRow.age,
+      birthDate: caseRow.birth_date,
       gender: caseRow.gender,
       procedure: caseRow.procedure,
+      keywords: caseRow.keywords,
       procedureDescription: caseRow.procedure_description,
       notes: caseRow.notes,
+      mondayItemId: caseRow.monday_item_id,
+      driveFolderId: caseRow.drive_folder_id,
       createdAt: caseRow.created_at,
       stages,
     };
@@ -156,7 +178,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -193,9 +215,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
+      if (!payload.birth_date) return res.status(400).json({ error: "Data de nascimento e obrigatoria." });
 
       let caseDriveFolderId: string | null = null;
-      if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON)) {
+      if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
         const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive.js");
         const accessToken = await getGoogleAccessToken();
         const folder = await findOrCreateDriveFolder(
@@ -211,6 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .insert([{
           client_id: client.id,
           ...payload,
+          age: calculateAge(payload.birth_date),
           drive_folder_id: caseDriveFolderId,
           status: "em_andamento",
         }])
@@ -222,6 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         case_id: createdCase.id,
         stage_key: stage.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
         stage_name: stage.title,
+        moment: stage.moment,
         sort_order: index + 1,
         status: "fazer",
       }));
@@ -232,7 +257,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // --- Monday.com integration (non-blocking) ---
       let mondayResult: any = { success: false, skipped: true };
       const mondayToken = process.env.MONDAY_TOKEN;
-      const mondayBoardId = process.env.MONDAY_BOARD_ID || client.monday_board_id || client.case_board_id || client.board_id;
+      const mondayBoardId = process.env.MONDAY_BOARD_ID || client.monday_board_id || client.case_board_id || client.boardId || process.env.VITE_DEFAULT_MONDAY_CASE_BOARD_ID || "18411843992";
       if (mondayToken && mondayBoardId) {
         mondayResult.skipped = false;
         try {
@@ -257,19 +282,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const normalizeKey = (v: string) =>
             v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
-          const findCol = (name: string) =>
-            columns.find((c) => normalizeKey(c.title) === normalizeKey(name));
+          const findCol = (...names: string[]) =>
+            columns.find((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
 
           const columnValues: Record<string, unknown> = {};
 
-          const set = (colName: string, value: unknown) => {
-            const col = findCol(colName);
+          const set = (colNames: string | string[], value: unknown) => {
+            const names = Array.isArray(colNames) ? colNames : [colNames];
+            const col = findCol(...names);
             if (!col || value === undefined || value === null || String(value).trim() === "") return;
             
             // Prevent updating read-only/auto-calculated columns
             const readOnlyTypes = ["formula", "creation_log", "last_updated", "auto_number", "item_id", "progress", "lookup", "board_relation", "subtasks"];
             if (readOnlyTypes.includes(col.type)) {
-              console.log(`[Cases API] Ignorando coluna "${colName}" porque o tipo "${col.type}" é somente leitura.`);
+              console.log(`[Cases API] Ignorando coluna "${names.join(", ")}" porque o tipo "${col.type}" é somente leitura.`);
               return;
             }
 
@@ -285,12 +311,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           set("Cliente", clientLabel);
-          if (payload.age) set("Idade", payload.age);
-          if (payload.gender) set("Genero", payload.gender);
-          if (payload.procedure) set("Procedimento", payload.procedure);
-          if (payload.procedure_description) set("Descricao do procedimento", payload.procedure_description);
-          if (payload.notes) set("Observacoes", payload.notes);
-          set("Data", new Date().toISOString().slice(0, 10));
+          set(["Nascimento", "Data de nascimento"], payload.birth_date);
+          set(["Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
+          if (payload.gender) set(["Sexo", "Genero", "Gênero"], payload.gender);
+          if (payload.procedure) set(["Procedimentos", "Procedimento"], payload.procedure);
+          if (payload.keywords) set(["Palavras - Chave", "Palavras-chave", "Palavras Chave"], payload.keywords);
+          if (caseDriveFolderId) {
+            const driveCol = findCol("Drive do cliente", "Drive", "Pasta Drive");
+            if (driveCol) {
+              const driveUrl = `https://drive.google.com/drive/folders/${caseDriveFolderId}`;
+              columnValues[driveCol.id] = driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl;
+            }
+          }
 
           const createMutation = `mutation ($boardId: ID!, $itemName: String!, $columnValues: JSON) {
             create_item(board_id: $boardId, item_name: $itemName, column_values: $columnValues) { id }
@@ -339,6 +371,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // --- fim Monday.com integration ---
 
       return res.status(201).json({ caseId: createdCase.id, monday: mondayResult });
+    }
+
+    if (req.method === "DELETE") {
+      const caseId = String(req.query.caseId || req.body?.caseId || "").trim();
+      if (!caseId) return res.status(400).json({ error: "caseId ausente." });
+
+      const { data: existingCase, error: caseError } = await supabase
+        .from("cases")
+        .select("*")
+        .eq("id", caseId)
+        .eq("client_id", client.id)
+        .maybeSingle();
+      if (caseError) throw caseError;
+      if (!existingCase) return res.status(404).json({ error: "Caso nao encontrado." });
+
+      if (existingCase.monday_item_id && process.env.MONDAY_TOKEN) {
+        const mondayToken = process.env.MONDAY_TOKEN;
+        const deleteResponse = await fetch("https://api.monday.com/v2", {
+          method: "POST",
+          headers: {
+            Authorization: mondayToken.trim(),
+            "Content-Type": "application/json",
+            "API-Version": "2024-10",
+          },
+          body: JSON.stringify({
+            query: `mutation ($itemId: ID!) { delete_item(item_id: $itemId) { id } }`,
+            variables: { itemId: String(existingCase.monday_item_id) },
+          }),
+        });
+        const deleteData = await deleteResponse.json().catch(() => ({}));
+        if (!deleteResponse.ok || deleteData.errors) {
+          throw new Error(deleteData.errors?.map((error: any) => error.message).join(" ") || "Falha ao excluir item no Monday.");
+        }
+      }
+
+      if (existingCase.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
+        const { deleteDriveFile, getGoogleAccessToken } = await import("./_googleDrive.js");
+        const accessToken = await getGoogleAccessToken();
+        await deleteDriveFile(accessToken, existingCase.drive_folder_id);
+      }
+
+      const { error: deleteError } = await supabase
+        .from("cases")
+        .delete()
+        .eq("id", caseId)
+        .eq("client_id", client.id);
+      if (deleteError) throw deleteError;
+
+      return res.status(200).json({ ok: true });
     }
 
     return res.status(405).json({ error: "Metodo nao permitido." });

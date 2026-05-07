@@ -3,9 +3,10 @@ import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 
 export interface NewCasePatientPayload {
   name: string;
-  age: number;
+  birthDate: string;
   gender: string;
   procedure: string;
+  keywords: string;
   procedureDescription: string;
   notes: string;
 }
@@ -19,9 +20,10 @@ interface NewCasePatientFormProps {
 const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onCancel, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: '',
-    age: '',
+    birthDate: '',
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
+    keywords: '',
     procedureDescription: '',
     notes: '',
   });
@@ -34,14 +36,13 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    const age = Number(formData.age);
-    if (!Number.isFinite(age) || age <= 0) {
-      setError('Informe uma idade válida.');
+    if (!formData.birthDate) {
+      setError('Informe a data de nascimento.');
       return;
     }
     setIsSubmitting(true);
     try {
-      await onSubmit({ ...formData, name: formData.name.trim(), age });
+      await onSubmit({ ...formData, name: formData.name.trim(), keywords: formData.keywords.trim() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
     } finally {
@@ -87,23 +88,20 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
             />
           </div>
 
-          {/* Age + Gender + Procedure */}
+          {/* Birth date + Gender + Procedure */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className={labelClass}>Idade *</label>
+              <label className={labelClass}>Data de nascimento *</label>
               <input
                 required
-                min="1"
-                max="120"
-                type="number"
-                value={formData.age}
-                onChange={set('age')}
-                placeholder="Ex: 35"
+                type="date"
+                value={formData.birthDate}
+                onChange={set('birthDate')}
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Gênero</label>
+              <label className={labelClass}>Sexo</label>
               <select
                 value={formData.gender}
                 onChange={set('gender')}
@@ -122,6 +120,16 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
                 {CASE_PROCEDURES.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Palavras-chave</label>
+            <input
+              value={formData.keywords}
+              onChange={set('keywords')}
+              placeholder="Ex: facetas, sorriso, reabilitação"
+              className={inputClass}
+            />
           </div>
 
           {/* Procedure description */}

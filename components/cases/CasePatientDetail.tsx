@@ -9,11 +9,16 @@ interface CasePatientDetailProps {
   patient: CasePatient;
   onBack: () => void;
   onRefreshPatient: (patientId: string) => Promise<void>;
+  onDeletePatient: (patient: CasePatient) => Promise<void>;
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
 }
 
-const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onUploadStageFiles }) => {
+const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onDeletePatient, onUploadStageFiles }) => {
   const progress = getPatientProgress(patient);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteConfirm, setDeleteConfirm] = React.useState('');
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
     return patient.stages.find(stage => stage.title === definition.title) || {
@@ -43,9 +48,22 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
   const chips = [
     formatDate(patient.createdAt),
     patient.age ? `${patient.age} anos` : null,
+    patient.birthDate ? `Nasc. ${formatDate(new Date(`${patient.birthDate}T00:00:00`))}` : null,
     patient.gender || null,
     patient.procedure || null,
   ].filter(Boolean);
+
+  const handleDelete = async () => {
+    if (deleteConfirm !== 'Certeza') return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await onDeletePatient(patient);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Não foi possível limpar o caso.');
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -112,8 +130,59 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
               )}
             </div>
           )}
+
+          <div className="mt-5 border-t border-zinc-100 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteOpen(true);
+                setDeleteConfirm('');
+                setDeleteError(null);
+              }}
+              className="text-xs font-semibold text-zinc-400 underline underline-offset-4 hover:text-red-600 transition-colors"
+            >
+              Limpar caso
+            </button>
+          </div>
         </div>
       </div>
+
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-6 shadow-2xl">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-red-500">Ação crítica</p>
+            <h2 className="mt-2 text-xl font-bold text-zinc-950">Limpar caso de {patient.name}?</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">
+              Isso remove este paciente do Monday, do Supabase e do Drive. Para confirmar, digite <strong>Certeza</strong>.
+            </p>
+            <input
+              value={deleteConfirm}
+              onChange={event => setDeleteConfirm(event.target.value)}
+              className="mt-4 w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm font-semibold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+              placeholder="Digite Certeza"
+            />
+            {deleteError && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{deleteError}</p>}
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(false)}
+                disabled={isDeleting}
+                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteConfirm !== 'Certeza' || isDeleting}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40"
+              >
+                {isDeleting ? 'Limpando...' : 'Excluir definitivamente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stages */}
       <div className="mt-4 space-y-3">

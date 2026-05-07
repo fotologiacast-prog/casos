@@ -68,20 +68,16 @@ export const getCaseStageExpectedItems = (title: string): string[] => {
 export const CASE_GENDERS: CaseGender[] = [
   'Feminino',
   'Masculino',
-  'Outro',
-  'Prefere nao informar',
+  'Pref. não informar',
 ];
 
 export const CASE_PROCEDURES: CaseProcedure[] = [
-  'Lentes / Facetas',
-  'Clareamento',
-  'Implante',
-  'Protese',
-  'Ortodontia',
-  'Harmonizacao',
-  'Reabilitacao oral',
-  'Cirurgia',
-  'Outro',
+  'Implantes',
+  'Protocolo',
+  'Facetas',
+  'Próteses',
+  'Orto',
+  'Estética',
 ];
 
 export const DEFAULT_CASE_COLUMN_CONFIG: CaseColumnConfig = {

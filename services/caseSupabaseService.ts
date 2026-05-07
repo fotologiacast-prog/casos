@@ -45,3 +45,12 @@ export const createSupabaseCasePatient = async (token: string, payload: NewCaseP
   
   return data.caseId;
 };
+
+export const deleteSupabaseCasePatient = async (token: string, caseId: string): Promise<void> => {
+  const response = await fetch('/api/cases', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, caseId }),
+  });
+  await readApiResponse(response, 'Falha ao limpar caso.');
+};

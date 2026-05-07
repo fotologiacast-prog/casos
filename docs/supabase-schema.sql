@@ -123,8 +123,10 @@ create table if not exists public.cases (
 
   patient_name text not null,
   age integer,
+  birth_date date,
   gender text,
   procedure text,
+  keywords text,
   procedure_description text,
   notes text,
 
@@ -132,6 +134,9 @@ create table if not exists public.cases (
   drive_folder_id text,
   monday_item_id text
 );
+
+alter table public.cases add column if not exists birth_date date;
+alter table public.cases add column if not exists keywords text;
 
 create index if not exists cases_client_id_idx
   on public.cases (client_id);
