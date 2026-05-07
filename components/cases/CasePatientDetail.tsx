@@ -13,6 +13,33 @@ interface CasePatientDetailProps {
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
 }
 
+const momentVisuals: Record<string, { bar: string; badge: string; panel: string; label: string }> = {
+  Planejamento: {
+    bar: 'bg-zinc-950',
+    badge: 'bg-zinc-950 text-white',
+    panel: 'border-zinc-300 bg-white',
+    label: 'Antes e briefing',
+  },
+  Procedimento: {
+    bar: 'bg-amber-500',
+    badge: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
+    panel: 'border-amber-200 bg-amber-50/30',
+    label: 'Durante o tratamento',
+  },
+  Entrega: {
+    bar: 'bg-rose-500',
+    badge: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
+    panel: 'border-rose-200 bg-rose-50/30',
+    label: 'Resultado e reação',
+  },
+  Evento: {
+    bar: 'bg-sky-500',
+    badge: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
+    panel: 'border-sky-200 bg-sky-50/30',
+    label: 'Conteúdo produzido',
+  },
+};
+
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onDeletePatient, onUploadStageFiles }) => {
   const progress = getPatientProgress(patient);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -185,23 +212,35 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
       )}
 
       {/* Stages */}
-      <div className="mt-4 space-y-5">
+      <div className="mt-8 space-y-10">
         {CASE_STAGE_MOMENTS.map(moment => {
           const stages = orderedStages.filter(stage => stage.moment === moment);
           const captured = stages.filter(stage => stage.status === 'Capturado' || stage.files.length > 0).length;
+          const visual = momentVisuals[moment] || momentVisuals.Planejamento;
 
           return (
-            <section key={moment} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Momento</p>
-                  <h2 className="text-lg font-bold text-zinc-900">{moment}</h2>
+            <section key={moment} className={`overflow-hidden rounded-3xl border shadow-sm ${visual.panel}`}>
+              <div className={`h-2 w-full ${visual.bar}`} />
+              <div className="border-b border-black/5 bg-white/80 px-5 py-5 backdrop-blur">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${visual.badge}`}>
+                      {CASE_STAGE_MOMENTS.indexOf(moment) + 1}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">Momento</p>
+                      <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950">{moment}</h2>
+                      <p className="mt-0.5 text-sm font-medium text-zinc-500">{visual.label}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-3 py-1.5 text-xs font-black ${visual.badge}`}>
+                      {captured}/{stages.length} capturados
+                    </span>
+                  </div>
                 </div>
-                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-700">
-                  {captured}/{stages.length}
-                </span>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 p-4 sm:p-5">
                 {stages.map(stage => {
                   const index = orderedStages.findIndex(item => item.title === stage.title);
                   return (
