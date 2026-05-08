@@ -1,6 +1,6 @@
 import React from 'react';
 import { CasePatient } from '../../types';
-import { formatDate, getPatientProgress, getPatientStatus } from './caseUiUtils';
+import { formatDate, getCaseThumbnail, getPatientProgress, getPatientStatus } from './caseUiUtils';
 
 interface CasePatientCardProps {
   patient: CasePatient;
@@ -29,29 +29,47 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
   const status = getPatientStatus(patient);
   const config = statusConfig[status] || statusConfig['Em andamento'];
   const hasReadyTestimonials = readyTestimonialCount > 0;
+  const thumbnail = getCaseThumbnail(patient);
 
   return (
     <article
-      className="group w-full text-left rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-zinc-400 transition-all duration-200 active:scale-[0.98]"
+      className="group w-full text-left rounded-2xl border border-zinc-200 bg-white shadow-sm hover:shadow-md hover:border-zinc-400 transition-all duration-200 active:scale-[0.98] overflow-hidden"
     >
+      {/* Thumbnail */}
+      {thumbnail && (
+        <div className="relative h-36 w-full overflow-hidden bg-zinc-100">
+          <img
+            src={thumbnail}
+            alt={patient.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <span className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold ${config.className}`}>
+            {config.label}
+          </span>
+        </div>
+      )}
       <button
         type="button"
         onClick={() => onOpen(patient)}
         className="block w-full text-left"
       >
         {/* Name + status */}
-        <div className="flex items-start justify-between gap-3">
+        <div className={`flex items-start justify-between gap-3 ${thumbnail ? 'px-5 pt-4' : ''}`}>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Paciente</p>
             <h3 className="mt-1 text-lg font-bold text-zinc-900 truncate leading-tight">{patient.name}</h3>
           </div>
-          <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${config.className}`}>
-            {config.label}
-          </span>
+          {!thumbnail && (
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${config.className}`}>
+              {config.label}
+            </span>
+          )}
         </div>
 
         {/* Info row */}
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={`mt-3 flex flex-wrap gap-2 ${thumbnail ? 'px-5' : ''}`}>
           {patient.procedure && (
             <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
               {patient.procedure}
@@ -70,7 +88,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
         </div>
 
         {/* Progress bar */}
-        <div className="mt-4">
+        <div className={`mt-4 ${thumbnail ? 'px-5 pb-1' : ''}`}>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-semibold text-zinc-500">{progress.captured}/{progress.total} etapas</span>
             <span className="text-xs font-bold text-zinc-900">{progress.percentage}%</span>
@@ -85,7 +103,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
       </button>
 
       {/* Arrow hint */}
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className={`mt-4 flex items-center justify-between gap-3 ${thumbnail ? 'px-5 pb-5' : ''}`}>
         {hasReadyTestimonials ? (
           <button
             type="button"

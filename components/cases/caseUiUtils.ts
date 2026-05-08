@@ -38,3 +38,32 @@ export const formatMonthLabel = (monthKey: string) => {
   const date = new Date(year, month - 1, 1);
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 };
+
+const isImageUrl = (name: string, url: string) =>
+  /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)$/i.test(name) ||
+  /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)(\?|$)/i.test(url);
+
+/** Returns the thumbnail URL for a patient card:
+ *  1st image from stage 11 (Entrega retratos), else 1st image from stage 3 (Planejamento extraorais).
+ */
+export const getCaseThumbnail = (patient: CasePatient): string | null => {
+  const PRIORITY_STAGES = [
+    '11. (ESTUDIO) Retratos do depois (posados)',
+    '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
+  ];
+
+  for (const stageTitle of PRIORITY_STAGES) {
+    const stage = patient.stages.find(s => s.title === stageTitle);
+    if (!stage) continue;
+    const imageFile = stage.files.find(f => isImageUrl(f.name, f.public_url));
+    if (imageFile) return imageFile.public_url;
+  }
+
+  // Broader fallback: any image from any Entrega or Planejamento stage
+  for (const stage of patient.stages) {
+    const file = stage.files.find(f => isImageUrl(f.name, f.public_url));
+    if (file) return file.public_url;
+  }
+
+  return null;
+};

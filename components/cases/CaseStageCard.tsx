@@ -1,6 +1,15 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CaseStage, CaseStageMoment } from '../../types';
 import { UploadProgressInfo } from '../../services/driveUploadService';
+
+interface StageFaq {
+  id: string;
+  stage_type: string;
+  title: string;
+  content: string;
+  image_url?: string | null;
+  order: number;
+}
 
 interface CaseStageCardProps {
   index: number;
@@ -105,6 +114,26 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [error, setError] = useState<string | null>(null);
   const [lightboxFile, setLightboxFile] = useState<CaseStage['files'][number] | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [faqs, setFaqs] = useState<StageFaq[]>([]);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [faqLoading, setFaqLoading] = useState(false);
+
+  const stageType = stage.moment || stage.title;
+
+  const handleOpenFaq = async () => {
+    setFaqOpen(true);
+    if (faqs.length > 0) return;
+    setFaqLoading(true);
+    try {
+      const res = await fetch(`/api/faq?stage_type=${encodeURIComponent(stageType)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFaqs(data.faqs || []);
+      }
+    } catch {/* silent */} finally {
+      setFaqLoading(false);
+    }
+  };
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
@@ -214,6 +243,18 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 : 'Nenhum arquivo enviado ainda'}
             </p>
           </div>
+
+          {/* FAQ icon */}
+          <button
+            type="button"
+            onClick={handleOpenFaq}
+            title="Ver exemplos e instruções"
+            className="ml-auto shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-500 transition-all hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-800"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
+            </svg>
+          </button>
         </div>
 
         {/* Expected items checklist */}
@@ -418,6 +459,65 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           </div>
         )}
       </div>
+
+      {/* FAQ Popup */}
+      {faqOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setFaqOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Guia da etapa</p>
+                <h2 className="mt-0.5 text-base font-black text-zinc-900">{stage.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFaqOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-6">
+              {faqLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <span className="h-6 w-6 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
+                </div>
+              ) : faqs.length === 0 ? (
+                <div className="py-10 text-center">
+                  <span className="text-4xl">📋</span>
+                  <p className="mt-3 text-sm font-semibold text-zinc-500">Nenhuma instrução cadastrada ainda.</p>
+                  <p className="mt-1 text-xs text-zinc-400">O administrador pode adicionar exemplos no painel /admin.</p>
+                </div>
+              ) : (
+                faqs.map((faq, i) => (
+                  <div key={faq.id} className={i > 0 ? 'border-t border-zinc-100 pt-6' : ''}>
+                    <h3 className="text-sm font-bold text-zinc-900">{faq.title}</h3>
+                    {faq.image_url && (
+                      <img
+                        src={faq.image_url}
+                        alt={faq.title}
+                        className="mt-3 w-full rounded-xl object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                    {faq.content && (
+                      <p className="mt-2 text-sm leading-relaxed text-zinc-600 whitespace-pre-wrap">{faq.content}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightboxFile && (
