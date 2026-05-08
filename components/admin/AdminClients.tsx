@@ -178,11 +178,11 @@ const AdminClients: React.FC = () => {
     setShowPortalPassword(false);
     setForm({
       name: client.name,
-      boardId: client.boardId,
+      boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
       case_public_token: client.case_public_token || '',
-      case_board_id: client.case_board_id || client.monday_board_id || client.boardId || DEFAULT_MONDAY_CASE_BOARD_ID,
+      case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
       case_client_label: client.case_client_label || '',
-      monday_board_id: client.monday_board_id || client.case_board_id || client.boardId || DEFAULT_MONDAY_CASE_BOARD_ID,
+      monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
       monday_client_label: client.monday_client_label || client.case_client_label || client.name,
       drive_folder_id: client.drive_folder_id || '',
       portal_password: client.portal_password || '',
@@ -211,15 +211,6 @@ const AdminClients: React.FC = () => {
       case_client_label: prev.case_client_label || name,
       monday_client_label: prev.monday_client_label || name,
       case_public_token: prev.case_public_token || makeToken(name),
-    }));
-  };
-
-  const handleBoardChange = (boardId: string) => {
-    setForm(prev => ({
-      ...prev,
-      boardId,
-      case_board_id: boardId,
-      monday_board_id: boardId,
     }));
   };
 
@@ -472,11 +463,12 @@ const AdminClients: React.FC = () => {
                       <span className={labelSpanClass}>Board ID Monday</span>
                       <input
                         value={form.boardId}
-                        onChange={event => handleBoardChange(event.target.value)}
-                        className={`${inputClass} font-mono`}
-                        placeholder="Ex: 18411843992"
+                        readOnly
+                        className={`${inputClass} bg-zinc-50 font-mono text-zinc-500`}
+                        placeholder="18054403734"
                         required
                       />
+                      <p className="mt-1 text-xs font-medium text-zinc-400">Board fixo principal da plataforma.</p>
                     </label>
                     <label className="block">
                       <span className={labelSpanClass}>Label no Monday</span>

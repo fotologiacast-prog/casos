@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
+
 const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,11 +32,11 @@ const getEnvStatus = () => ({
 
 const normalizeClientPayload = (body: any) => ({
   name: String(body.name || "").trim(),
-  boardId: String(body.boardId || body.monday_board_id || body.case_board_id || "18411843992").trim(),
+  boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_public_token: String(body.case_public_token || "").trim(),
-  case_board_id: body.case_board_id || body.monday_board_id ? String(body.case_board_id || body.monday_board_id).trim() : "18411843992",
+  case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_client_label: body.case_client_label || body.monday_client_label ? String(body.case_client_label || body.monday_client_label).trim() : null,
-  monday_board_id: body.monday_board_id || body.case_board_id ? String(body.monday_board_id || body.case_board_id).trim() : "18411843992",
+  monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   monday_client_label: body.monday_client_label || body.case_client_label ? String(body.monday_client_label || body.case_client_label).trim() : null,
   drive_folder_id: body.drive_folder_id ? String(body.drive_folder_id).trim() : null,
   portal_password: body.portal_password ? String(body.portal_password).trim() : null,

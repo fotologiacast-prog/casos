@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
+
 const CASE_STAGE_DEFINITIONS = [
   { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
   { title: "02. (ESTUDIO) Video panoramico do antes", moment: "Planejamento" },
@@ -143,6 +145,7 @@ const normalizeCasePayload = (body: any) => ({
   birth_date: toDateString(body.birthDate || body.birth_date || null),
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
+  keywords: body.keywords ? String(body.keywords).trim() : null,
   notes: body.notes ? String(body.notes).trim() : null,
 });
 
@@ -275,7 +278,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // --- Monday.com integration (non-blocking) ---
       let mondayResult: any = { success: false, skipped: true };
       const mondayToken = process.env.MONDAY_TOKEN;
-      const mondayBoardId = process.env.MONDAY_BOARD_ID || client.monday_board_id || client.case_board_id || client.boardId || process.env.VITE_DEFAULT_MONDAY_CASE_BOARD_ID || "18411843992";
+      const mondayBoardId = DEFAULT_MONDAY_CASE_BOARD_ID;
       if (mondayToken && mondayBoardId) {
         mondayResult.skipped = false;
         try {
@@ -298,7 +301,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
 
           const normalizeKey = (v: string) =>
-            v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+            v
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .trim()
+              .toLowerCase()
+              .replace(/^#+/, "")
+              .replace(/[^a-z0-9]+/g, " ")
+              .trim();
 
           const findCol = (...names: string[]) =>
             columns.find((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
@@ -329,12 +339,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           set("Cliente", clientLabel);
-          set(["Nascimento", "Data de nascimento"], payload.birth_date);
-          set(["Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
-          if (payload.gender) set(["Sexo", "Genero", "Gênero"], payload.gender);
-          if (payload.procedure) set(["Procedimentos", "Procedimento"], payload.procedure);
+          set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
+          set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
+          set(["Idade", "#Idade"], calculateAge(payload.birth_date));
+          if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender);
+          if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure);
+          if (payload.keywords) set(["Palavras - Chave", "#Palavras - Chave", "Palavras-chave", "#Palavras-chave"], payload.keywords);
+          set(["Dentista Responsável", "#Dentista Responsável", "Dentista Responsavel", "#Dentista Responsavel"], clientLabel);
+          if (payload.notes) set(["Objeção principal", "#Objeção principal", "Objecao principal", "#Objecao principal"], payload.notes);
           if (caseDriveFolderId) {
-            const driveCol = findCol("Drive do cliente", "Drive", "Pasta Drive");
+            const driveCol = findCol("Drive do cliente", "#Drive do cliente", "Drive", "Pasta Drive");
             if (driveCol) {
               const driveUrl = `https://drive.google.com/drive/folders/${caseDriveFolderId}`;
               columnValues[driveCol.id] = driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl;

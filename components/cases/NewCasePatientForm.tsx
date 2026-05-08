@@ -6,6 +6,7 @@ export interface NewCasePatientPayload {
   birthDate: string;
   gender: string;
   procedure: string;
+  keywords: string;
   notes: string;
 }
 
@@ -21,6 +22,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     birthDate: '',
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
+    keywords: '',
     notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,7 +40,12 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     }
     setIsSubmitting(true);
     try {
-      await onSubmit({ ...formData, name: formData.name.trim(), notes: formData.notes.trim() });
+      await onSubmit({
+        ...formData,
+        name: formData.name.trim(),
+        keywords: formData.keywords.trim(),
+        notes: formData.notes.trim(),
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
     } finally {
@@ -120,12 +127,22 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
 
           {/* Notes */}
           <div>
-            <label className={labelClass}>Observações do caso</label>
+            <label className={labelClass}>Palavras-chave</label>
+            <input
+              value={formData.keywords}
+              onChange={set('keywords')}
+              placeholder="Ex: medo de dentista, estética, indicação..."
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Objeção principal / observações</label>
             <textarea
               rows={3}
               value={formData.notes}
               onChange={set('notes')}
-              placeholder="Informações adicionais relevantes..."
+              placeholder="Ex: insegurança com o sorriso, medo do procedimento, pouco tempo..."
               className={`${inputClass} resize-none`}
             />
           </div>
