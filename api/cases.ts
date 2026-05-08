@@ -316,13 +316,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const findCol = (...names: string[]) =>
             columns.find((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
 
-          const targetGroup = groups.find(group =>
-            group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
-            normalizeKey(group.title) === normalizeKey(MONDAY_CASES_GROUP_TITLE) ||
-            normalizeKey(group.title) === "casos acompanhados nas clinicas"
-          );
+          const targetGroup = groups.find(group => {
+            const title = normalizeKey(group.title);
+            return group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
+              title === normalizeKey(MONDAY_CASES_GROUP_TITLE) ||
+              title === "casos acompanhados nas clinicas" ||
+              (title.includes("casos acompanhados") && title.includes("clinicas"));
+          });
 
-          const columnValues: Record<string, unknown> = {};
+          const columnUpdates: { id: string; title: string; value: unknown }[] = [];
 
           const set = (colNames: string | string[], value: unknown) => {
             const names = Array.isArray(colNames) ? colNames : [colNames];
@@ -338,12 +340,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const text = String(value).trim();
             const type = col.type;
-            if (type === "status" || type === "color") columnValues[col.id] = { label: text };
-            else if (type === "dropdown") columnValues[col.id] = { labels: [text] };
-            else if (type === "date") columnValues[col.id] = { date: text };
-            else if (type === "long_text" || type === "long-text") columnValues[col.id] = { text };
-            else if (type === "numbers" || type === "numeric") columnValues[col.id] = text;
-            else columnValues[col.id] = text;
+            let formattedValue: unknown;
+            if (type === "status" || type === "color") formattedValue = { label: text };
+            else if (type === "dropdown") formattedValue = { labels: [text] };
+            else if (type === "date") formattedValue = { date: text };
+            else if (type === "long_text" || type === "long-text") formattedValue = { text };
+            else if (type === "numbers" || type === "numeric") formattedValue = text;
+            else formattedValue = text;
+
+            columnUpdates.push({ id: col.id, title: col.title, value: formattedValue });
           };
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
@@ -361,7 +366,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const driveCol = findCol("Drive do cliente", "#Drive do cliente", "Drive", "Pasta Drive");
             if (driveCol) {
               const driveUrl = `https://drive.google.com/drive/folders/${caseDriveFolderId}`;
-              columnValues[driveCol.id] = driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl;
+              columnUpdates.push({
+                id: driveCol.id,
+                title: driveCol.title,
+                value: driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl,
+              });
             }
           }
 
@@ -369,8 +378,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             throw new Error(`Grupo "${MONDAY_CASES_GROUP_TITLE}" nao encontrado no board ${mondayBoardId}.`);
           }
 
-          const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!, $columnValues: JSON) {
-            create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName, column_values: $columnValues) { id }
+          const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!) {
+            create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName) { id }
           }`;
 
           const createResponse = await fetch("https://api.monday.com/v2", {
@@ -386,17 +395,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 boardId: String(mondayBoardId),
                 groupId: targetGroup.id,
                 itemName: payload.patient_name,
-                columnValues: JSON.stringify(columnValues),
               },
             }),
           });
 
           const createData = await createResponse.json();
+          if (!createResponse.ok || createData.errors) {
+            throw new Error(createData.errors?.map((error: any) => error.message).join(" ") || `Falha ao criar item no Monday. HTTP ${createResponse.status}`);
+          }
           const mondayItemId = createData?.data?.create_item?.id;
 
           if (mondayItemId) {
             mondayResult.success = true;
             mondayResult.itemId = mondayItemId;
+            mondayResult.groupId = targetGroup.id;
             // Save monday_item_id back to the case row (best-effort)
             await supabase
               .from("cases")
@@ -404,6 +416,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .eq("id", createdCase.id);
 
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
+
+            const columnErrors: { column: string; error: string }[] = [];
+            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: JSON!) {
+              change_column_value(board_id: $boardId, item_id: $itemId, column_id: $columnId, value: $value) { id }
+            }`;
+
+            for (const update of columnUpdates) {
+              const updateResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: changeColumnMutation,
+                  variables: {
+                    boardId: String(mondayBoardId),
+                    itemId: String(mondayItemId),
+                    columnId: update.id,
+                    value: JSON.stringify(update.value),
+                  },
+                }),
+              });
+              const updateData = await updateResponse.json().catch(() => ({}));
+              if (!updateResponse.ok || updateData.errors) {
+                columnErrors.push({
+                  column: update.title,
+                  error: updateData.errors?.map((error: any) => error.message).join(" ") || `HTTP ${updateResponse.status}`,
+                });
+              }
+            }
+
+            if (columnErrors.length > 0) {
+              mondayResult.columnErrors = columnErrors;
+              console.warn("[Cases API] Item criado no Monday, mas algumas colunas nao atualizaram.", JSON.stringify(columnErrors));
+            }
+
             if (payload.notes) {
               const updateResponse = await fetch("https://api.monday.com/v2", {
                 method: "POST",
