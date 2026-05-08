@@ -84,6 +84,12 @@ const matchesAgeRange = (age: number | null, range: string) => {
   return age >= min && age <= max;
 };
 
+const splitProcedures = (value?: string | null) =>
+  String(value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
 const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string }> = ({ value, onChange, options, label }) => (
   <label className="flex flex-col gap-1">
     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{label}</span>
@@ -297,7 +303,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
 
   const procedures = useMemo(() => {
     const set = new Set<string>();
-    testimonials.forEach(t => { if (t.patientProcedure) set.add(t.patientProcedure); });
+    testimonials.forEach(t => splitProcedures(t.patientProcedure).forEach(proc => set.add(proc)));
     return Array.from(set).sort();
   }, [testimonials]);
 
@@ -320,7 +326,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         item.assets.some(asset => asset.name.toLowerCase().includes(query))
       )) return false;
       
-      if (filterProcedure !== 'all' && item.patientProcedure !== filterProcedure) return false;
+      if (filterProcedure !== 'all' && !splitProcedures(item.patientProcedure).includes(filterProcedure)) return false;
       if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
       if (filterCreativeType !== 'all' && item.creativeType !== filterCreativeType) return false;
       if (!matchesAgeRange(item.patientAge, filterAge)) return false;

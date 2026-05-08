@@ -32,6 +32,12 @@ const matchesAgeRange = (age: number | null, range: string) => {
   return age >= min && age <= max;
 };
 
+const splitProcedures = (value?: string | null) =>
+  String(value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
 const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string }> = ({ value, onChange, options, label }) => (
   <label className="flex flex-col gap-1">
     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{label}</span>
@@ -102,7 +108,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         (month === 'all' || patientMonth === month) &&
         (status === 'Todos' || patientStatus === status) &&
         (gender === 'Todos' || patient.gender === gender) &&
-        (procedure === 'Todos' || patient.procedure === procedure) &&
+        (procedure === 'Todos' || splitProcedures(patient.procedure).includes(procedure)) &&
         matchesAgeRange(patient.age, ageRange)
       );
     });

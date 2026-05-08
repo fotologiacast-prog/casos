@@ -21,7 +21,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     name: '',
     birthDate: '',
     gender: CASE_GENDERS[0],
-    procedure: CASE_PROCEDURES[0],
+    procedures: [CASE_PROCEDURES[0]],
     dentistResponsible: '',
     notes: '',
   });
@@ -31,6 +31,15 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setFormData(prev => ({ ...prev, [key]: e.target.value }));
 
+  const toggleProcedure = (procedure: string) => {
+    setFormData(prev => {
+      const selected = prev.procedures.includes(procedure)
+        ? prev.procedures.filter(item => item !== procedure)
+        : [...prev.procedures, procedure];
+      return { ...prev, procedures: selected };
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -38,11 +47,17 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
       setError('Informe a data de nascimento.');
       return;
     }
+    if (formData.procedures.length === 0) {
+      setError('Selecione pelo menos um procedimento.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await onSubmit({
-        ...formData,
         name: formData.name.trim(),
+        birthDate: formData.birthDate,
+        gender: formData.gender,
+        procedure: formData.procedures.join(', '),
         dentistResponsible: formData.dentistResponsible.trim(),
         notes: formData.notes.trim(),
       });
@@ -91,8 +106,8 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
             />
           </div>
 
-          {/* Birth date + Gender + Procedure */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {/* Birth date + Gender */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Data de nascimento *</label>
               <input
@@ -113,15 +128,32 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
                 {CASE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
-            <div>
-              <label className={labelClass}>Procedimento</label>
-              <select
-                value={formData.procedure}
-                onChange={set('procedure')}
-                className={inputClass}
-              >
-                {CASE_PROCEDURES.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Procedimentos</label>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {CASE_PROCEDURES.map(option => {
+                const checked = formData.procedures.includes(option);
+                return (
+                  <label
+                    key={option}
+                    className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all ${
+                      checked
+                        ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleProcedure(option)}
+                      className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+                    />
+                    <span>{option}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

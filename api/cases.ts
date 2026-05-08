@@ -343,7 +343,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const type = col.type;
             let formattedValue: unknown;
             if (type === "status" || type === "color") formattedValue = { label: text };
-            else if (type === "dropdown") formattedValue = { labels: [text] };
+            else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
             else if (type === "date") formattedValue = { date: text };
             else if (type === "long_text" || type === "long-text") formattedValue = { text };
             else if (type === "numbers" || type === "numeric") formattedValue = text;
