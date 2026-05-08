@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ReadyTestimonial, TestimonialAsset } from '../../types';
 import { fetchReadyTestimonials } from '../../services/testimonialService';
 
@@ -62,6 +62,61 @@ const isImageAsset = (asset: TestimonialAsset) =>
 const isVideoAsset = (asset: TestimonialAsset) =>
   /\.(mp4|mov|m4v|webm|avi)$/i.test(asset.name);
 
+const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const togglePlayback = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      await video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  return (
+    <div className="relative flex h-full w-full items-center justify-center">
+      <video
+        ref={videoRef}
+        src={asset.public_url}
+        className="h-full w-full object-contain"
+        playsInline
+        preload="metadata"
+        onClick={togglePlayback}
+        onPause={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+        onEnded={() => setIsPlaying(false)}
+      />
+      <button
+        type="button"
+        onClick={togglePlayback}
+        className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-black/80 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
+      >
+        {isPlaying ? (
+          <>
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M5.75 4.5a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Zm7.75 0a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Z" />
+            </svg>
+            Pausar
+          </>
+        ) : (
+          <>
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
+            </svg>
+            Reproduzir
+          </>
+        )}
+      </button>
+    </div>
+  );
+};
+
 const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   if (isImageAsset(asset)) {
     return (
@@ -75,14 +130,7 @@ const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   }
 
   if (isVideoAsset(asset)) {
-    return (
-      <video
-        src={asset.public_url}
-        className="h-full w-full object-contain"
-        controls
-        preload="metadata"
-      />
-    );
+    return <VideoPreview asset={asset} />;
   }
 
   return (
