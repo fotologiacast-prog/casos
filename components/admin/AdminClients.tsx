@@ -75,7 +75,6 @@ const AdminClients: React.FC = () => {
   const [faqError, setFaqError] = useState<string | null>(null);
 
   const CASE_STAGE_TYPES = [
-    'Planejamento', 'Procedimento', 'Entrega', 'Evento',
     '01. (CADEIRA) Fotos intraorais do antes (4 fotos)',
     '02. (ESTUDIO) Video panoramico do antes',
     '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',

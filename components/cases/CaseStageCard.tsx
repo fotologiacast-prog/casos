@@ -118,7 +118,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqLoading, setFaqLoading] = useState(false);
 
-  const stageType = stage.moment || stage.title;
+  const stageType = stage.title;
 
   const handleOpenFaq = async () => {
     setFaqOpen(true);
@@ -344,8 +344,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                         </svg>
                       </span>
                     </div>
-                    <div className="border-t border-zinc-200 px-3 py-2">
-                      <p className="truncate text-xs font-semibold text-zinc-700">{file.name}</p>
                     </div>
                   </button>
                   {/* Remove button */}

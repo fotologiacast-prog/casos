@@ -113,6 +113,16 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
     }
   };
 
+  const handleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.requestFullscreen) {
+      video.requestFullscreen();
+    } else if ((video as any).webkitRequestFullscreen) {
+      (video as any).webkitRequestFullscreen();
+    }
+  };
+
   return (
     <div className="relative flex h-full w-full items-center justify-center">
       <video
@@ -126,27 +136,37 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         onPlay={() => setIsPlaying(true)}
         onEnded={() => setIsPlaying(false)}
       />
-      <button
-        type="button"
-        onClick={togglePlayback}
-        className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-full bg-black/80 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
-      >
-        {isPlaying ? (
-          <>
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-              <path d="M5.75 4.5a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Zm7.75 0a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Z" />
-            </svg>
-            Pausar
-          </>
-        ) : (
-          <>
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-              <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
-            </svg>
-            Reproduzir
-          </>
-        )}
-      </button>
+      <div className="absolute bottom-3 left-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={togglePlayback}
+          className="inline-flex items-center gap-2 rounded-full bg-black/80 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
+        >
+          {isPlaying ? (
+            <>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path d="M5.75 4.5a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Zm7.75 0a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Z" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
+              </svg>
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={handleFullscreen}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
+          title="Tela cheia"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path d="M13.28 2.22a.75.75 0 0 0-1.06 1.06l1.47 1.47-1.47 1.47a.75.75 0 1 0 1.06 1.06l1.47-1.47 1.47 1.47a.75.75 0 0 0 1.06-1.06l-1.47-1.47 1.47-1.47a.75.75 0 0 0-1.06-1.06l-1.47 1.47-1.47-1.47ZM3.75 2a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-2.25A.75.75 0 0 1 3 5V2.75a.75.75 0 0 1 .75-.75ZM3 15v2.25c0 .414.336.75.75.75h2.25a.75.75 0 0 0 0-1.5h-1.5V15a.75.75 0 0 0-1.5 0ZM16.25 18a.75.75 0 0 1-.75-.75V15.75h-1.5a.75.75 0 0 1 0-1.5h2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75Z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 };
@@ -213,11 +233,11 @@ const formatCaseDate = (value?: string | null) => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const InfoChip: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => {
+const InfoChip: React.FC<{ value?: string | number | null }> = ({ value }) => {
   if (value === undefined || value === null || value === '') return null;
   return (
     <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] font-semibold text-zinc-600">
-      <span className="text-zinc-400">{label}: </span>{value}
+      {value}
     </span>
   );
 };
@@ -330,34 +350,47 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         </button>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          <SelectChip
-            label="Gênero"
-            value={filterGender}
-            onChange={setFilterGender}
-            options={[
+      <div className="mt-6 flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5">
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Gênero</p>
+          <div className="flex flex-wrap gap-2">
+            {[
               { value: 'all', label: 'Todos' },
               { value: 'Feminino', label: 'Feminino' },
               { value: 'Masculino', label: 'Masculino' },
               { value: 'Pref. não informar', label: 'Outro' },
-            ]}
-          />
-          <SelectChip
-            label="Idade"
-            value={filterAge}
-            onChange={setFilterAge}
-            options={ageRanges}
-          />
-          <div className="col-span-2 sm:col-span-1 md:col-span-2 lg:col-span-3">
-            <SelectChip
-              label="Procedimento"
-              value={filterProcedure}
-              onChange={setFilterProcedure}
-              options={[{ value: 'all', label: 'Todos' }, ...procedures.map(p => ({ value: p, label: p }))]}
-            />
+            ].map(opt => (
+              <FilterChip key={opt.value} active={filterGender === opt.value} onClick={() => setFilterGender(opt.value)}>
+                {opt.label}
+              </FilterChip>
+            ))}
           </div>
         </div>
+
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Faixa Etária</p>
+          <div className="flex flex-wrap gap-2">
+            {ageRanges.map(opt => (
+              <FilterChip key={opt.value} active={filterAge === opt.value} onClick={() => setFilterAge(opt.value)}>
+                {opt.label}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+
+        {procedures.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Procedimento</p>
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={filterProcedure === 'all'} onClick={() => setFilterProcedure('all')}>Todos</FilterChip>
+              {procedures.map(proc => (
+                <FilterChip key={proc} active={filterProcedure === proc} onClick={() => setFilterProcedure(proc)}>
+                  {proc}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-6">
@@ -400,61 +433,30 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="mt-6 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
           {filteredTestimonials.map(testimonial => (
-            <article key={testimonial.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+            <article key={testimonial.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
               {/* Title header */}
-              <div className="border-b border-zinc-100 px-4 py-3">
+              <div className="border-b border-zinc-100 px-4 py-3 bg-zinc-50/50">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Material</p>
                 <h2 className="mt-0.5 text-base font-black leading-snug text-zinc-950">{testimonial.title}</h2>
               </div>
 
-              {/* Meta info */}
-              <div className="px-4 py-3 border-b border-zinc-100">
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    <InfoChip label="Paciente" value={testimonial.patientName} />
-                    <InfoChip label="Idade" value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
-                    <InfoChip label="Sexo" value={testimonial.patientGender} />
-                    <InfoChip label="Procedimento" value={testimonial.patientProcedure} />
-                    <InfoChip label="Cadastrado" value={formatCaseDate(testimonial.caseCreatedAt)} />
-                  </div>
-                  {testimonial.status && (
-                    <span className="w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                      {testimonial.status}
-                    </span>
-                  )}
-                  {onOpenCase && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenCase(testimonial.caseId)}
-                      className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50"
-                    >
-                      Ver caso do paciente
-                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
-                        <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Assets */}
-              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
+              {/* Assets - Pinterest Style */}
+              <div className="space-y-4 p-4">
                 {testimonial.assets.map(asset => (
                   <div
                     key={asset.id}
-                    className="group overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 transition-all hover:border-zinc-400"
+                    className="group overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50 transition-all hover:border-zinc-300"
                   >
-                    <div className="flex h-[380px] max-h-[70vh] items-center justify-center overflow-hidden bg-zinc-100">
+                    <div className="flex min-h-[200px] items-center justify-center overflow-hidden bg-zinc-100">
                       <AssetPreview asset={asset} />
                     </div>
-                    <div className="border-t border-zinc-100 px-3 py-2.5">
-                      <p className="mb-2 truncate text-xs font-semibold text-zinc-700">{asset.name}</p>
+                    <div className="p-3">
                       <a
                         href={getDownloadUrl(token, testimonial, asset, isDemo)}
                         download={asset.name}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-700"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-800"
                       >
                         <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
                           <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
@@ -465,6 +467,35 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Meta info at bottom */}
+              <div className="px-4 py-4 border-t border-zinc-100 bg-zinc-50/30">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <InfoChip value={testimonial.patientName} />
+                    <InfoChip value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
+                    <InfoChip value={testimonial.patientGender} />
+                    <InfoChip value={testimonial.patientProcedure} />
+                    <InfoChip value={formatCaseDate(testimonial.caseCreatedAt)} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {testimonial.status && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        {testimonial.status}
+                      </span>
+                    )}
+                    {onOpenCase && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenCase(testimonial.caseId)}
+                        className="text-[11px] font-bold text-zinc-500 hover:text-zinc-950 transition-colors flex items-center gap-1"
+                      >
+                        Ver caso ↗
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </article>
           ))}
