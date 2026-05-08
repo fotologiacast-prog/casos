@@ -106,6 +106,24 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
+const getUploadLabel = (progress: UploadProgressInfo | null) => {
+  if (!progress) return 'Preparando upload...';
+  if (progress.phase === 'preparing') return 'Preparando upload...';
+  if (progress.phase === 'reconnecting') return 'Reconectando...';
+  if (progress.phase === 'resuming') return `Retomando de ${progress.percentage}%`;
+  if (progress.phase === 'saving') return 'Finalizando no Drive...';
+  return `Enviando... ${progress.percentage}%`;
+};
+
+const getUploadDetail = (progress: UploadProgressInfo | null) => {
+  if (!progress) return null;
+  const filePrefix = progress.fileName
+    ? `${progress.fileIndex && progress.fileCount ? `${progress.fileIndex}/${progress.fileCount} · ` : ''}${progress.fileName}`
+    : null;
+  const size = `${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`;
+  return filePrefix ? `${filePrefix} · ${size}` : size;
+};
+
 const VideoPlayer = ({ src, className, controls, autoPlay, muted }: any) => {
   const [hasError, setHasError] = useState(false);
   if (hasError) {
@@ -140,6 +158,16 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [faqs, setFaqs] = useState<StageFaq[]>([]);
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqLoading, setFaqLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isUploading) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isUploading]);
 
   const stageType = stage.title;
 
@@ -317,7 +345,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                     <div className="absolute inset-0 bg-zinc-100 transition-all duration-300" style={{ width: `${uploadProgress.percentage}%` }} />
                   )}
                   <span className="relative z-10">
-                    {isUploading ? `Enviando... ${uploadProgress !== null ? `${uploadProgress.percentage}%` : ''}` : '+ Adicionar'}
+                    {isUploading ? getUploadLabel(uploadProgress) : '+ Adicionar'}
                   </span>
                 </button>
               )}
@@ -438,11 +466,11 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                       <span className="relative z-10 flex flex-col items-center gap-0.5">
                         <span className="flex items-center gap-2">
                           <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          Enviando... {uploadProgress !== null ? `${uploadProgress.percentage}%` : ''}
+                          {getUploadLabel(uploadProgress)}
                         </span>
-                        {uploadProgress !== null && (
+                        {getUploadDetail(uploadProgress) && (
                           <span className="text-[10px] font-medium text-white/70">
-                            {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+                            {getUploadDetail(uploadProgress)}
                           </span>
                         )}
                       </span>
