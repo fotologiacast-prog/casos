@@ -327,7 +327,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             <img
               src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
               alt="Impact Doctor"
-              className="h-10 w-auto"
+              className="h-8 w-auto max-w-[180px] object-contain sm:h-10"
             />
           </div>
           <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
@@ -393,12 +393,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               setSelectedPatientId(null);
               setTestimonialSearch('');
             }}
-            className="flex items-center gap-3 transition-opacity hover:opacity-80 active:scale-95"
+            className="flex shrink-0 items-center gap-3 transition-opacity hover:opacity-80 active:scale-95"
           >
             <img
               src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
               alt="Impact Doctor"
-              className="h-8 w-auto"
+              className="h-6 w-auto max-w-[128px] shrink-0 object-contain sm:h-8 sm:max-w-[180px]"
             />
           </button>
           <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-1">
