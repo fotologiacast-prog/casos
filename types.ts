@@ -97,6 +97,12 @@ export interface ReadyTestimonial {
   id: string;
   caseId: string;
   patientName: string;
+  mondayItemName?: string | null;
+  patientAge?: number | null;
+  patientBirthDate?: string | null;
+  patientGender?: string | null;
+  patientProcedure?: string | null;
+  caseCreatedAt?: string | null;
   mondayItemId: string;
   subitemId: string;
   title: string;

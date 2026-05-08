@@ -99,6 +99,17 @@ const pickStatus = (columns: MondayColumnValue[] = []) => {
   return statusColumn?.text || null;
 };
 
+const calculateAge = (birthDate: string | null) => {
+  if (!birthDate) return null;
+  const birth = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+  return age;
+};
+
 const normalizeAssets = (assets: MondayAsset[] = []) =>
   assets
     .filter(asset => asset?.id && asset?.name && asset?.public_url)
@@ -125,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: cases, error: casesError } = await supabase
       .from("cases")
-      .select("id, patient_name, monday_item_id, created_at")
+      .select("id, patient_name, birth_date, age, gender, procedure, monday_item_id, created_at")
       .eq("client_id", client.id)
       .not("monday_item_id", "is", null)
       .order("created_at", { ascending: false });
@@ -172,6 +183,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           id: `${caseRow.id}-${subitem.id}`,
           caseId: caseRow.id,
           patientName: caseRow.patient_name,
+          mondayItemName: item.name,
+          patientAge: calculateAge(caseRow.birth_date) ?? caseRow.age ?? null,
+          patientBirthDate: caseRow.birth_date,
+          patientGender: caseRow.gender,
+          patientProcedure: caseRow.procedure,
+          caseCreatedAt: caseRow.created_at,
           mondayItemId: String(item.id),
           subitemId: String(subitem.id),
           title: subitem.name,

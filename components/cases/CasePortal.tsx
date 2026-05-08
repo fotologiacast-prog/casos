@@ -178,6 +178,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setSelectedPatientId(null);
   };
 
+  const handleOpenCaseFromTestimonial = (caseId: string) => {
+    setActiveTab('cases');
+    setMode('list');
+    setSelectedPatientId(caseId);
+  };
+
   const handleRefreshPatient = async (patientId: string) => {
     if (!portalClient || portalClient.isDemo) return;
     await loadPatients(portalClient, true);
@@ -349,6 +355,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             clientName={portalClient.displayName}
             isDemo={portalClient.isDemo}
             initialSearch={testimonialSearch}
+            onOpenCase={handleOpenCaseFromTestimonial}
           />
         ) : mode === 'create' ? (
           <NewCasePatientForm

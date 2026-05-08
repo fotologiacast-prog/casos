@@ -7,6 +7,7 @@ interface ReadyTestimonialsProps {
   clientName: string;
   isDemo?: boolean;
   initialSearch?: string;
+  onOpenCase?: (caseId: string) => void;
 }
 
 const demoTestimonials: ReadyTestimonial[] = [
@@ -14,6 +15,11 @@ const demoTestimonials: ReadyTestimonial[] = [
     id: 'demo-maria-social',
     caseId: 'demo-maria',
     patientName: 'Maria Eduarda',
+    mondayItemName: 'Maria Eduarda - Facetas superiores',
+    patientAge: 42,
+    patientGender: 'Feminino',
+    patientProcedure: 'Facetas',
+    caseCreatedAt: '2026-04-11T00:00:00',
     mondayItemId: 'demo',
     subitemId: 'demo-social',
     title: 'Depoimento vertical - versão reels',
@@ -30,6 +36,11 @@ const demoTestimonials: ReadyTestimonial[] = [
     id: 'demo-carlos-post',
     caseId: 'demo-carlos',
     patientName: 'Carlos Henrique',
+    mondayItemName: 'Carlos Henrique - Protocolo inferior',
+    patientAge: 58,
+    patientGender: 'Masculino',
+    patientProcedure: 'Protocolo',
+    caseCreatedAt: '2026-03-26T00:00:00',
     mondayItemId: 'demo',
     subitemId: 'demo-post',
     title: 'Carrossel antes e depois',
@@ -96,7 +107,23 @@ const getDownloadUrl = (token: string, testimonial: ReadyTestimonial, asset: Tes
   return `/api/testimonial-download?${params.toString()}`;
 };
 
-const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName, isDemo, initialSearch = '' }) => {
+const formatCaseDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const InfoChip: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => {
+  if (value === undefined || value === null || value === '') return null;
+  return (
+    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] font-semibold text-zinc-600">
+      <span className="text-zinc-400">{label}: </span>{value}
+    </span>
+  );
+};
+
+const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName, isDemo, initialSearch = '', onOpenCase }) => {
   const [testimonials, setTestimonials] = useState<ReadyTestimonial[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -133,6 +160,9 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     if (!query) return testimonials;
     return testimonials.filter(item =>
       item.patientName.toLowerCase().includes(query) ||
+      (item.mondayItemName || '').toLowerCase().includes(query) ||
+      (item.patientProcedure || '').toLowerCase().includes(query) ||
+      (item.patientGender || '').toLowerCase().includes(query) ||
       item.title.toLowerCase().includes(query) ||
       item.assets.some(asset => asset.name.toLowerCase().includes(query))
     );
@@ -216,16 +246,38 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
           {filteredTestimonials.map(testimonial => (
             <article key={testimonial.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-              <div className="border-b border-zinc-100 px-4 py-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-[10px] font-bold uppercase tracking-widest text-zinc-400">{testimonial.patientName}</p>
-                    <h2 className="mt-1 line-clamp-2 text-base font-bold leading-snug text-zinc-900">{testimonial.title}</h2>
+              <div className="border-b border-zinc-100 px-4 py-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Linha no Monday</p>
+                      <h2 className="mt-1 text-base font-black leading-snug text-zinc-950">{testimonial.mondayItemName || testimonial.patientName}</h2>
+                      <p className="mt-1 text-sm font-bold leading-snug text-zinc-700">{testimonial.title}</p>
+                    </div>
+                    {testimonial.status && (
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                        {testimonial.status}
+                      </span>
+                    )}
                   </div>
-                  {testimonial.status && (
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                      {testimonial.status}
-                    </span>
+                  <div className="flex flex-wrap gap-2">
+                    <InfoChip label="Paciente" value={testimonial.patientName} />
+                    <InfoChip label="Idade" value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
+                    <InfoChip label="Sexo" value={testimonial.patientGender} />
+                    <InfoChip label="Procedimento" value={testimonial.patientProcedure} />
+                    <InfoChip label="Cadastrado" value={formatCaseDate(testimonial.caseCreatedAt)} />
+                  </div>
+                  {onOpenCase && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCase(testimonial.caseId)}
+                      className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50"
+                    >
+                      Ver caso do paciente
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                        <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   )}
                 </div>
               </div>
@@ -238,8 +290,8 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                     <div className="flex h-[430px] max-h-[72vh] items-center justify-center overflow-hidden bg-zinc-100">
                       <AssetPreview asset={asset} />
                     </div>
-                    <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                      <span className="min-w-0 truncate text-xs font-semibold text-zinc-700">{asset.name}</span>
+                    <div className="flex items-start justify-between gap-3 px-3 py-2.5">
+                      <span className="min-w-0 break-words text-xs font-semibold leading-5 text-zinc-700">{asset.name}</span>
                       <a
                         href={getDownloadUrl(token, testimonial, asset, isDemo)}
                         download={asset.name}
