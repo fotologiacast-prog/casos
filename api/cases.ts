@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
+const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
+const MONDAY_CASE_TYPE_LABEL = "Caso";
 
 const CASE_STAGE_DEFINITIONS = [
   { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
@@ -282,7 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (mondayToken && mondayBoardId) {
         mondayResult.skipped = false;
         try {
-          // Fetch board columns to build column values
+          // Fetch board columns and groups to build column values
           const colsResponse = await fetch("https://api.monday.com/v2", {
             method: "POST",
             headers: {
@@ -291,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "API-Version": "2024-10",
             },
             body: JSON.stringify({
-              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type } } }`,
+              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type } groups { id title } } }`,
               variables: { boardIds: [String(mondayBoardId)] },
             }),
           });
@@ -299,6 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (colsData.errors) mondayResult.colsError = colsData.errors;
           
           const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
+          const groups: { id: string; title: string }[] = colsData?.data?.boards?.[0]?.groups || [];
 
           const normalizeKey = (v: string) =>
             v
@@ -312,6 +315,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const findCol = (...names: string[]) =>
             columns.find((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
+
+          const targetGroup = groups.find(group =>
+            group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
+            normalizeKey(group.title) === normalizeKey(MONDAY_CASES_GROUP_TITLE) ||
+            normalizeKey(group.title) === "casos acompanhados nas clinicas"
+          );
 
           const columnValues: Record<string, unknown> = {};
 
@@ -339,6 +348,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           set("Cliente", clientLabel);
+          set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
           set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
           set(["Idade", "#Idade"], calculateAge(payload.birth_date));
@@ -355,8 +365,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
           }
 
-          const createMutation = `mutation ($boardId: ID!, $itemName: String!, $columnValues: JSON) {
-            create_item(board_id: $boardId, item_name: $itemName, column_values: $columnValues) { id }
+          if (!targetGroup) {
+            throw new Error(`Grupo "${MONDAY_CASES_GROUP_TITLE}" nao encontrado no board ${mondayBoardId}.`);
+          }
+
+          const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!, $columnValues: JSON) {
+            create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName, column_values: $columnValues) { id }
           }`;
 
           const createResponse = await fetch("https://api.monday.com/v2", {
@@ -370,6 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               query: createMutation,
               variables: {
                 boardId: String(mondayBoardId),
+                groupId: targetGroup.id,
                 itemName: payload.patient_name,
                 columnValues: JSON.stringify(columnValues),
               },
