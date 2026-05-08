@@ -24,6 +24,7 @@ const demoTestimonials: ReadyTestimonial[] = [
     subitemId: 'demo-social',
     title: 'Depoimento vertical - versão reels',
     status: 'Pronto',
+    creativeType: 'Reels 9:16',
     assets: [
       {
         id: 'demo-image-1',
@@ -45,6 +46,7 @@ const demoTestimonials: ReadyTestimonial[] = [
     subitemId: 'demo-post',
     title: 'Carrossel antes e depois',
     status: 'Pronto',
+    creativeType: 'Carrossel',
     assets: [
       {
         id: 'demo-image-2',
@@ -263,6 +265,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
   const [filterProcedure, setFilterProcedure] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
+  const [filterCreativeType, setFilterCreativeType] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -298,6 +301,12 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     return Array.from(set).sort();
   }, [testimonials]);
 
+  const creativeTypes = useMemo(() => {
+    const set = new Set<string>();
+    testimonials.forEach(t => { if (t.creativeType) set.add(t.creativeType); });
+    return Array.from(set).sort();
+  }, [testimonials]);
+
   const filteredTestimonials = useMemo(() => {
     const query = search.trim().toLowerCase();
     return testimonials.filter(item => {
@@ -306,17 +315,19 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         (item.mondayItemName || '').toLowerCase().includes(query) ||
         (item.patientProcedure || '').toLowerCase().includes(query) ||
         (item.patientGender || '').toLowerCase().includes(query) ||
+        (item.creativeType || '').toLowerCase().includes(query) ||
         item.title.toLowerCase().includes(query) ||
         item.assets.some(asset => asset.name.toLowerCase().includes(query))
       )) return false;
       
       if (filterProcedure !== 'all' && item.patientProcedure !== filterProcedure) return false;
       if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
+      if (filterCreativeType !== 'all' && item.creativeType !== filterCreativeType) return false;
       if (!matchesAgeRange(item.patientAge, filterAge)) return false;
       
       return true;
     });
-  }, [search, testimonials, filterProcedure, filterGender, filterAge]);
+  }, [search, testimonials, filterProcedure, filterGender, filterAge, filterCreativeType]);
 
   const totalAssets = testimonials.reduce((sum, item) => sum + item.assets.length, 0);
 
@@ -406,6 +417,20 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             </div>
           </div>
         )}
+
+        {creativeTypes.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Tipo de criativo</p>
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={filterCreativeType === 'all'} onClick={() => setFilterCreativeType('all')}>Todos</FilterChip>
+              {creativeTypes.map(type => (
+                <FilterChip key={type} active={filterCreativeType === type} onClick={() => setFilterCreativeType(type)}>
+                  {type}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-6">
@@ -444,7 +469,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           </div>
           <h2 className="text-lg font-bold text-zinc-900">Nenhum material pronto</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            {(search.trim() || filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
+            {(search.trim() || filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all' || filterCreativeType !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
           </p>
         </div>
       ) : (
@@ -453,7 +478,14 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             <article key={testimonial.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
               {/* Title header */}
               <div className="border-b border-zinc-100 px-4 py-3 bg-zinc-50/50">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Material</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Material</p>
+                  {testimonial.creativeType && (
+                    <span className="shrink-0 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-700">
+                      {testimonial.creativeType}
+                    </span>
+                  )}
+                </div>
                 <h2 className="mt-0.5 text-base font-black leading-snug text-zinc-950">{testimonial.title}</h2>
               </div>
 
@@ -492,6 +524,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                     <InfoChip value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
                     <InfoChip value={testimonial.patientGender} />
                     <InfoChip value={testimonial.patientProcedure} />
+                    <InfoChip value={testimonial.creativeType} />
                     <InfoChip value={formatCaseDate(testimonial.caseCreatedAt)} />
                   </div>
                   <div className="flex items-center justify-between">

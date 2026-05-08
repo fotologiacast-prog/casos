@@ -99,6 +99,32 @@ const pickStatus = (columns: MondayColumnValue[] = []) => {
   return statusColumn?.text || null;
 };
 
+const normalizeColumnTitle = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^#+\s*/, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .toLowerCase();
+
+const pickColumnText = (columns: MondayColumnValue[] = [], aliases: string[]) => {
+  const normalizedAliases = aliases.map(normalizeColumnTitle);
+  const column = columns.find(item => {
+    const title = normalizeColumnTitle(item.column?.title || item.id || "");
+    return normalizedAliases.includes(title);
+  });
+  return column?.text || null;
+};
+
+const pickCreativeType = (columns: MondayColumnValue[] = []) =>
+  pickColumnText(columns, [
+    "Tipo de criativo",
+    "#Tipo de criativo",
+    "Tipo do criativo",
+    "#Tipo do criativo",
+  ]);
+
 const calculateAge = (birthDate: string | null) => {
   if (!birthDate) return null;
   const birth = new Date(`${birthDate}T00:00:00`);
@@ -193,6 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           subitemId: String(subitem.id),
           title: subitem.name,
           status: pickStatus(subitem.column_values || []),
+          creativeType: pickCreativeType(subitem.column_values || []),
           assets,
         }];
       });

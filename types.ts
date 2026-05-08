@@ -108,6 +108,7 @@ export interface ReadyTestimonial {
   subitemId: string;
   title: string;
   status?: string | null;
+  creativeType?: string | null;
   updatedAt?: string | null;
   assets: TestimonialAsset[];
 }
