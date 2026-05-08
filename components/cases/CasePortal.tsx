@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CasePatient, Client } from '../../types';
+import { CasePatient, Client, ReadyTestimonial } from '../../types';
 import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients } from '../../services/caseSupabaseService';
+import { fetchReadyTestimonials } from '../../services/testimonialService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
@@ -85,6 +86,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'create'>('list');
   const [activeTab, setActiveTab] = useState<PortalTab>('cases');
+  const [testimonialSearch, setTestimonialSearch] = useState('');
+  const [readyTestimonialCounts, setReadyTestimonialCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +111,27 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     }
   }, [token]);
 
+  const applyReadyTestimonialCounts = (items: ReadyTestimonial[]) => {
+    const counts: Record<string, number> = {};
+    items.forEach(item => {
+      counts[item.caseId] = (counts[item.caseId] || 0) + item.assets.length;
+    });
+    setReadyTestimonialCounts(counts);
+  };
+
+  const loadReadyTestimonialsSummary = useCallback(async (client: PortalClient) => {
+    try {
+      if (client.isDemo) {
+        setReadyTestimonialCounts({ 'demo-maria': 1, 'demo-carlos': 1 });
+        return;
+      }
+      applyReadyTestimonialCounts(await fetchReadyTestimonials(token));
+    } catch (err) {
+      console.warn('[Cases] Nao foi possivel buscar resumo de depoimentos prontos.', err);
+      setReadyTestimonialCounts({});
+    }
+  }, [token]);
+
   useEffect(() => {
     let cancelled = false;
     const initialize = async () => {
@@ -121,6 +145,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         if (cancelled) return;
         setPortalClient(resolvedClient);
         await loadPatients(resolvedClient);
+        if (!cancelled) void loadReadyTestimonialsSummary(resolvedClient);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Não foi possível abrir o portal.');
@@ -131,15 +156,24 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     };
     initialize();
     return () => { cancelled = true; };
-  }, [loadPatients, token]);
+  }, [loadPatients, loadReadyTestimonialsSummary, token]);
 
   const handleRefresh = async () => {
     if (!portalClient) return;
     await loadPatients(portalClient, true);
+    void loadReadyTestimonialsSummary(portalClient);
   };
 
   const handleSetTab = (tab: PortalTab) => {
     setActiveTab(tab);
+    if (tab === 'testimonials') setTestimonialSearch('');
+    setMode('list');
+    setSelectedPatientId(null);
+  };
+
+  const handleOpenTestimonialsForPatient = (patient: CasePatient) => {
+    setTestimonialSearch(patient.name);
+    setActiveTab('testimonials');
     setMode('list');
     setSelectedPatientId(null);
   };
@@ -226,6 +260,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     await deleteSupabaseCasePatient(token, patient.id);
     setSelectedPatientId(null);
     await loadPatients(portalClient, true);
+    void loadReadyTestimonialsSummary(portalClient);
   };
 
   // Loading state
@@ -313,6 +348,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             token={token}
             clientName={portalClient.displayName}
             isDemo={portalClient.isDemo}
+            initialSearch={testimonialSearch}
           />
         ) : mode === 'create' ? (
           <NewCasePatientForm
@@ -327,6 +363,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             onRefreshPatient={handleRefreshPatient}
             onDeletePatient={handleDeletePatient}
             onUploadStageFiles={portalClient.isDemo ? handleDemoUpload : undefined}
+            readyTestimonialCount={selectedPatient ? readyTestimonialCounts[selectedPatient.id] || 0 : 0}
+            onOpenTestimonials={handleOpenTestimonialsForPatient}
           />
         ) : (
           <CasePatientList
@@ -334,6 +372,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             clientName={portalClient.displayName}
             onCreate={() => setMode('create')}
             onOpen={patient => setSelectedPatientId(patient.id)}
+            onOpenTestimonials={handleOpenTestimonialsForPatient}
+            readyTestimonialCounts={readyTestimonialCounts}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
           />

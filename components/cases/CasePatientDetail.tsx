@@ -11,6 +11,8 @@ interface CasePatientDetailProps {
   onRefreshPatient: (patientId: string) => Promise<void>;
   onDeletePatient: (patient: CasePatient) => Promise<void>;
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
+  readyTestimonialCount?: number;
+  onOpenTestimonials?: (patient: CasePatient) => void;
 }
 
 const momentVisuals: Record<string, { bar: string; badge: string; panel: string; label: string }> = {
@@ -40,7 +42,15 @@ const momentVisuals: Record<string, { bar: string; badge: string; panel: string;
   },
 };
 
-const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, onRefreshPatient, onDeletePatient, onUploadStageFiles }) => {
+const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
+  patient,
+  onBack,
+  onRefreshPatient,
+  onDeletePatient,
+  onUploadStageFiles,
+  readyTestimonialCount = 0,
+  onOpenTestimonials,
+}) => {
   const progress = getPatientProgress(patient);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState('');
@@ -138,6 +148,18 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({ patient, onBack, 
                 />
               </div>
               <p className="mt-2 text-xs text-zinc-500">{progress.percentage}% capturado</p>
+              {readyTestimonialCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onOpenTestimonials?.(patient)}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 transition-colors hover:bg-emerald-100"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                    <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
+                  </svg>
+                  Depoimento pronto
+                </button>
+              )}
             </div>
           </div>
 

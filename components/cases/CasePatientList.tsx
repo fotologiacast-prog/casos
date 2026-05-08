@@ -9,6 +9,8 @@ interface CasePatientListProps {
   clientName: string;
   onCreate: () => void;
   onOpen: (patient: CasePatient) => void;
+  onOpenTestimonials?: (patient: CasePatient) => void;
+  readyTestimonialCounts?: Record<string, number>;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -49,6 +51,8 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   clientName,
   onCreate,
   onOpen,
+  onOpenTestimonials,
+  readyTestimonialCounts = {},
   onRefresh,
   isRefreshing,
 }) => {
@@ -229,7 +233,13 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredPatients.map(patient => (
-            <CasePatientCard key={patient.id} patient={patient} onOpen={onOpen} />
+            <CasePatientCard
+              key={patient.id}
+              patient={patient}
+              onOpen={onOpen}
+              readyTestimonialCount={readyTestimonialCounts[patient.id] || 0}
+              onOpenTestimonials={onOpenTestimonials}
+            />
           ))}
         </div>
       )}
