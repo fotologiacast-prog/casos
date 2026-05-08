@@ -43,10 +43,6 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!formData.birthDate) {
-      setError('Informe a data de nascimento.');
-      return;
-    }
     if (formData.procedures.length === 0) {
       setError('Selecione pelo menos um procedimento.');
       return;
@@ -109,9 +105,8 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
           {/* Birth date + Gender */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Data de nascimento *</label>
+              <label className={labelClass}>Data de nascimento</label>
               <input
-                required
                 type="date"
                 value={formData.birthDate}
                 onChange={set('birthDate')}

@@ -239,7 +239,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
-      if (!payload.birth_date) return res.status(400).json({ error: "Data de nascimento e obrigatoria." });
 
       let caseDriveFolderId: string | null = null;
       if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
