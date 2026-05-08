@@ -220,6 +220,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           gender: payload.gender,
           procedure: payload.procedure,
           procedureDescription: null,
+          dentistResponsible: payload.dentistResponsible || null,
           notes: payload.notes || payload.keywords,
           createdAt: new Date(),
           stages: CASE_STAGE_DEFINITIONS.map((stage, index) => ({

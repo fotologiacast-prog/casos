@@ -93,6 +93,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     patient.birthDate ? `Nasc. ${formatDate(new Date(`${patient.birthDate}T00:00:00`))}` : null,
     patient.gender || null,
     patient.procedure || null,
+    patient.dentistResponsible ? `DR: ${patient.dentistResponsible}` : null,
   ].filter(Boolean);
 
   const handleDelete = async () => {

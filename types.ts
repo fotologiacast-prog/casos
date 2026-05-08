@@ -39,7 +39,6 @@ export interface Client {
   case_client_label?: string;
   monday_board_id?: string;
   monday_client_label?: string;
-  dentist_responsible?: string | null;
   drive_folder_id?: string;
   active?: boolean;
   portal_password?: string | null;
@@ -82,6 +81,7 @@ export interface CasePatient {
   gender: CaseGender | string | null;
   procedure: CaseProcedure | string | null;
   procedureDescription: string | null;
+  dentistResponsible?: string | null;
   notes: string | null;
   mondayItemId?: string | null;
   driveFolderId?: string | null;

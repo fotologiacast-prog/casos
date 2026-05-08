@@ -147,6 +147,7 @@ const normalizeCasePayload = (body: any) => ({
   birth_date: toDateString(body.birthDate || body.birth_date || null),
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
+  dentist_responsible: body.dentistResponsible || body.dentist_responsible ? String(body.dentistResponsible || body.dentist_responsible).trim() : null,
   keywords: body.keywords ? String(body.keywords).trim() : null,
   notes: body.notes ? String(body.notes).trim() : null,
 });
@@ -188,6 +189,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
       gender: caseRow.gender,
       procedure: caseRow.procedure,
       procedureDescription: caseRow.procedure_description,
+      dentistResponsible: caseRow.dentist_responsible,
       notes: caseRow.notes,
       mondayItemId: caseRow.monday_item_id,
       driveFolderId: caseRow.drive_folder_id,
@@ -352,7 +354,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           };
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
-          const dentistResponsible = String(client.dentist_responsible || "").trim();
+          const dentistResponsible = String(payload.dentist_responsible || "").trim();
           set("Cliente", clientLabel);
           set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);

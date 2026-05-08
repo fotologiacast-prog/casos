@@ -74,6 +74,11 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
             {patient.age} anos
           </span>
         )}
+        {patient.dentistResponsible && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            DR: {patient.dentistResponsible}
+          </span>
+        )}
         {patient.createdAt && (
           <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500">
             Planej. {formatDate(patient.createdAt)}

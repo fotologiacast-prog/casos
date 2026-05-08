@@ -18,7 +18,6 @@ export type ClientPayload = {
   case_client_label?: string;
   monday_board_id?: string;
   monday_client_label?: string;
-  dentist_responsible?: string | null;
   drive_folder_id?: string;
   portal_password?: string | null;
   active?: boolean;

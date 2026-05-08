@@ -18,7 +18,6 @@ const emptyForm: ClientPayload = {
   case_client_label: '',
   monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   monday_client_label: '',
-  dentist_responsible: '',
   drive_folder_id: '',
   portal_password: '',
   active: true,
@@ -139,8 +138,7 @@ const AdminClients: React.FC = () => {
         return (
           client.name.toLowerCase().includes(query) ||
           (client.case_public_token || '').toLowerCase().includes(query) ||
-          (client.case_client_label || '').toLowerCase().includes(query) ||
-          (client.dentist_responsible || '').toLowerCase().includes(query)
+          (client.case_client_label || '').toLowerCase().includes(query)
         );
       });
   }, [clients, search]);
@@ -186,7 +184,6 @@ const AdminClients: React.FC = () => {
       case_client_label: client.case_client_label || '',
       monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
       monday_client_label: client.monday_client_label || client.case_client_label || client.name,
-      dentist_responsible: client.dentist_responsible || '',
       drive_folder_id: client.drive_folder_id || '',
       portal_password: client.portal_password || '',
       active: client.active !== false,
@@ -482,16 +479,6 @@ const AdminClients: React.FC = () => {
                         placeholder="Nome da clínica no board"
                       />
                     </label>
-                    <label className="block md:col-span-2">
-                      <span className={labelSpanClass}>Dentista responsável</span>
-                      <input
-                        value={form.dentist_responsible || ''}
-                        onChange={event => setForm(prev => ({ ...prev, dentist_responsible: event.target.value }))}
-                        className={inputClass}
-                        placeholder="Nome que deve preencher a coluna Dentista Responsável"
-                      />
-                      <p className="mt-1 text-xs font-medium text-zinc-400">Opcional. Se ficar em branco, o Monday também fica em branco.</p>
-                    </label>
                   </div>
                 </div>
 
@@ -660,11 +647,6 @@ const AdminClients: React.FC = () => {
                             <p className="mt-0.5 text-[10px] text-zinc-400">
                               Drive: {client.drive_folder_id ? <span className="font-mono text-zinc-600">{client.drive_folder_id.slice(0, 20)}...</span> : 'sem pasta'}
                             </p>
-                            {client.dentist_responsible && (
-                              <p className="mt-0.5 text-[10px] text-zinc-400">
-                                DR: <span className="font-semibold text-zinc-600">{client.dentist_responsible}</span>
-                              </p>
-                            )}
                           </div>
                         </div>
                       </div>

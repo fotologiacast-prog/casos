@@ -6,6 +6,7 @@ export interface NewCasePatientPayload {
   birthDate: string;
   gender: string;
   procedure: string;
+  dentistResponsible: string;
   keywords: string;
   notes: string;
 }
@@ -22,6 +23,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     birthDate: '',
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
+    dentistResponsible: '',
     keywords: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +44,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
       await onSubmit({
         ...formData,
         name: formData.name.trim(),
+        dentistResponsible: formData.dentistResponsible.trim(),
         keywords: formData.keywords.trim(),
         notes: '',
       });
@@ -122,6 +125,16 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
                 {CASE_PROCEDURES.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Dentista responsável</label>
+            <input
+              value={formData.dentistResponsible}
+              onChange={set('dentistResponsible')}
+              placeholder="Ex: Dra. Ana Silva"
+              className={inputClass}
+            />
           </div>
 
           {/* Notes */}
