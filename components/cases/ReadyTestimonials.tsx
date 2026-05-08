@@ -99,6 +99,7 @@ const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; optio
 const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const togglePlayback = async () => {
     const video = videoRef.current;
@@ -123,6 +124,19 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
     }
   };
 
+  if (hasError) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900 p-8 text-center text-white">
+        <span className="mb-3 text-3xl">⏳</span>
+        <p className="text-sm font-black uppercase tracking-widest text-zinc-400">Processando no Drive</p>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+          O Google Drive ainda está processando este vídeo. <br />
+          Ele estará disponível automaticamente em instantes.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-full w-full items-center justify-center">
       <video
@@ -135,6 +149,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
         onEnded={() => setIsPlaying(false)}
+        onError={() => setHasError(true)}
       />
       <div className="absolute bottom-3 left-3 flex items-center gap-2">
         <button

@@ -384,13 +384,22 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('cases');
+              setMode('list');
+              setSelectedPatientId(null);
+              setTestimonialSearch('');
+            }}
+            className="flex items-center gap-3 transition-opacity hover:opacity-80 active:scale-95"
+          >
             <img
               src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
               alt="Impact Doctor"
               className="h-8 w-auto"
             />
-          </div>
+          </button>
           <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-1">
             <button
               type="button"

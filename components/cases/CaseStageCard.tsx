@@ -106,6 +106,29 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
+const VideoPlayer = ({ src, className, controls, autoPlay, muted }: any) => {
+  const [hasError, setHasError] = useState(false);
+  if (hasError) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-zinc-900 p-4 text-center text-white ${className}`}>
+        <span className="mb-2 text-xl">⏳</span>
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 leading-tight">Processando no Drive</p>
+        <p className="mt-1 text-[9px] text-zinc-500 leading-tight">Aguarde a finalização do processamento.</p>
+      </div>
+    );
+  }
+  return (
+    <video
+      src={src}
+      className={className}
+      controls={controls}
+      autoPlay={autoPlay}
+      muted={muted}
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder, onFileDeleted }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -320,7 +343,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                           loading="lazy"
                         />
                       ) : isVideoFile(file) && file.public_url !== '#' ? (
-                        <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
+                        <VideoPlayer src={file.public_url} className="h-full w-full object-cover" muted />
                       ) : isAudioFile(file) ? (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
                           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-600 shadow-sm text-xl">♪</span>
@@ -555,7 +578,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   className="max-h-[85vh] max-w-full object-contain"
                 />
               ) : isVideoFile(lightboxFile) ? (
-                <video
+                <VideoPlayer
                   src={lightboxFile.public_url}
                   controls
                   autoPlay
