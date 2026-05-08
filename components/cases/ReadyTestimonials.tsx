@@ -342,7 +342,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             <p className="mt-4 text-sm font-semibold text-zinc-500">Carregando depoimentos...</p>
           </div>
         </div>
-      {!isLoading && filteredTestimonials.length === 0 ? (
+      ) : !isLoading && filteredTestimonials.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 text-zinc-400">
