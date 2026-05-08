@@ -7,7 +7,6 @@ export interface NewCasePatientPayload {
   gender: string;
   procedure: string;
   dentistResponsible: string;
-  keywords: string;
   notes: string;
 }
 
@@ -24,7 +23,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
     dentistResponsible: '',
-    keywords: '',
+    notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +44,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
         ...formData,
         name: formData.name.trim(),
         dentistResponsible: formData.dentistResponsible.trim(),
-        keywords: formData.keywords.trim(),
-        notes: '',
+        notes: formData.notes.trim(),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
@@ -137,14 +135,14 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
             />
           </div>
 
-          {/* Notes */}
           <div>
-            <label className={labelClass}>Palavras-chave</label>
-            <input
-              value={formData.keywords}
-              onChange={set('keywords')}
-              placeholder="Ex: medo de dentista, estética, indicação..."
-              className={inputClass}
+            <label className={labelClass}>Observação</label>
+            <textarea
+              rows={4}
+              value={formData.notes}
+              onChange={set('notes')}
+              placeholder="Observações internas sobre o caso. Vai para o balão do Monday."
+              className={`${inputClass} resize-y`}
             />
           </div>
 

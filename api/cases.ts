@@ -148,7 +148,6 @@ const normalizeCasePayload = (body: any) => ({
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
   dentist_responsible: body.dentistResponsible || body.dentist_responsible ? String(body.dentistResponsible || body.dentist_responsible).trim() : null,
-  keywords: body.keywords ? String(body.keywords).trim() : null,
   notes: body.notes ? String(body.notes).trim() : null,
 });
 
@@ -362,7 +361,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           set(["Idade", "#Idade"], calculateAge(payload.birth_date));
           if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender);
           if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure);
-          if (payload.keywords) set(["Palavras - Chave", "#Palavras - Chave", "Palavras-chave", "#Palavras-chave"], payload.keywords);
           if (dentistResponsible) set(["Dentista Responsável", "#Dentista Responsável", "Dentista Responsavel", "#Dentista Responsavel"], dentistResponsible);
           if (caseDriveFolderId) {
             const driveCol = findCol("Drive do cliente", "#Drive do cliente", "Drive", "Pasta Drive");
@@ -454,6 +452,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;
               console.warn("[Cases API] Item criado no Monday, mas algumas colunas nao atualizaram.", JSON.stringify(columnErrors));
+            }
+
+            if (payload.notes) {
+              const updateResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }`,
+                  variables: {
+                    itemId: String(mondayItemId),
+                    body: payload.notes,
+                  },
+                }),
+              });
+              const updateData = await updateResponse.json().catch(() => ({}));
+              if (!updateResponse.ok || updateData.errors) {
+                mondayResult.updateError = updateData.errors || updateData;
+              }
             }
 
           } else {
