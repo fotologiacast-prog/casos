@@ -38,6 +38,7 @@ const normalizeClientPayload = (body: any) => ({
   case_client_label: body.case_client_label || body.monday_client_label ? String(body.case_client_label || body.monday_client_label).trim() : null,
   monday_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   monday_client_label: body.monday_client_label || body.case_client_label ? String(body.monday_client_label || body.case_client_label).trim() : null,
+  dentist_responsible: body.dentist_responsible ? String(body.dentist_responsible).trim() : null,
   drive_folder_id: body.drive_folder_id ? String(body.drive_folder_id).trim() : null,
   portal_password: body.portal_password ? String(body.portal_password).trim() : null,
   active: body.active !== false,

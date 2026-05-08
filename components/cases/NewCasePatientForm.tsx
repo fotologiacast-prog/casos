@@ -23,7 +23,6 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
     gender: CASE_GENDERS[0],
     procedure: CASE_PROCEDURES[0],
     keywords: '',
-    notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +43,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
         ...formData,
         name: formData.name.trim(),
         keywords: formData.keywords.trim(),
-        notes: formData.notes.trim(),
+        notes: '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar o paciente.');
@@ -133,17 +132,6 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
               onChange={set('keywords')}
               placeholder="Ex: medo de dentista, estética, indicação..."
               className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Objeção principal / observações</label>
-            <textarea
-              rows={3}
-              value={formData.notes}
-              onChange={set('notes')}
-              placeholder="Ex: insegurança com o sorriso, medo do procedimento, pouco tempo..."
-              className={`${inputClass} resize-none`}
             />
           </div>
 
