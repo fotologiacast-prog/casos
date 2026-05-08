@@ -60,7 +60,10 @@ const isImageAsset = (asset: TestimonialAsset) =>
   /[?&](format|fm)=(png|jpe?g|webp|gif|avif)/i.test(asset.public_url);
 
 const isVideoAsset = (asset: TestimonialAsset) =>
-  /\.(mp4|mov|m4v|webm|avi)$/i.test(asset.name);
+  /\.(mp4|m4v|mov|qt|webm|avi|mkv|mpeg|mpg|3gp|3g2|mts|m2ts|ts|wmv|flv|f4v|ogv|mxf|hevc|h265|prores)$/i.test(asset.name);
+
+const isAudioAsset = (asset: TestimonialAsset) =>
+  /\.(mp3|m4a|aac|wav|wave|aiff?|flac|ogg|oga|opus|wma|amr|caf|alac)$/i.test(asset.name);
 
 const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -117,6 +120,19 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   );
 };
 
+const AudioPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => (
+  <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-zinc-950 px-5 text-white">
+    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-3xl">
+      ♪
+    </div>
+    <div className="max-w-full text-center">
+      <p className="break-words text-sm font-bold">{asset.name}</p>
+      <p className="mt-1 text-xs font-medium text-white/50">Arquivo de áudio</p>
+    </div>
+    <audio src={asset.public_url} controls preload="metadata" className="w-full max-w-sm" />
+  </div>
+);
+
 const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   if (isImageAsset(asset)) {
     return (
@@ -131,6 +147,10 @@ const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
 
   if (isVideoAsset(asset)) {
     return <VideoPreview asset={asset} />;
+  }
+
+  if (isAudioAsset(asset)) {
+    return <AudioPreview asset={asset} />;
   }
 
   return (

@@ -11,13 +11,68 @@ interface CaseStageCardProps {
 
 const isImageFile = (file: CaseStage['files'][number]) => {
   if (file.type?.startsWith('image/')) return true;
-  return /\.(png|jpe?g|gif|webp|bmp|tiff?|svg)$/i.test(file.name);
+  return /\.(png|jpe?g|jfif|gif|webp|bmp|tiff?|svg|heic|heif|avif|raw|dng|cr2|nef|arw)$/i.test(file.name);
 };
 
 const isVideoFile = (file: CaseStage['files'][number]) => {
   if (file.type?.startsWith('video/')) return true;
-  return /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+  return /\.(mp4|m4v|mov|qt|webm|avi|mkv|mpeg|mpg|3gp|3g2|mts|m2ts|ts|wmv|flv|f4v|ogv|mxf|hevc|h265|prores)$/i.test(file.name);
 };
+
+const isAudioFile = (file: CaseStage['files'][number]) => {
+  if (file.type?.startsWith('audio/')) return true;
+  return /\.(mp3|m4a|aac|wav|wave|aiff?|flac|ogg|oga|opus|wma|amr|caf|alac)$/i.test(file.name);
+};
+
+const UPLOAD_ACCEPT = [
+  'image/*',
+  'video/*',
+  'audio/*',
+  '.mp4',
+  '.m4v',
+  '.mov',
+  '.qt',
+  '.webm',
+  '.avi',
+  '.mkv',
+  '.mpeg',
+  '.mpg',
+  '.3gp',
+  '.3g2',
+  '.mts',
+  '.m2ts',
+  '.ts',
+  '.wmv',
+  '.flv',
+  '.f4v',
+  '.ogv',
+  '.mxf',
+  '.hevc',
+  '.h265',
+  '.prores',
+  '.mp3',
+  '.m4a',
+  '.aac',
+  '.wav',
+  '.aiff',
+  '.aif',
+  '.flac',
+  '.ogg',
+  '.oga',
+  '.opus',
+  '.wma',
+  '.amr',
+  '.caf',
+  '.alac',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.raw',
+  '.dng',
+  '.cr2',
+  '.nef',
+  '.arw',
+].join(',');
 
 const momentAccent: Record<CaseStageMoment, string> = {
   Planejamento: 'bg-zinc-900',
@@ -194,16 +249,28 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                       />
                     ) : isVideoFile(file) && file.public_url !== '#' ? (
                       <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
+                    ) : isAudioFile(file) ? (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-600 shadow-sm text-xl">
+                          ♪
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Áudio</span>
+                      </div>
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-400">
                         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-500 shadow-sm text-xl">
-                          {isVideoFile(file) ? '▶' : '📎'}
+                          {isVideoFile(file) ? '▶' : isAudioFile(file) ? '♪' : '📎'}
                         </span>
                       </div>
                     )}
                     {isVideoFile(file) && (
                       <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
                         Vídeo
+                      </span>
+                    )}
+                    {isAudioFile(file) && (
+                      <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
+                        Áudio
                       </span>
                     )}
                   </div>
@@ -223,7 +290,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               ref={inputRef}
               type="file"
               multiple
-              accept="image/*,video/*"
+              accept={UPLOAD_ACCEPT}
               onChange={handleInputChange}
               className="hidden"
               disabled={isPlaceholder}
@@ -252,9 +319,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-zinc-700">
-                      {isDragging ? 'Solte os arquivos aqui' : 'Arraste fotos/vídeos ou'}
+                      {isDragging ? 'Solte os arquivos aqui' : 'Arraste fotos, vídeos, áudios ou'}
                     </p>
-                    <p className="mt-0.5 text-xs text-zinc-400">Imagens e vídeos aceitos</p>
+                    <p className="mt-0.5 text-xs text-zinc-400">Imagens, vídeos e áudios em formatos variados</p>
                   </div>
                   <button
                     type="button"
@@ -294,7 +361,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               ref={inputRef}
               type="file"
               multiple
-              accept="image/*,video/*"
+              accept={UPLOAD_ACCEPT}
               onChange={handleInputChange}
               className="hidden"
             />
