@@ -362,8 +362,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 </div>
               ))}
             </div>
-              ))}
-            </div>
           </div>
         )}
 
