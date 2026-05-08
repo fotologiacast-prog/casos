@@ -33,97 +33,91 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
 
   return (
     <article
-      className="group w-full text-left rounded-2xl border border-zinc-200 bg-white shadow-sm hover:shadow-md hover:border-zinc-400 transition-all duration-200 active:scale-[0.98] overflow-hidden"
+      onClick={() => onOpen(patient)}
+      className="group w-full cursor-pointer rounded-2xl border border-zinc-200 bg-white shadow-sm hover:shadow-md hover:border-zinc-400 transition-all duration-200 active:scale-[0.98] overflow-hidden"
     >
-      <button
-        type="button"
-        onClick={() => onOpen(patient)}
-        className="block w-full text-left"
-      >
-        {/* Thumbnail or Fallback */}
-        <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-zinc-100">
-          {thumbnail ? (
-            <img
-              src={thumbnail}
-              alt={patient.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
-          ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-zinc-300">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          <span className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold ${config.className}`}>
-            {config.label}
+      {/* Thumbnail or Fallback */}
+      <div className="relative flex h-36 w-full items-center justify-center overflow-hidden bg-zinc-100">
+        {thumbnail ? (
+          <img
+            src={thumbnail}
+            alt={patient.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-zinc-300">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+          </svg>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <span className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold ${config.className}`}>
+          {config.label}
+        </span>
+      </div>
+
+      {/* Name */}
+      <div className="px-5 pt-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Paciente</p>
+        <h3 className="mt-1 truncate text-lg font-bold leading-tight text-zinc-900">{patient.name}</h3>
+      </div>
+
+      {/* Info row */}
+      <div className="mt-3 flex flex-wrap gap-2 px-5">
+        {patient.procedure && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            {patient.procedure}
           </span>
-        </div>
-
-        {/* Name */}
-        <div className="px-5 pt-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Paciente</p>
-          <h3 className="mt-1 truncate text-lg font-bold leading-tight text-zinc-900">{patient.name}</h3>
-        </div>
-
-        {/* Info row */}
-        <div className="mt-3 flex flex-wrap gap-2 px-5">
-          {patient.procedure && (
-            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
-              {patient.procedure}
-            </span>
-          )}
-          {patient.age && (
-            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
-              {patient.age} anos
-            </span>
-          )}
-          {patient.createdAt && (
-            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500">
-              Planej. {formatDate(patient.createdAt)}
-            </span>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-4 px-5 pb-1">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-500">{progress.captured}/{progress.total} etapas</span>
-            <span className="text-xs font-bold text-zinc-900">{progress.percentage}%</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
-            <div
-              className="h-full rounded-full bg-black transition-all duration-500"
-              style={{ width: `${progress.percentage}%` }}
-            />
-          </div>
-        </div>
-      </button>
-
-        {/* Arrow hint */}
-        <div className="mt-4 flex items-center justify-between gap-3 px-5 pb-5">
-          {hasReadyTestimonials ? (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onOpenTestimonials?.(patient); }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition-colors hover:bg-emerald-100"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-                <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
-              </svg>
-              Material pronto
-            </button>
-          ) : (
-            <span />
-          )}
-          <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-zinc-700 transition-colors flex items-center gap-1">
-            Ver etapas
-            <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
-              <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-            </svg>
+        )}
+        {patient.age && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+            {patient.age} anos
           </span>
+        )}
+        {patient.createdAt && (
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500">
+            Planej. {formatDate(patient.createdAt)}
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-4 px-5 pb-1">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-semibold text-zinc-500">{progress.captured}/{progress.total} etapas</span>
+          <span className="text-xs font-bold text-zinc-900">{progress.percentage}%</span>
         </div>
-      </button>
+        <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
+          <div
+            className="h-full rounded-full bg-black transition-all duration-500"
+            style={{ width: `${progress.percentage}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Arrow hint */}
+      <div className="mt-4 flex items-center justify-between gap-3 px-5 pb-5">
+        {hasReadyTestimonials ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenTestimonials?.(patient); }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-800 transition-colors hover:bg-emerald-100"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+              <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
+            </svg>
+            Material pronto
+          </button>
+        ) : (
+          <span />
+        )}
+        <span className="text-[11px] font-semibold text-zinc-400 group-hover:text-zinc-700 transition-colors flex items-center gap-1">
+          Ver etapas
+          <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+            <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </span>
+      </div>
     </article>
   );
 };
