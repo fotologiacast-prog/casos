@@ -73,13 +73,18 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   });
 
   const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => {
-    if (stage.id.startsWith('missing-')) return; // placeholder — upload disabled in CaseStageCard
+    if (stage.id.startsWith('missing-')) return;
     if (onUploadStageFiles) {
       await onUploadStageFiles(stage, files, onProgress);
     } else {
       await uploadStageFilesToDrive(stage, files, onProgress);
     }
     await onRefreshPatient(patient.id);
+  };
+
+  const handleFileDeleted = (stageId: string, fileId: string) => {
+    // Optimistically remove from UI; parent will refresh on next open
+    void onRefreshPatient(patient.id);
   };
 
   const chips = [
@@ -271,6 +276,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                       index={index}
                       stage={stage}
                       onUpload={handleUpload}
+                      onFileDeleted={handleFileDeleted}
                       isPlaceholder={stage.id.startsWith('missing-')}
                     />
                   );

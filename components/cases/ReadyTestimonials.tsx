@@ -194,6 +194,8 @@ const InfoChip: React.FC<{ label: string; value?: string | number | null }> = ({
 const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName, isDemo, initialSearch = '', onOpenCase }) => {
   const [testimonials, setTestimonials] = useState<ReadyTestimonial[]>([]);
   const [search, setSearch] = useState('');
+  const [filterProcedure, setFilterProcedure] = useState('all');
+  const [filterMedia, setFilterMedia] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,27 +225,56 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     setSearch(initialSearch);
   }, [initialSearch]);
 
+  const procedures = useMemo(() => {
+    const set = new Set<string>();
+    testimonials.forEach(t => { if (t.patientProcedure) set.add(t.patientProcedure); });
+    return Array.from(set).sort();
+  }, [testimonials]);
+
   const filteredTestimonials = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return testimonials;
-    return testimonials.filter(item =>
-      item.patientName.toLowerCase().includes(query) ||
-      (item.mondayItemName || '').toLowerCase().includes(query) ||
-      (item.patientProcedure || '').toLowerCase().includes(query) ||
-      (item.patientGender || '').toLowerCase().includes(query) ||
-      item.title.toLowerCase().includes(query) ||
-      item.assets.some(asset => asset.name.toLowerCase().includes(query))
-    );
-  }, [search, testimonials]);
+    return testimonials.filter(item => {
+      if (query && !(
+        item.patientName.toLowerCase().includes(query) ||
+        (item.mondayItemName || '').toLowerCase().includes(query) ||
+        (item.patientProcedure || '').toLowerCase().includes(query) ||
+        (item.patientGender || '').toLowerCase().includes(query) ||
+        item.title.toLowerCase().includes(query) ||
+        item.assets.some(asset => asset.name.toLowerCase().includes(query))
+      )) return false;
+      if (filterProcedure !== 'all' && item.patientProcedure !== filterProcedure) return false;
+      if (filterMedia !== 'all') {
+        const has = item.assets.some(a =>
+          filterMedia === 'image' ? isImageAsset(a) :
+          filterMedia === 'video' ? isVideoAsset(a) :
+          filterMedia === 'audio' ? isAudioAsset(a) : true
+        );
+        if (!has) return false;
+      }
+      return true;
+    });
+  }, [search, testimonials, filterProcedure, filterMedia]);
 
   const totalAssets = testimonials.reduce((sum, item) => sum + item.assets.length, 0);
+
+  const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
+        active ? 'bg-zinc-900 text-white' : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50'
+      }`}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <section className="animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{clientName}</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">Depoimentos prontos</h1>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">Materiais prontos</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {totalAssets} arquivo{totalAssets === 1 ? '' : 's'} publicado{totalAssets === 1 ? '' : 's'} pelo time
           </p>
@@ -269,6 +300,19 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             </span>
           )}
         </button>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <FilterChip active={filterMedia === 'all'} onClick={() => setFilterMedia('all')}>Todos</FilterChip>
+        <FilterChip active={filterMedia === 'image'} onClick={() => setFilterMedia('image')}>🖼 Imagens</FilterChip>
+        <FilterChip active={filterMedia === 'video'} onClick={() => setFilterMedia('video')}>▶ Vídeos</FilterChip>
+        <FilterChip active={filterMedia === 'audio'} onClick={() => setFilterMedia('audio')}>♪ Áudios</FilterChip>
+        {procedures.length > 0 && <span className="mx-1 text-zinc-200">|</span>}
+        {procedures.map(proc => (
+          <FilterChip key={proc} active={filterProcedure === proc} onClick={() => setFilterProcedure(filterProcedure === proc ? 'all' : proc)}>
+            {proc}
+          </FilterChip>
+        ))}
       </div>
 
       <div className="mt-6">
@@ -298,36 +342,31 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             <p className="mt-4 text-sm font-semibold text-zinc-500">Carregando depoimentos...</p>
           </div>
         </div>
-      ) : filteredTestimonials.length === 0 ? (
+      {!isLoading && filteredTestimonials.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 text-zinc-400">
               <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
             </svg>
           </div>
-          <h2 className="text-lg font-bold text-zinc-900">Nenhum depoimento pronto</h2>
+          <h2 className="text-lg font-bold text-zinc-900">Nenhum material pronto</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            {search.trim() ? 'Tente buscar por outro nome.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
+            {(search.trim() || filterProcedure !== 'all' || filterMedia !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
           </p>
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
           {filteredTestimonials.map(testimonial => (
             <article key={testimonial.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-              <div className="border-b border-zinc-100 px-4 py-4">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Linha no Monday</p>
-                      <h2 className="mt-1 text-base font-black leading-snug text-zinc-950">{testimonial.mondayItemName || testimonial.patientName}</h2>
-                      <p className="mt-1 text-sm font-bold leading-snug text-zinc-700">{testimonial.title}</p>
-                    </div>
-                    {testimonial.status && (
-                      <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                        {testimonial.status}
-                      </span>
-                    )}
-                  </div>
+              {/* Title header */}
+              <div className="border-b border-zinc-100 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Material</p>
+                <h2 className="mt-0.5 text-base font-black leading-snug text-zinc-950">{testimonial.title}</h2>
+              </div>
+
+              {/* Meta info */}
+              <div className="px-4 py-3 border-b border-zinc-100">
+                <div className="flex flex-col gap-2">
                   <div className="flex flex-wrap gap-2">
                     <InfoChip label="Paciente" value={testimonial.patientName} />
                     <InfoChip label="Idade" value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
@@ -335,6 +374,11 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                     <InfoChip label="Procedimento" value={testimonial.patientProcedure} />
                     <InfoChip label="Cadastrado" value={formatCaseDate(testimonial.caseCreatedAt)} />
                   </div>
+                  {testimonial.status && (
+                    <span className="w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                      {testimonial.status}
+                    </span>
+                  )}
                   {onOpenCase && (
                     <button
                       type="button"
@@ -349,27 +393,29 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                   )}
                 </div>
               </div>
+
+              {/* Assets */}
               <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
                 {testimonial.assets.map(asset => (
                   <div
                     key={asset.id}
                     className="group overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 transition-all hover:border-zinc-400"
                   >
-                    <div className="flex h-[430px] max-h-[72vh] items-center justify-center overflow-hidden bg-zinc-100">
+                    <div className="flex h-[380px] max-h-[70vh] items-center justify-center overflow-hidden bg-zinc-100">
                       <AssetPreview asset={asset} />
                     </div>
-                    <div className="flex items-start justify-between gap-3 px-3 py-2.5">
-                      <span className="min-w-0 break-words text-xs font-semibold leading-5 text-zinc-700">{asset.name}</span>
+                    <div className="border-t border-zinc-100 px-3 py-2.5">
+                      <p className="mb-2 truncate text-xs font-semibold text-zinc-700">{asset.name}</p>
                       <a
                         href={getDownloadUrl(token, testimonial, asset, isDemo)}
                         download={asset.name}
-                        className="flex shrink-0 items-center gap-1 rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-700"
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-700"
                       >
-                        Download
                         <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-                          <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5H6.81l8.47 8.47a.75.75 0 1 1-1.06 1.06L5.75 7.31v3.19a.75.75 0 0 1-1.5 0v-5Z" clipRule="evenodd" />
-                          <path fillRule="evenodd" d="M13.5 4.75a.75.75 0 0 1 .75-.75H16a.75.75 0 0 1 .75.75V6.5a.75.75 0 0 1-1.5 0v-.19l-3.47 3.47a.75.75 0 1 1-1.06-1.06l3.47-3.47h-.19a.75.75 0 0 1-.5-.5Z" clipRule="evenodd" />
+                          <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                          <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
                         </svg>
+                        Download
                       </a>
                     </div>
                   </div>

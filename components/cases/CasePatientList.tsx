@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CasePatient } from '../../types';
 import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 import CasePatientCard from './CasePatientCard';
@@ -63,6 +63,25 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   const [procedure, setProcedure] = useState('Todos');
   const [ageRange, setAgeRange] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(12); }, [search, month, status, gender, procedure, ageRange]);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) setVisibleCount(prev => prev + 12);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   const monthOptions = useMemo(() => {
     const months = new Set<string>();
@@ -231,17 +250,32 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
           )}
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredPatients.map(patient => (
-            <CasePatientCard
-              key={patient.id}
-              patient={patient}
-              onOpen={onOpen}
-              readyTestimonialCount={readyTestimonialCounts[patient.id] || 0}
-              onOpenTestimonials={onOpenTestimonials}
-            />
-          ))}
-        </div>
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredPatients.slice(0, visibleCount).map(patient => (
+              <CasePatientCard
+                key={patient.id}
+                patient={patient}
+                onOpen={onOpen}
+                readyTestimonialCount={readyTestimonialCounts[patient.id] || 0}
+                onOpenTestimonials={onOpenTestimonials}
+              />
+            ))}
+          </div>
+          {visibleCount < filteredPatients.length && (
+            <div ref={sentinelRef} className="mt-8 flex items-center justify-center py-6">
+              <div className="flex items-center gap-3 text-sm text-zinc-500">
+                <span className="h-5 w-5 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
+                Carregando mais casos...
+              </div>
+            </div>
+          )}
+          {visibleCount >= filteredPatients.length && filteredPatients.length > 12 && (
+            <p className="mt-6 text-center text-xs font-semibold text-zinc-400">
+              {filteredPatients.length} casos carregados
+            </p>
+          )}
+        </>
       )}
     </div>
   );

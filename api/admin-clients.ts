@@ -37,6 +37,7 @@ const normalizeClientPayload = (body: any) => ({
   monday_board_id: body.monday_board_id || body.case_board_id ? String(body.monday_board_id || body.case_board_id).trim() : "18411843992",
   monday_client_label: body.monday_client_label || body.case_client_label ? String(body.monday_client_label || body.case_client_label).trim() : null,
   drive_folder_id: body.drive_folder_id ? String(body.drive_folder_id).trim() : null,
+  portal_password: body.portal_password ? String(body.portal_password).trim() : null,
   active: body.active !== false,
 });
 

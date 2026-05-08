@@ -19,6 +19,7 @@ type PortalClient = {
   clientName: string;
   displayName: string;
   driveFolderId?: string;
+  portalPassword?: string | null;
   isDemo?: boolean;
 };
 
@@ -65,6 +66,7 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       clientName: client.case_client_label || client.name,
       displayName: client.name,
       driveFolderId: client.drive_folder_id,
+      portalPassword: client.portal_password || null,
     };
   }
 
@@ -91,6 +93,9 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessionPwOk, setSessionPwOk] = useState(false);
+  const [pwInput, setPwInput] = useState('');
+  const [pwError, setPwError] = useState(false);
 
   const selectedPatient = useMemo(
     () => patients.find(patient => patient.id === selectedPatientId) || null,
@@ -144,6 +149,17 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         }
         if (cancelled) return;
         setPortalClient(resolvedClient);
+        // Check portal password
+        if (resolvedClient.portalPassword) {
+          const sessionKey = `portal_pw_ok_${token}`;
+          const already = sessionStorage.getItem(sessionKey);
+          if (already === resolvedClient.portalPassword) {
+            setSessionPwOk(true);
+          }
+          // else: gate will be shown
+        } else {
+          setSessionPwOk(true);
+        }
         await loadPatients(resolvedClient);
         if (!cancelled) void loadReadyTestimonialsSummary(resolvedClient);
       } catch (err) {
@@ -300,19 +316,80 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
 
   const clientInitials = portalClient.displayName.slice(0, 2).toUpperCase();
 
+  // Password gate
+  const needsPassword = portalClient.portalPassword && !sessionPwOk;
+  if (needsPassword) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-6">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 flex justify-center">
+            <img
+              src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
+              alt="Impact Doctor"
+              className="h-10 w-auto"
+            />
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+            <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-white">
+                <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h1 className="mt-4 text-2xl font-bold text-zinc-900">Portal {portalClient.displayName}</h1>
+            <p className="mt-1 text-sm text-zinc-500">Digite a senha para acessar os casos clínicos.</p>
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (pwInput === portalClient.portalPassword) {
+                  sessionStorage.setItem(`portal_pw_ok_${token}`, portalClient.portalPassword!);
+                  setSessionPwOk(true);
+                  setPwError(false);
+                } else {
+                  setPwError(true);
+                  setPwInput('');
+                }
+              }}
+              className="mt-6 space-y-4"
+            >
+              <input
+                type="password"
+                value={pwInput}
+                onChange={e => { setPwInput(e.target.value); setPwError(false); }}
+                placeholder="Senha"
+                autoFocus
+                className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all ${
+                  pwError
+                    ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-200'
+                    : 'border-zinc-200 bg-white focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10'
+                }`}
+              />
+              {pwError && (
+                <p className="text-sm font-medium text-red-600">Senha incorreta. Tente novamente.</p>
+              )}
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-bold text-white transition-all hover:bg-zinc-700 active:scale-95"
+              >
+                Entrar
+              </button>
+            </form>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-zinc-50">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-xs font-bold text-white">
-              {clientInitials}
-            </div>
-            <div>
-              <p className="text-sm font-bold text-zinc-900 leading-tight">{portalClient.displayName}</p>
-              <p className="text-xs text-zinc-500 leading-tight">Portal de casos</p>
-            </div>
+            <img
+              src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
+              alt="Impact Doctor"
+              className="h-8 w-auto"
+            />
           </div>
           <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-1">
             <button
@@ -341,8 +418,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                 <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
               </svg>
-              <span className="hidden sm:inline">Depoimentos Prontos</span>
-              <span className="sm:hidden">Prontos</span>
+              <span className="hidden sm:inline">Materiais Prontos</span>
+              <span className="sm:hidden">Materiais</span>
             </button>
           </div>
         </div>

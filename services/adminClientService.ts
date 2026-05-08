@@ -19,6 +19,7 @@ export type ClientPayload = {
   monday_board_id?: string;
   monday_client_label?: string;
   drive_folder_id?: string;
+  portal_password?: string | null;
   active?: boolean;
 };
 

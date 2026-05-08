@@ -41,6 +41,7 @@ export interface Client {
   monday_client_label?: string;
   drive_folder_id?: string;
   active?: boolean;
+  portal_password?: string | null;
 }
 
 export type CaseGender = 'Feminino' | 'Masculino' | 'Pref. não informar';

@@ -64,7 +64,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
           )}
           {patient.createdAt && (
             <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500">
-              {formatDate(patient.createdAt)}
+              Planej. {formatDate(patient.createdAt)}
             </span>
           )}
         </div>
@@ -95,7 +95,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
               <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
             </svg>
-            Depoimento pronto
+            Material pronto
           </button>
         ) : (
           <span />

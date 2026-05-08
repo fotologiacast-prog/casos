@@ -6,6 +6,7 @@ interface CaseStageCardProps {
   index: number;
   stage: CaseStage;
   onUpload: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
+  onFileDeleted?: (stageId: string, fileId: string) => void;
   isPlaceholder?: boolean;
 }
 
@@ -96,12 +97,14 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
-const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder }) => {
+const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder, onFileDeleted }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxFile, setLightboxFile] = useState<CaseStage['files'][number] | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
@@ -134,6 +137,31 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     if (isPlaceholder) return;
     const files = Array.from(event.dataTransfer.files) as File[];
     await handleFiles(files);
+  };
+
+  const handleDeleteFile = async (file: CaseStage['files'][number]) => {
+    if (!window.confirm(`Remover "${file.name}" permanentemente do Drive e do sistema?`)) return;
+    setDeletingFileId(file.id);
+    try {
+      const response = await fetch('/api/drive-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveFileId: (file as any).drive_file_id || null,
+          caseFileId: file.id,
+          stageId: stage.id,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.details || data.error || 'Falha ao remover arquivo.');
+      }
+      if (onFileDeleted) onFileDeleted(stage.id, file.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao remover arquivo.');
+    } finally {
+      setDeletingFileId(null);
+    }
   };
 
   return (
@@ -232,52 +260,67 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {stage.files.map(file => (
-                <a
+                <div
                   key={file.id}
-                  href={file.public_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 hover:border-zinc-400 hover:shadow-md transition-all duration-200"
+                  className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 hover:border-zinc-400 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="relative aspect-[4/3] bg-zinc-100">
-                    {isImageFile(file) && file.public_url !== '#' ? (
-                      <img
-                        src={file.public_url}
-                        alt={file.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                    ) : isVideoFile(file) && file.public_url !== '#' ? (
-                      <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
-                    ) : isAudioFile(file) ? (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-600 shadow-sm text-xl">
-                          ♪
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Áudio</span>
-                      </div>
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-400">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-500 shadow-sm text-xl">
-                          {isVideoFile(file) ? '▶' : isAudioFile(file) ? '♪' : '📎'}
-                        </span>
-                      </div>
-                    )}
-                    {isVideoFile(file) && (
-                      <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
-                        Vídeo
+                  {/* Clickable thumbnail */}
+                  <button
+                    type="button"
+                    onClick={() => setLightboxFile(file)}
+                    className="block w-full text-left"
+                  >
+                    <div className="relative aspect-[4/3] bg-zinc-100">
+                      {isImageFile(file) && file.public_url !== '#' ? (
+                        <img
+                          src={file.public_url}
+                          alt={file.name}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : isVideoFile(file) && file.public_url !== '#' ? (
+                        <video src={file.public_url} className="h-full w-full object-cover" muted preload="metadata" />
+                      ) : isAudioFile(file) ? (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-600 shadow-sm text-xl">♪</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest">Áudio</span>
+                        </div>
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-zinc-400">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-500 shadow-sm text-xl">📎</span>
+                        </div>
+                      )}
+                      {isVideoFile(file) && (
+                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">Vídeo</span>
+                      )}
+                      {isAudioFile(file) && (
+                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">Áudio</span>
+                      )}
+                      {/* Expand hint */}
+                      <span className="absolute right-2 top-2 hidden group-hover:flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                          <path fillRule="evenodd" d="M3.5 3A.5.5 0 0 0 3 3.5v4a.5.5 0 0 0 1 0V4.707l3.646 3.647a.5.5 0 0 0 .708-.708L4.707 4H7.5a.5.5 0 0 0 0-1h-4ZM16.5 3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.707l-3.646 3.647a.5.5 0 0 1-.708-.708L15.293 4H12.5a.5.5 0 0 1 0-1h4ZM3 12.5a.5.5 0 0 1 1 0v2.793l3.646-3.647a.5.5 0 0 1 .708.708L4.707 16H7.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5v-4ZM17 12.5a.5.5 0 0 0-1 0v2.793l-3.646-3.647a.5.5 0 0 0-.708.708L15.293 16H12.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 .5-.5v-4Z" clipRule="evenodd" />
+                        </svg>
                       </span>
-                    )}
-                    {isAudioFile(file) && (
-                      <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">
-                        Áudio
-                      </span>
-                    )}
-                  </div>
-                  <div className="border-t border-zinc-200 px-3 py-2">
-                    <p className="truncate text-xs font-semibold text-zinc-700">{file.name}</p>
-                  </div>
-                </a>
+                    </div>
+                    <div className="border-t border-zinc-200 px-3 py-2">
+                      <p className="truncate text-xs font-semibold text-zinc-700">{file.name}</p>
+                    </div>
+                  </button>
+                  {/* Remove button */}
+                  {!isPlaceholder && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFile(file)}
+                      disabled={deletingFileId === file.id}
+                      className="w-full border-t border-red-50 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
+                    >
+                      {deletingFileId === file.id ? 'Removendo...' : '✕ Remover'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
               ))}
             </div>
           </div>
@@ -375,6 +418,70 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           </div>
         )}
       </div>
+
+      {/* Lightbox */}
+      {lightboxFile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxFile(null)}
+        >
+          <div
+            className="relative max-h-full max-w-4xl w-full overflow-hidden rounded-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close */}
+            <button
+              type="button"
+              onClick={() => setLightboxFile(null)}
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur hover:bg-black/80 transition-colors"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+              </svg>
+            </button>
+            {/* Filename */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-8">
+              <p className="truncate text-sm font-semibold text-white">{lightboxFile.name}</p>
+              <a
+                href={lightboxFile.public_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white transition-colors"
+              >
+                Abrir original ↗
+              </a>
+            </div>
+            {/* Content */}
+            <div className="flex max-h-[85vh] items-center justify-center bg-zinc-900">
+              {isImageFile(lightboxFile) ? (
+                <img
+                  src={lightboxFile.public_url}
+                  alt={lightboxFile.name}
+                  className="max-h-[85vh] max-w-full object-contain"
+                />
+              ) : isVideoFile(lightboxFile) ? (
+                <video
+                  src={lightboxFile.public_url}
+                  controls
+                  autoPlay
+                  className="max-h-[85vh] max-w-full"
+                />
+              ) : isAudioFile(lightboxFile) ? (
+                <div className="flex flex-col items-center justify-center gap-6 p-12 text-white">
+                  <span className="text-6xl">♪</span>
+                  <p className="text-center text-sm font-semibold">{lightboxFile.name}</p>
+                  <audio src={lightboxFile.public_url} controls autoPlay className="w-full max-w-sm" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 p-12 text-white">
+                  <span className="text-5xl">📎</span>
+                  <p className="text-center text-sm">{lightboxFile.name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
