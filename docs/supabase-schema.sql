@@ -31,6 +31,8 @@ create table if not exists public.clients (
   monday_board_id text,
   monday_client_label text,
 
+  portal_password text,
+
   active boolean not null default true
 );
 
@@ -84,6 +86,7 @@ returns table (
   drive_folder_id text,
   monday_board_id text,
   monday_client_label text,
+  portal_password text,
   active boolean
 )
 language sql
@@ -100,6 +103,7 @@ as $$
     c.drive_folder_id,
     c.monday_board_id,
     c.monday_client_label,
+    c.portal_password,
     c.active
   from public.clients c
   where c.case_public_token = p_token

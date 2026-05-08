@@ -124,9 +124,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: "Metodo nao permitido." });
   } catch (error) {
+    const message = (error as any)?.message || (error as any)?.details || String(error);
     return res.status(500).json({
       error: "Falha na API de clientes.",
-      details: error instanceof Error ? error.message : String(error),
+      details: message,
     });
   }
 }

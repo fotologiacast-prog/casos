@@ -65,6 +65,37 @@ const isVideoAsset = (asset: TestimonialAsset) =>
 const isAudioAsset = (asset: TestimonialAsset) =>
   /\.(mp3|m4a|aac|wav|wave|aiff?|flac|ogg|oga|opus|wma|amr|caf|alac)$/i.test(asset.name);
 
+const ageRanges = [
+  { value: 'all', label: 'Todas idades' },
+  { value: '0-18', label: 'Até 18' },
+  { value: '19-30', label: '19–30' },
+  { value: '31-45', label: '31–45' },
+  { value: '46-60', label: '46–60' },
+  { value: '61+', label: '61+' },
+];
+
+const matchesAgeRange = (age: number | null, range: string) => {
+  if (range === 'all') return true;
+  if (age === null) return false;
+  if (range === '61+') return age >= 61;
+  const [min, max] = range.split('-').map(Number);
+  return age >= min && age <= max;
+};
+
+const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string }> = ({ value, onChange, options, label }) => (
+  <label className="flex flex-col gap-1">
+    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{label}</span>
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-800 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-colors appearance-none pr-8 bg-no-repeat bg-right"
+      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%239CA3AF'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E")`, backgroundSize: '1.25rem', backgroundPosition: 'right 0.5rem center' }}
+    >
+      {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+    </select>
+  </label>
+);
+
 const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -195,7 +226,8 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
   const [testimonials, setTestimonials] = useState<ReadyTestimonial[]>([]);
   const [search, setSearch] = useState('');
   const [filterProcedure, setFilterProcedure] = useState('all');
-  const [filterMedia, setFilterMedia] = useState('all');
+  const [filterGender, setFilterGender] = useState('all');
+  const [filterAge, setFilterAge] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -242,18 +274,14 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         item.title.toLowerCase().includes(query) ||
         item.assets.some(asset => asset.name.toLowerCase().includes(query))
       )) return false;
+      
       if (filterProcedure !== 'all' && item.patientProcedure !== filterProcedure) return false;
-      if (filterMedia !== 'all') {
-        const has = item.assets.some(a =>
-          filterMedia === 'image' ? isImageAsset(a) :
-          filterMedia === 'video' ? isVideoAsset(a) :
-          filterMedia === 'audio' ? isAudioAsset(a) : true
-        );
-        if (!has) return false;
-      }
+      if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
+      if (!matchesAgeRange(item.patientAge, filterAge)) return false;
+      
       return true;
     });
-  }, [search, testimonials, filterProcedure, filterMedia]);
+  }, [search, testimonials, filterProcedure, filterGender, filterAge]);
 
   const totalAssets = testimonials.reduce((sum, item) => sum + item.assets.length, 0);
 
@@ -302,17 +330,34 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         </button>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <FilterChip active={filterMedia === 'all'} onClick={() => setFilterMedia('all')}>Todos</FilterChip>
-        <FilterChip active={filterMedia === 'image'} onClick={() => setFilterMedia('image')}>🖼 Imagens</FilterChip>
-        <FilterChip active={filterMedia === 'video'} onClick={() => setFilterMedia('video')}>▶ Vídeos</FilterChip>
-        <FilterChip active={filterMedia === 'audio'} onClick={() => setFilterMedia('audio')}>♪ Áudios</FilterChip>
-        {procedures.length > 0 && <span className="mx-1 text-zinc-200">|</span>}
-        {procedures.map(proc => (
-          <FilterChip key={proc} active={filterProcedure === proc} onClick={() => setFilterProcedure(filterProcedure === proc ? 'all' : proc)}>
-            {proc}
-          </FilterChip>
-        ))}
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <SelectChip
+            label="Gênero"
+            value={filterGender}
+            onChange={setFilterGender}
+            options={[
+              { value: 'all', label: 'Todos' },
+              { value: 'Feminino', label: 'Feminino' },
+              { value: 'Masculino', label: 'Masculino' },
+              { value: 'Pref. não informar', label: 'Outro' },
+            ]}
+          />
+          <SelectChip
+            label="Idade"
+            value={filterAge}
+            onChange={setFilterAge}
+            options={ageRanges}
+          />
+          <div className="col-span-2 sm:col-span-1 md:col-span-2 lg:col-span-3">
+            <SelectChip
+              label="Procedimento"
+              value={filterProcedure}
+              onChange={setFilterProcedure}
+              options={[{ value: 'all', label: 'Todos' }, ...procedures.map(p => ({ value: p, label: p }))]}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mt-6">
@@ -351,7 +396,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           </div>
           <h2 className="text-lg font-bold text-zinc-900">Nenhum material pronto</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            {(search.trim() || filterProcedure !== 'all' || filterMedia !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
+            {(search.trim() || filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
           </p>
         </div>
       ) : (

@@ -115,8 +115,8 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{clientName}</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">Casos de pacientes</h1>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Casos de pacientes</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">{clientName}</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {patients.length} caso{patients.length === 1 ? '' : 's'} cadastrado{patients.length === 1 ? '' : 's'}
           </p>

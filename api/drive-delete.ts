@@ -21,13 +21,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!caseFileId) return res.status(400).json({ error: "caseFileId é obrigatório." });
 
+    const supabase = await getSupabaseAdmin();
+
+    let actualDriveFileId = driveFileId;
+    if (!actualDriveFileId) {
+      const { data: fileData } = await supabase
+        .from("case_files")
+        .select("drive_file_id")
+        .eq("id", caseFileId)
+        .single();
+      if (fileData?.drive_file_id) {
+        actualDriveFileId = fileData.drive_file_id;
+      }
+    }
+
     // 1. Delete from Google Drive (best-effort, non-blocking)
-    if (driveFileId) {
+    if (actualDriveFileId) {
       try {
         const { getGoogleAccessToken } = await import("./_googleDrive.js");
         const accessToken = await getGoogleAccessToken();
         const driveRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}`,
+          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(actualDriveFileId)}`,
           {
             method: "DELETE",
             headers: { Authorization: `Bearer ${accessToken}` },
@@ -43,7 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Delete from Supabase case_files table
-    const supabase = await getSupabaseAdmin();
     const { error: dbError } = await supabase
       .from("case_files")
       .delete()
