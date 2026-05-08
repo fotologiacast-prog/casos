@@ -344,7 +344,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                         </svg>
                       </span>
                     </div>
-                    </div>
                   </button>
                   {/* Remove button */}
                   {!isPlaceholder && (
