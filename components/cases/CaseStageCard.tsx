@@ -418,8 +418,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             </div>
           </div>
         </div>
-      </div>          </div>
-        )}
+      </div>
 
         {/* Add more files when already captured */}
         {isCaptured && stage.files.length > 0 && !isPlaceholder && (
