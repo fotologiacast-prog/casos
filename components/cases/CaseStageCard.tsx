@@ -287,6 +287,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [lightboxFile, setLightboxFile] = useState<CaseStage['files'][number] | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [faqs, setFaqs] = useState<StageFaq[]>([]);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [faqLoading, setFaqLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -302,29 +304,36 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const stageType = stage.title;
 
   const loadFaqs = async () => {
-    if (faqs.length > 0) return;
+    if (faqs.length > 0) return faqs;
+    setFaqLoading(true);
     try {
       const stageTypes = getCaseStageFaqTypes(stageType).join('|');
       const res = await fetch(`/api/faq?stage_type=${encodeURIComponent(stageTypes)}`);
       if (res.ok) {
         const data = await res.json();
-        setFaqs(data.faqs || []);
+        const loadedFaqs = data.faqs || [];
+        setFaqs(loadedFaqs);
+        return loadedFaqs;
       }
-    } catch {/* silent */}
+    } catch {/* silent */} finally {
+      setFaqLoading(false);
+    }
+    return [];
   };
 
   const handleToggleExpand = async () => {
-    const nextState = !isExpanded;
-    setIsExpanded(nextState);
-    if (nextState && faqs.length === 0) {
-      await loadFaqs();
-    }
+    setIsExpanded(prev => !prev);
+  };
+
+  const handleOpenFaq = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setFaqOpen(true);
+    await loadFaqs();
   };
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
-  const textFaqs = faqs.filter(faq => !faq.image_url);
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0 || isPlaceholder) return;
@@ -416,6 +425,29 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           )}
         </div>
 
+        <button
+          type="button"
+          onClick={handleOpenFaq}
+          className={`hidden shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-colors sm:inline-flex ${capturedTheme.icon}`}
+          title="Ver FAQ da etapa"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8-3.5a1.5 1.5 0 0 0-1.493 1.356.75.75 0 1 1-1.493-.143A3 3 0 1 1 10.75 10.6v.15a.75.75 0 0 1-1.5 0V10a.75.75 0 0 1 .75-.75A1.5 1.5 0 1 0 10 6.5Zm0 8.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+          </svg>
+          FAQ
+        </button>
+
+        <button
+          type="button"
+          onClick={handleOpenFaq}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:hidden ${capturedTheme.icon}`}
+          title="Ver FAQ da etapa"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+            <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8-3.5a1.5 1.5 0 0 0-1.493 1.356.75.75 0 1 1-1.493-.143A3 3 0 1 1 10.75 10.6v.15a.75.75 0 0 1-1.5 0V10a.75.75 0 0 1 .75-.75A1.5 1.5 0 1 0 10 6.5Zm0 8.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+          </svg>
+        </button>
+
         <div className={`h-8 w-8 lg:h-10 lg:w-10 shrink-0 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -504,51 +536,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             </div>
           )}
 
-          {/* FAQ / Requirements Section */}
-          <div className="space-y-6 pt-4 border-t border-zinc-100 lg:grid lg:grid-cols-[1fr_1.1fr] lg:gap-8 lg:space-y-0 lg:pt-6">
-            {/* FAQ */}
-            <div className="space-y-4">
-              <h4 className={`text-sm font-black tracking-tight ${capturedTheme.text}`}>FAQ</h4>
-              <div className="space-y-3">
-                {(textFaqs.length > 0 ? textFaqs : [{ title: 'Mínimo de 4 fotos', id: '1' }, { title: 'Boa iluminação', id: '2' }, { title: 'Foco nítido e enquadramento adequado', id: '3' }]).map(req => (
-                  <div key={req.id} className="flex items-center gap-3">
-                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${capturedTheme.icon}`}>
-                      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-bold text-zinc-500 leading-tight">{req.title}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Exemplos */}
-            <div className="space-y-4">
-              <h4 className={`text-sm font-black tracking-tight ${capturedTheme.text}`}>Exemplos visuais</h4>
-              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
-                {faqs.filter(f => f.image_url).length > 0 ? (
-                  faqs.filter(f => f.image_url).map(example => (
-                    <div key={example.id} className="h-28 w-28 shrink-0 rounded-2xl bg-zinc-100 overflow-hidden border border-zinc-200">
-                      {isExampleVideo(example.image_url!) ? (
-                        <video src={example.image_url!} className="h-full w-full object-cover" />
-                      ) : (
-                        <img src={example.image_url!} className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-[10px] font-bold text-zinc-400 italic">Nenhum exemplo cadastrado.</div>
-                )}
-              </div>
-              {/* Pagination Dots (Visual only) */}
-              <div className="flex justify-center gap-1.5 pt-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-zinc-900" />
-                <div className="h-1.5 w-1.5 rounded-full bg-zinc-200" />
-                <div className="h-1.5 w-1.5 rounded-full bg-zinc-200" />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -573,6 +560,76 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           </div>
         )}
 
+      {/* FAQ Popup */}
+      {faqOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setFaqOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-[1.5rem] bg-white shadow-2xl"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <p className={`text-[10px] font-black uppercase tracking-widest ${capturedTheme.text}`}>FAQ da etapa</p>
+                <h2 className="mt-1 truncate text-base font-black text-zinc-950 sm:text-lg">{stage.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFaqOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200"
+                aria-label="Fechar FAQ"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="max-h-[72vh] overflow-y-auto px-5 py-5 sm:px-6">
+              {faqLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-8 w-8 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin" />
+                </div>
+              ) : faqs.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 p-8 text-center">
+                  <p className="text-sm font-bold text-zinc-500">Nenhum FAQ cadastrado para esta etapa.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {faqs.map(faq => (
+                    <article key={faq.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                      <div className="p-5">
+                        <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500">
+                          {faq.stage_type}
+                        </span>
+                        <h3 className="mt-2 text-base font-black text-zinc-950">{faq.title}</h3>
+                        {faq.content ? (
+                          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-600">{faq.content}</p>
+                        ) : (
+                          <p className="mt-3 text-sm font-semibold text-zinc-400">Sem conteúdo textual cadastrado.</p>
+                        )}
+                      </div>
+                      {faq.image_url && (
+                        <div className="border-t border-zinc-100 bg-zinc-50 p-3">
+                          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+                            {isExampleVideo(faq.image_url) ? (
+                              <video src={faq.image_url} controls className="max-h-[420px] w-full bg-black object-contain" />
+                            ) : (
+                              <img src={faq.image_url} alt={faq.title} className="max-h-[420px] w-full object-contain" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lightboxFile && (
