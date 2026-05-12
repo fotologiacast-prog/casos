@@ -262,17 +262,17 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   return (
     <div
       id={`stage-${stage.id}`}
-      className={`relative rounded-[2rem] transition-all duration-300 overflow-hidden ${
+      className={`relative rounded-[1.55rem] sm:rounded-[2rem] transition-all duration-300 overflow-hidden ${
         isCaptured
-          ? 'bg-white shadow-[0_12px_36px_rgba(16,185,129,0.12)]'
+          ? 'bg-white border-2 border-emerald-300 shadow-[0_14px_40px_rgba(16,185,129,0.16)] ring-1 ring-emerald-100'
           : 'bg-white shadow-sm'
-      } ${isExpanded ? 'ring-2 ring-emerald-500/10' : 'border border-zinc-100 hover:border-zinc-200'}`}
+      } ${isExpanded ? 'ring-2 ring-emerald-500/15' : isCaptured ? 'hover:border-emerald-400' : 'border border-zinc-100 hover:border-zinc-200'}`}
     >
       <div 
-        className="cursor-pointer px-6 py-5 flex items-center gap-4 transition-colors hover:bg-zinc-50/50"
+        className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 flex items-center gap-3.5 sm:gap-4 transition-colors hover:bg-zinc-50/50"
         onClick={handleToggleExpand}
       >
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg transition-all ${
+        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl text-lg transition-all ${
           isCaptured ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-400'
         }`}>
           {isCaptured ? (
@@ -287,7 +287,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
+          <h3 className="text-[0.95rem] sm:text-base font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
           {isCaptured ? (
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mt-0.5">Capturado · {stage.files.length} arquivos</p>
           ) : (
@@ -295,7 +295,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           )}
         </div>
 
-        <div className={`h-8 w-8 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+        <div className={`h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
           </svg>
@@ -303,32 +303,32 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       </div>
 
       <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-6 pb-8 space-y-8">
+        <div className="px-5 pb-6 space-y-6 sm:px-6 sm:pb-8 sm:space-y-8">
           {/* Upload Area */}
           {!isCaptured ? (
             <div 
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
-              className={`group relative rounded-3xl border-2 border-dashed p-10 text-center transition-all ${
+              className={`group relative rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all sm:rounded-3xl sm:p-10 ${
                 isDragging ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-100 bg-zinc-50/50 hover:border-zinc-300 hover:bg-zinc-50'
               }`}
             >
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8">
+              <div className="flex flex-col items-center gap-3 sm:gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50 sm:h-16 sm:w-16">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 sm:h-8 sm:w-8">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-base font-black text-zinc-900 tracking-tight">Arraste fotos, vídeos, áudios ou</p>
+                  <p className="text-sm font-black text-zinc-900 tracking-tight sm:text-base">Arraste fotos, vídeos, áudios ou</p>
                   <p className="mt-1 text-xs font-bold text-zinc-400">Toque para buscar na galeria ou câmera</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={isUploading}
-                  className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#34C759] px-8 py-3 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
+                  className="mt-1 inline-flex items-center justify-center rounded-2xl bg-[#34C759] px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50 sm:mt-2 sm:px-8 sm:py-3 sm:text-sm"
                 >
                   {isUploading ? (
                     <span className="flex items-center gap-2">
