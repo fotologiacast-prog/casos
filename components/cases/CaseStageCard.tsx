@@ -294,17 +294,17 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   return (
     <div
       id={`stage-${stage.id}`}
-      className={`relative rounded-[1.55rem] sm:rounded-[2rem] transition-all duration-300 overflow-hidden ${
+      className={`relative rounded-[1.55rem] sm:rounded-[2rem] lg:rounded-[2.4rem] transition-all duration-300 overflow-hidden ${
         isCaptured
           ? `bg-white border-2 ${capturedTheme.border} ${capturedTheme.shadow} ring-1 ${capturedTheme.ring}`
-          : 'bg-white shadow-sm'
+          : 'bg-white shadow-sm lg:border lg:border-zinc-200 lg:shadow-[0_10px_32px_rgba(24,24,27,0.05)]'
       } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'border border-zinc-100 hover:border-zinc-200'}`}
     >
       <div 
-        className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 flex items-center gap-3.5 sm:gap-4 transition-colors hover:bg-zinc-50/50"
+        className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 flex items-center gap-3.5 sm:gap-4 lg:gap-5 transition-colors hover:bg-zinc-50/50"
         onClick={handleToggleExpand}
       >
-        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl text-lg transition-all ${
+        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-2xl lg:rounded-[1.25rem] text-lg transition-all ${
           isCaptured ? capturedTheme.icon : 'bg-zinc-100 text-zinc-400'
         }`}>
           {isCaptured ? (
@@ -319,15 +319,15 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-[0.95rem] sm:text-base font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
+          <h3 className="text-[0.95rem] sm:text-base lg:text-lg font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
           {isCaptured ? (
-            <p className={`text-[10px] font-black uppercase tracking-widest ${capturedTheme.text} mt-0.5`}>Capturado · {stage.files.length} arquivos</p>
+            <p className={`text-[10px] lg:text-[11px] font-black uppercase tracking-widest ${capturedTheme.text} mt-0.5`}>Capturado · {stage.files.length} arquivos</p>
           ) : (
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-0.5">Pendente de envio</p>
+            <p className="text-[10px] lg:text-[11px] font-black uppercase tracking-widest text-zinc-400 mt-0.5">Pendente de envio</p>
           )}
         </div>
 
-        <div className={`h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+        <div className={`h-8 w-8 lg:h-10 lg:w-10 shrink-0 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
           </svg>
@@ -335,14 +335,14 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       </div>
 
       <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-5 pb-6 space-y-6 sm:px-6 sm:pb-8 sm:space-y-8">
+        <div className="px-5 pb-6 space-y-6 sm:px-6 sm:pb-8 sm:space-y-8 lg:px-8 lg:pb-9">
           {/* Upload Area */}
           {!isCaptured ? (
             <div 
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
-              className={`group relative rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all sm:rounded-3xl sm:p-10 ${
+              className={`group relative rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all sm:rounded-3xl sm:p-10 lg:rounded-[2rem] lg:p-12 ${
                 isDragging ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-100 bg-zinc-50/50 hover:border-zinc-300 hover:bg-zinc-50'
               }`}
             >
@@ -385,9 +385,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   + Adicionar mais
                 </button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
                 {stage.files.map(file => (
-                  <div key={file.id} className="group relative aspect-square rounded-2xl bg-zinc-100 overflow-hidden border border-zinc-100">
+                  <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
                     {isImageFile(file) ? (
                       <img src={file.public_url} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
                     ) : (
@@ -407,7 +407,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           )}
 
           {/* FAQ / Requirements Section */}
-          <div className="space-y-6 pt-4 border-t border-zinc-100">
+          <div className="space-y-6 pt-4 border-t border-zinc-100 lg:grid lg:grid-cols-[1fr_1.1fr] lg:gap-8 lg:space-y-0 lg:pt-6">
             {/* FAQ */}
             <div className="space-y-4">
               <h4 className={`text-sm font-black tracking-tight ${capturedTheme.text}`}>FAQ</h4>
