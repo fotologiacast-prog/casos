@@ -440,7 +440,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             <p className="text-sm font-medium text-red-700">{error}</p>
           </div>
         )}
-      </div>
+
 
       {/* Lightbox */}
       {lightboxFile && (
