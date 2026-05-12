@@ -53,25 +53,36 @@ const getDriveThumbnailUrl = (url: string) => {
   }
 };
 
+const THUMBNAIL_PRIORITY_STAGES = [
+  '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',
+  '11. (ESTUDIO) Retratos do depois (posados)',
+  '19. Foto com o Doutor (O Brinde da Vitoria)',
+  '13. (ESTUDIO) Fotos em close artisticas do sorriso',
+  '12. (ESTUDIO) - Fotos em close do sorriso',
+  '09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)',
+  '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
+  '01. (CADEIRA) Fotos intraorais do antes (4 fotos)',
+];
+
+const isTechnicalStageForThumbnail = (title: string) =>
+  /(tomografia|rx|3d|computador|procedimento|detalhes|proteses|pr[oó]teses|laborat[oó]rio|escaneamento)/i.test(title);
+
+const pickStageImage = (stage: CasePatient['stages'][number]) =>
+  stage.files.find(f => isImageUrl(f.name, f.public_url));
+
 /** Returns the thumbnail URL for a patient card:
- *  1st image from stage 11 (Entrega retratos), else 1st image from stage 3 (Planejamento extraorais).
+ * Prefer patient/smile photos and avoid technical images such as RX, tomography and 3D files.
  */
 export const getCaseThumbnail = (patient: CasePatient): string | null => {
-  const PRIORITY_STAGES = [
-    '11. (ESTUDIO) Retratos do depois (posados)',
-    '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
-  ];
-
-  for (const stageTitle of PRIORITY_STAGES) {
+  for (const stageTitle of THUMBNAIL_PRIORITY_STAGES) {
     const stage = patient.stages.find(s => s.title === stageTitle);
     if (!stage) continue;
-    const imageFile = stage.files.find(f => isImageUrl(f.name, f.public_url));
+    const imageFile = pickStageImage(stage);
     if (imageFile) return getDriveThumbnailUrl(imageFile.public_url);
   }
 
-  // Broader fallback: any image from any Entrega or Planejamento stage
-  for (const stage of patient.stages) {
-    const file = stage.files.find(f => isImageUrl(f.name, f.public_url));
+  for (const stage of patient.stages.filter(stage => !isTechnicalStageForThumbnail(stage.title))) {
+    const file = pickStageImage(stage);
     if (file) return getDriveThumbnailUrl(file.public_url);
   }
 
