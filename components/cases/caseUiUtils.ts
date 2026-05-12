@@ -1,6 +1,11 @@
 import { CasePatient } from '../../types';
 import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 
+export type CaseThumbnail = {
+  src: string;
+  fallbackSrc?: string;
+};
+
 export const getCapturedCount = (patient: CasePatient) =>
   patient.stages.filter(stage => stage.status === 'Capturado' || stage.files.length > 0).length;
 
@@ -43,13 +48,18 @@ const isImageUrl = (name: string, url: string) =>
   /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)$/i.test(name) ||
   /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)(\?|$)/i.test(url);
 
-const getDriveThumbnailUrl = (url: string) => {
+const getThumbnailCandidate = (url: string): CaseThumbnail => {
   try {
     const parsed = new URL(url, window.location.origin);
     const fileId = parsed.pathname === '/api/drive-file' ? parsed.searchParams.get('fileId') : null;
-    return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1` : url;
+    return fileId
+      ? {
+          src: `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1`,
+          fallbackSrc: url,
+        }
+      : { src: url };
   } catch {
-    return url;
+    return { src: url };
   }
 };
 
@@ -73,17 +83,17 @@ const pickStageImage = (stage: CasePatient['stages'][number]) =>
 /** Returns the thumbnail URL for a patient card:
  * Prefer patient/smile photos and avoid technical images such as RX, tomography and 3D files.
  */
-export const getCaseThumbnail = (patient: CasePatient): string | null => {
+export const getCaseThumbnail = (patient: CasePatient): CaseThumbnail | null => {
   for (const stageTitle of THUMBNAIL_PRIORITY_STAGES) {
     const stage = patient.stages.find(s => s.title === stageTitle);
     if (!stage) continue;
     const imageFile = pickStageImage(stage);
-    if (imageFile) return getDriveThumbnailUrl(imageFile.public_url);
+    if (imageFile) return getThumbnailCandidate(imageFile.public_url);
   }
 
   for (const stage of patient.stages.filter(stage => !isTechnicalStageForThumbnail(stage.title))) {
     const file = pickStageImage(stage);
-    if (file) return getDriveThumbnailUrl(file.public_url);
+    if (file) return getThumbnailCandidate(file.public_url);
   }
 
   return null;

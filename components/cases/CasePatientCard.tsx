@@ -1,6 +1,6 @@
 import React from 'react';
 import { CasePatient } from '../../types';
-import { formatDate, getCaseThumbnail, getPatientProgress, getPatientStatus } from './caseUiUtils';
+import { CaseThumbnail, formatDate, getCaseThumbnail, getPatientProgress, getPatientStatus } from './caseUiUtils';
 
 interface CasePatientCardProps {
   patient: CasePatient;
@@ -24,14 +24,16 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
-const PatientThumbnail: React.FC<{ src: string | null; name: string }> = ({ src, name }) => {
+const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string }> = ({ thumbnail, name }) => {
   const [failed, setFailed] = React.useState(false);
+  const [currentSrc, setCurrentSrc] = React.useState(thumbnail?.src || null);
 
   React.useEffect(() => {
     setFailed(false);
-  }, [src]);
+    setCurrentSrc(thumbnail?.src || null);
+  }, [thumbnail]);
 
-  if (!src || failed) {
+  if (!currentSrc || failed) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-zinc-300">
@@ -43,11 +45,17 @@ const PatientThumbnail: React.FC<{ src: string | null; name: string }> = ({ src,
 
   return (
     <img
-      src={src}
+      src={currentSrc}
       alt={name}
       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (thumbnail?.fallbackSrc && currentSrc !== thumbnail.fallbackSrc) {
+          setCurrentSrc(thumbnail.fallbackSrc);
+          return;
+        }
+        setFailed(true);
+      }}
     />
   );
 };
@@ -66,7 +74,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
     >
       {/* Thumbnail or Fallback */}
       <div className="relative m-2 flex h-40 w-[calc(100%-1rem)] items-center justify-center overflow-hidden rounded-[1.25rem] bg-zinc-100 sm:h-44">
-        <PatientThumbnail src={thumbnail} name={patient.name} />
+        <PatientThumbnail thumbnail={thumbnail} name={patient.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         <span className={`absolute right-3 top-3 inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold ${config.className}`}>
           {config.label}
