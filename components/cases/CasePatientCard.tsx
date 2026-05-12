@@ -24,6 +24,34 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
+const PatientThumbnail: React.FC<{ src: string | null; name: string }> = ({ src, name }) => {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-zinc-300">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.226-.584-7.499-1.632Z" clipRule="evenodd" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
 const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0 }) => {
   const progress = getPatientProgress(patient);
   const status = getPatientStatus(patient);
@@ -38,18 +66,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
     >
       {/* Thumbnail or Fallback */}
       <div className="relative m-2 flex h-40 w-[calc(100%-1rem)] items-center justify-center overflow-hidden rounded-[1.25rem] bg-zinc-100 sm:h-44">
-        {thumbnail ? (
-          <img
-            src={thumbnail}
-            alt={patient.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-slate-300">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.226-.584-7.499-1.632Z" clipRule="evenodd" />
-          </svg>
-        )}
+        <PatientThumbnail src={thumbnail} name={patient.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         <span className={`absolute right-3 top-3 inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold ${config.className}`}>
           {config.label}
