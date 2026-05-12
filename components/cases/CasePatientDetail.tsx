@@ -56,6 +56,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [deleteConfirm, setDeleteConfirm] = React.useState('');
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState<'all' | 'captured' | 'todo'>('all');
 
   const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
     return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
@@ -239,10 +240,67 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
       )}
 
+      {/* Filter and Summary */}
+      <div className="mt-8 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm">
+            {[
+              { id: 'all', label: 'Todas' },
+              { id: 'todo', label: 'Pendentes' },
+              { id: 'captured', label: 'Capturadas' },
+            ].map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id as any)}
+                className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all ${
+                  filter === item.id
+                    ? 'bg-zinc-900 text-white shadow-md'
+                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filter !== 'captured' && progress.captured < progress.total && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
+            <h3 className="text-xs font-black uppercase tracking-widest text-amber-700">Faltam {progress.total - progress.captured} etapas:</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {orderedStages
+                .filter(s => s.status === 'Fazer')
+                .map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(`stage-${s.id}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-[10px] font-bold text-amber-800 shadow-sm transition-all hover:bg-amber-100 active:scale-95"
+                  >
+                    {s.title}
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Stages */}
       <div className="mt-8 space-y-10">
         {CASE_STAGE_MOMENTS.map(moment => {
-          const stages = orderedStages.filter(stage => stage.moment === moment);
+          const stages = orderedStages
+            .filter(stage => stage.moment === moment)
+            .filter(stage => {
+              if (filter === 'captured') return stage.status === 'Capturado';
+              if (filter === 'todo') return stage.status === 'Fazer';
+              return true;
+            });
+
+          if (stages.length === 0) return null;
           const visual = momentVisuals[moment] || momentVisuals.Planejamento;
 
           return (

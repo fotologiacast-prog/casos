@@ -262,6 +262,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
   return (
     <div
+      id={`stage-${stage.id}`}
       className={`relative rounded-2xl transition-all duration-200 overflow-hidden ${
         isCaptured
           ? 'border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-white shadow-[0_18px_42px_rgba(16,185,129,0.22)] ring-4 ring-emerald-100'
