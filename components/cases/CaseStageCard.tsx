@@ -57,11 +57,6 @@ const getDriveThumbnailUrl = (file: CaseStage['files'][number]) => {
   return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1` : null;
 };
 
-const getDriveDownloadUrl = (file: CaseStage['files'][number]) => {
-  const fileId = getDriveFileIdFromUrl(file.public_url);
-  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}` : file.public_url;
-};
-
 const UPLOAD_ACCEPT = [
   'image/*',
   'video/*',
@@ -200,15 +195,10 @@ const MediaFallback = ({ file, label }: { file: CaseStage['files'][number]; labe
     <div>
       <p className="text-xs font-black uppercase tracking-widest text-zinc-300">{label}</p>
       <p className="mt-1 max-w-xs break-words text-xs font-semibold text-zinc-500">{file.name}</p>
+      <p className="mt-2 text-[10px] font-semibold leading-relaxed text-zinc-500">
+        Arquivo recebido no Drive, mas sem prévia compatível no navegador.
+      </p>
     </div>
-    <a
-      href={getDriveDownloadUrl(file)}
-      target="_blank"
-      rel="noreferrer"
-      className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition-colors hover:bg-zinc-200"
-    >
-      Abrir arquivo
-    </a>
   </div>
 );
 
@@ -607,14 +597,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             {/* Filename */}
             <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-8">
               <p className="truncate text-sm font-semibold text-white">{lightboxFile.name}</p>
-              <a
-                href={getDriveDownloadUrl(lightboxFile)}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white transition-colors"
-              >
-                Abrir original
-              </a>
             </div>
             {/* Content */}
             <div className="flex max-h-[85vh] items-center justify-center bg-zinc-900">
