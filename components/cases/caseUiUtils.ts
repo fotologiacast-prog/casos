@@ -48,6 +48,13 @@ const isImageUrl = (name: string, url: string) =>
   /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)$/i.test(name) ||
   /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)(\?|$)/i.test(url);
 
+type StageFile = CasePatient['stages'][number]['files'][number];
+
+const isImageFile = (file: StageFile) => {
+  if (file.type?.startsWith('image/')) return true;
+  return isImageUrl(file.name, file.public_url);
+};
+
 const getThumbnailCandidate = (url: string): CaseThumbnail => {
   try {
     const parsed = new URL(url, window.location.origin);
@@ -78,7 +85,7 @@ const isTechnicalStageForThumbnail = (title: string) =>
   /(tomografia|rx|3d|computador|procedimento|detalhes|proteses|pr[oó]teses|laborat[oó]rio|escaneamento)/i.test(title);
 
 const pickStageImage = (stage: CasePatient['stages'][number]) =>
-  stage.files.find(f => isImageUrl(f.name, f.public_url));
+  stage.files.find(isImageFile);
 
 /** Returns the thumbnail URL for a patient card:
  * Prefer patient/smile photos and avoid technical images such as RX, tomography and 3D files.
@@ -92,6 +99,11 @@ export const getCaseThumbnail = (patient: CasePatient): CaseThumbnail | null => 
   }
 
   for (const stage of patient.stages.filter(stage => !isTechnicalStageForThumbnail(stage.title))) {
+    const file = pickStageImage(stage);
+    if (file) return getThumbnailCandidate(file.public_url);
+  }
+
+  for (const stage of patient.stages) {
     const file = pickStageImage(stage);
     if (file) return getThumbnailCandidate(file.public_url);
   }
