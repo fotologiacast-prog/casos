@@ -433,8 +433,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
 
             const columnErrors: { column: string; error: string }[] = [];
-            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: JSON!) {
-              change_column_value(board_id: $boardId, item_id: $itemId, column_id: $columnId, value: $value) { id }
+            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+              change_multiple_column_values(
+                board_id: $boardId,
+                item_id: $itemId,
+                column_values: $columnValues,
+                create_labels_if_missing: true
+              ) { id }
             }`;
 
             for (const update of columnUpdates) {
@@ -450,8 +455,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   variables: {
                     boardId: String(mondayBoardId),
                     itemId: String(mondayItemId),
-                    columnId: update.id,
-                    value: JSON.stringify(update.value),
+                    columnValues: JSON.stringify({ [update.id]: update.value }),
                   },
                 }),
               });
