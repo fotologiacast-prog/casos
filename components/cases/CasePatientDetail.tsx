@@ -229,29 +229,6 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
       )}
 
-        {filter !== 'captured' && progress.captured < progress.total && (
-          <div className="rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Pendentes ({progress.total - progress.captured})</h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {orderedStages
-                .filter(s => s.status === 'Fazer')
-                .map(s => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById(`stage-${s.id}`);
-                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }}
-                    className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-zinc-600 shadow-sm transition-all hover:border-zinc-400 active:scale-95"
-                  >
-                    {s.title}
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
-
         {/* Stages */}
         <div className="space-y-12">
           {CASE_STAGE_MOMENTS.map((moment, mIdx) => {
