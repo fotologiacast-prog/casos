@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design System - Modern & Rounded */
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+
+  h1 {
+    @apply text-4xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-xl font-bold;
+  }
+}
+
+@layer components {
+  /* Cards - Rounded & Elevated */
+  .card {
+    @apply rounded-3xl border border-slate-200 bg-white shadow-soft hover:shadow-medium transition-all duration-200;
+  }
+
+  .card-elevated {
+    @apply rounded-3xl bg-white shadow-medium border border-slate-100;
+  }
+
+  .card-compact {
+    @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-soft;
+  }
+
+  /* Buttons - Harmonious Design */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-teal-500 px-6 py-3 text-white hover:bg-teal-600 active:bg-teal-700;
+  }
+
+  .btn-primary-lg {
+    @apply btn-primary px-8 py-4 text-base;
+  }
+
+  .btn-secondary {
+    @apply btn border border-slate-300 bg-white px-6 py-3 text-slate-900 hover:bg-slate-50;
+  }
+
+  .btn-ghost {
+    @apply btn px-4 py-2 text-slate-600 hover:bg-slate-100;
+  }
+
+  .btn-sm {
+    @apply btn rounded-xl px-3 py-2 text-xs font-bold;
+  }
+
+  /* Input Fields - Clean & Rounded */
+  .input-field {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 transition-all duration-200 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20;
+  }
+
+  .input-field:disabled {
+    @apply bg-slate-50 text-slate-400;
+  }
+
+  /* Select Fields */
+  .select-field {
+    @apply input-field appearance-none cursor-pointer bg-right bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+  }
+
+  /* Badges - Colorful & Rounded */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold;
+  }
+
+  .badge-primary {
+    @apply badge bg-teal-100 text-teal-700;
+  }
+
+  .badge-success {
+    @apply badge bg-green-100 text-green-700;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+
+  .badge-error {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  /* Progress Bar - Smooth */
+  .progress-bar {
+    @apply h-2 overflow-hidden rounded-full bg-slate-200;
+  }
+
+  .progress-fill {
+    @apply h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500;
+  }
+
+  /* Divider - Clean separation */
+  .divider {
+    @apply border-t border-slate-200;
+  }
+
+  /* Section - Spacing & Typography */
+  .section-title {
+    @apply text-2xl font-bold text-slate-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-600;
+  }
+
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-widest text-slate-400;
+  }
+
+  /* Grid layouts - Harmonious spacing */
+  .grid-responsive {
+    @apply grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  /* Empty state - Friendly design */
+  .empty-state {
+    @apply rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center;
+  }
+
+  .empty-state-icon {
+    @apply mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100;
+  }
+
+  /* Container - Max width with padding */
+  .container-fluid {
+    @apply mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8;
+  }
+
+  /* Transitions - Smooth animations */
+  .transition-smooth {
+    @apply transition-all duration-200 ease-out;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
