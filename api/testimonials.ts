@@ -139,11 +139,25 @@ const calculateAge = (birthDate: string | null) => {
 const normalizeAssets = (assets: MondayAsset[] = []) =>
   assets
     .filter(asset => asset?.id && asset?.name && asset?.public_url)
-    .map(asset => ({
-      id: String(asset.id),
-      name: String(asset.name),
-      public_url: String(asset.public_url),
-    }));
+    .map(asset => {
+      const url = String(asset.public_url);
+      const isDrive = url.includes("drive.google.com") || url.includes("googleapis.com/drive");
+      const isVideo = asset.name.toLowerCase().match(/\.(mp4|mov|webm|m4v)$/);
+      
+      let public_url = url;
+      if (isDrive && isVideo) {
+        const driveId = url.match(/[-\w]{25,}/)?.[0];
+        if (driveId) {
+          public_url = `/api/drive-file?fileId=${encodeURIComponent(driveId)}`;
+        }
+      }
+
+      return {
+        id: String(asset.id),
+        name: String(asset.name),
+        public_url,
+      };
+    });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");

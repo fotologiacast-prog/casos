@@ -180,7 +180,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
           .map(file => ({
             id: file.id,
             name: file.file_name,
-            public_url: file.mime_type?.startsWith("image/")
+            public_url: (file.mime_type?.startsWith("image/") || file.mime_type?.startsWith("video/"))
               ? `/api/drive-file?fileId=${encodeURIComponent(file.drive_file_id)}`
               : file.web_view_link || "#",
             type: file.mime_type || undefined,

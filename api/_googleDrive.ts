@@ -178,17 +178,23 @@ export const startDriveResumableUpload = async (input: {
 export const getDriveFile = async (accessToken: string, fileId: string) =>
   driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink&supportsAllDrives=true`);
 
-export const getDriveMediaResponse = async (accessToken: string, fileId: string) => {
+export const getDriveMediaResponse = async (accessToken: string, fileId: string, range?: string) => {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  if (range) {
+    headers.Range = range;
+  }
+
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
     {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers,
     }
   );
 
-  if (!response.ok) {
+  if (!response.ok && response.status !== 206) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.error?.message || "Falha ao buscar arquivo no Google Drive.");
   }

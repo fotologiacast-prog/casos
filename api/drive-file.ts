@@ -14,18 +14,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { getDriveMediaResponse, getGoogleAccessToken } = await import("./_googleDrive.js");
     const accessToken = await getGoogleAccessToken();
-    const driveResponse = await getDriveMediaResponse(accessToken, fileId);
-    const contentType = driveResponse.headers.get("content-type") || "application/octet-stream";
-    const contentLength = driveResponse.headers.get("content-length");
-    const bytes = Buffer.from(await driveResponse.arrayBuffer());
+    const driveResponse = await getDriveMediaResponse(accessToken, fileId, req.headers.range);
 
+    const contentType = driveResponse.headers.get("content-type") || "application/octet-stream";
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "private, max-age=300");
-    if (contentLength) res.setHeader("Content-Length", contentLength);
-    return res.status(200).send(bytes);
+    res.setHeader("Cache-Control", "private, max-age=3600");
+
+    if (driveResponse.headers.has("content-range")) {
+      res.setHeader("Content-Range", driveResponse.headers.get("content-range")!);
+    }
+    if (driveResponse.headers.has("accept-ranges")) {
+      res.setHeader("Accept-Ranges", driveResponse.headers.get("accept-ranges")!);
+    }
+    if (driveResponse.headers.has("content-length")) {
+      res.setHeader("Content-Length", driveResponse.headers.get("content-length")!);
+    }
+
+    res.status(driveResponse.status);
+
+    if (!driveResponse.body) return res.end();
+
+    const reader = driveResponse.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    return res.end();
   } catch (error) {
+    console.error("[Drive Proxy Error]", error);
     return res.status(500).json({
-      error: "Falha ao carregar preview do Drive.",
+      error: "Falha ao carregar arquivo do Drive.",
       details: error instanceof Error ? error.message : String(error),
     });
   }
