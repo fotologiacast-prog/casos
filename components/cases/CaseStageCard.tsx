@@ -262,14 +262,17 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
   return (
     <div
-      className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+      className={`relative rounded-2xl transition-all duration-200 overflow-hidden ${
         isCaptured
-          ? 'border-emerald-400 bg-emerald-50/20 shadow-sm ring-2 ring-emerald-100'
-          : 'border-zinc-200 bg-white'
+          ? 'border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-white shadow-[0_18px_42px_rgba(16,185,129,0.22)] ring-4 ring-emerald-100'
+          : 'border border-zinc-200 bg-white'
       }`}
     >
       {/* Moment accent strip */}
-      <div className={`h-1.5 w-full ${isCaptured ? 'bg-emerald-500' : accentClass} opacity-80`} />
+      <div className={`h-2 w-full ${isCaptured ? 'bg-emerald-500' : accentClass} opacity-90`} />
+      {isCaptured && (
+        <div className="pointer-events-none absolute left-0 top-2 bottom-0 w-1.5 bg-emerald-500" />
+      )}
 
       <div className="p-5">
         {/* Header row */}
@@ -297,7 +300,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 </span>
               )}
               {isCaptured && !isPlaceholder && (
-                <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-bold text-white">
+                <span className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-sm ring-2 ring-emerald-200">
                   Capturado
                 </span>
               )}
@@ -361,10 +364,10 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
         {/* Uploaded files */}
         {stage.files.length > 0 && (
-          <div className="mt-5 border-t border-zinc-100 pt-4">
+          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                Arquivos capturados <span className="ml-1 rounded-full bg-zinc-900 px-1.5 py-0.5 text-white text-[10px]">{stage.files.length}</span>
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-800">
+                Arquivos capturados <span className="ml-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-white text-[10px]">{stage.files.length}</span>
               </p>
               {!isPlaceholder && (
                 <button
