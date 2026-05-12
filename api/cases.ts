@@ -160,6 +160,13 @@ const normalizeCasePayload = (body: any) => ({
   notes: body.notes ? String(body.notes).trim() : null,
 });
 
+const isDrivePreviewableMedia = (fileName?: string | null, mimeType?: string | null) => {
+  const type = String(mimeType || "").toLowerCase();
+  if (/^(image|video|audio)\//.test(type)) return true;
+
+  return /\.(png|jpe?g|jfif|gif|webp|bmp|tiff?|svg|heic|heif|avif|raw|dng|cr2|nef|arw|mp4|m4v|mov|qt|webm|avi|mkv|mpeg|mpg|3gp|3g2|mts|m2ts|ts|wmv|flv|f4v|ogv|mxf|hevc|h265|prores|mp3|m4a|aac|wav|wave|aiff?|flac|ogg|oga|opus|wma|amr|caf|alac)$/i.test(String(fileName || ""));
+};
+
 const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = []) =>
   caseRows.map(caseRow => {
     const stages = stageRows
@@ -180,7 +187,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
           .map(file => ({
             id: file.id,
             name: file.file_name,
-            public_url: (file.mime_type?.startsWith("image/") || file.mime_type?.startsWith("video/"))
+            public_url: isDrivePreviewableMedia(file.file_name, file.mime_type)
               ? `/api/drive-file?fileId=${encodeURIComponent(file.drive_file_id)}`
               : file.web_view_link || "#",
             type: file.mime_type || undefined,

@@ -176,7 +176,7 @@ export const startDriveResumableUpload = async (input: {
 };
 
 export const getDriveFile = async (accessToken: string, fileId: string) =>
-  driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink&supportsAllDrives=true`);
+  driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,iconLink&supportsAllDrives=true`);
 
 export const getDriveMediaResponse = async (accessToken: string, fileId: string, range?: string) => {
   const headers: Record<string, string> = {

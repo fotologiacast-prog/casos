@@ -25,6 +25,11 @@ const isImageFile = (file: CaseStage['files'][number]) => {
   return /\.(png|jpe?g|jfif|gif|webp|bmp|tiff?|svg|heic|heif|avif|raw|dng|cr2|nef|arw)$/i.test(file.name);
 };
 
+const isBrowserImageFile = (file: CaseStage['files'][number]) => {
+  if (/^image\/(png|jpe?g|gif|webp|bmp|svg\+xml|avif)$/i.test(file.type || '')) return true;
+  return /\.(png|jpe?g|jfif|gif|webp|bmp|svg|avif)$/i.test(file.name);
+};
+
 const isVideoFile = (file: CaseStage['files'][number]) => {
   if (file.type?.startsWith('video/')) return true;
   return /\.(mp4|m4v|mov|qt|webm|avi|mkv|mpeg|mpg|3gp|3g2|mts|m2ts|ts|wmv|flv|f4v|ogv|mxf|hevc|h265|prores)$/i.test(file.name);
@@ -37,6 +42,25 @@ const isAudioFile = (file: CaseStage['files'][number]) => {
 
 const isExampleVideo = (url: string) =>
   /\.(mp4|m4v|mov|webm|avi|mkv|mpeg|mpg|3gp|wmv|ogv)(\?|$)/i.test(url);
+
+const getDriveFileIdFromUrl = (url: string) => {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.searchParams.get('fileId');
+  } catch {
+    return null;
+  }
+};
+
+const getDriveThumbnailUrl = (file: CaseStage['files'][number]) => {
+  const fileId = getDriveFileIdFromUrl(file.public_url);
+  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1` : null;
+};
+
+const getDriveDownloadUrl = (file: CaseStage['files'][number]) => {
+  const fileId = getDriveFileIdFromUrl(file.public_url);
+  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}` : file.public_url;
+};
 
 const UPLOAD_ACCEPT = [
   'image/*',
@@ -166,24 +190,99 @@ const getUploadDetail = (progress: UploadProgressInfo | null) => {
   return filePrefix ? `${filePrefix} · ${size}` : size;
 };
 
-const VideoPlayer = ({ src, className, controls, autoPlay, muted }: any) => {
+const MediaFallback = ({ file, label }: { file: CaseStage['files'][number]; label: string }) => (
+  <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-zinc-950 p-5 text-center text-white">
+    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-6 w-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+      </svg>
+    </div>
+    <div>
+      <p className="text-xs font-black uppercase tracking-widest text-zinc-300">{label}</p>
+      <p className="mt-1 max-w-xs break-words text-xs font-semibold text-zinc-500">{file.name}</p>
+    </div>
+    <a
+      href={getDriveDownloadUrl(file)}
+      target="_blank"
+      rel="noreferrer"
+      className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition-colors hover:bg-zinc-200"
+    >
+      Abrir arquivo
+    </a>
+  </div>
+);
+
+const DriveImage = ({
+  file,
+  className,
+  onClick,
+}: {
+  file: CaseStage['files'][number];
+  className: string;
+  onClick?: () => void;
+}) => {
+  const thumbnailUrl = getDriveThumbnailUrl(file);
+  const [src, setSrc] = useState(() => (isBrowserImageFile(file) ? file.public_url : thumbnailUrl));
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return <MediaFallback file={file} label="Preview indisponível" />;
+  }
+
+  return (
+    <img
+      src={src}
+      className={className}
+      onClick={onClick}
+      onError={() => {
+        if (src !== thumbnailUrl && thumbnailUrl) setSrc(thumbnailUrl);
+        else setFailed(true);
+      }}
+      loading="lazy"
+    />
+  );
+};
+
+const VideoTile = ({ file, onClick }: { file: CaseStage['files'][number]; onClick: () => void }) => {
+  const thumbnailUrl = getDriveThumbnailUrl(file);
+  return (
+    <button type="button" onClick={onClick} className="relative h-full w-full bg-zinc-950 text-white">
+      {thumbnailUrl ? (
+        <img src={thumbnailUrl} className="h-full w-full object-cover opacity-85" loading="lazy" />
+      ) : (
+        <div className="h-full w-full bg-zinc-900" />
+      )}
+      <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+      <span className="absolute inset-0 flex items-center justify-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-zinc-950 shadow-lg">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="ml-0.5 h-6 w-6">
+            <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
+          </svg>
+        </span>
+      </span>
+      <span className="absolute bottom-2 left-2 right-2 truncate rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold backdrop-blur">
+        {file.name}
+      </span>
+    </button>
+  );
+};
+
+const VideoPlayer = ({ file, className, controls, autoPlay, muted, onClick }: any) => {
   const [hasError, setHasError] = useState(false);
   if (hasError) {
-    return (
-      <div className={`flex flex-col items-center justify-center bg-zinc-900 p-4 text-center text-white ${className}`}>
-        <span className="mb-2 text-xl">⏳</span>
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 leading-tight">Processando no Drive</p>
-        <p className="mt-1 text-[9px] text-zinc-500 leading-tight">Aguarde a finalização do processamento.</p>
-      </div>
-    );
+    return <MediaFallback file={file} label="Vídeo não reproduzível neste navegador" />;
   }
   return (
     <video
-      src={src}
+      src={file.public_url}
       className={className}
       controls={controls}
       autoPlay={autoPlay}
       muted={muted}
+      playsInline
+      preload="metadata"
+      poster={getDriveThumbnailUrl(file) || undefined}
+      onClick={onClick}
       onError={() => setHasError(true)}
     />
   );
@@ -389,9 +488,18 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 {stage.files.map(file => (
                   <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
                     {isImageFile(file) ? (
-                      <img src={file.public_url} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                    ) : isVideoFile(file) ? (
+                      <VideoTile file={file} onClick={() => setLightboxFile(file)} />
+                    ) : isAudioFile(file) ? (
+                      <button type="button" onClick={() => setLightboxFile(file)} className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 p-4 text-center text-white">
+                        <span className="text-3xl">♪</span>
+                        <span className="line-clamp-2 text-[10px] font-bold">{file.name}</span>
+                      </button>
                     ) : (
-                      <VideoPlayer src={file.public_url} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                      <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full">
+                        <MediaFallback file={file} label="Arquivo" />
+                      </button>
                     )}
                     <button
                       onClick={() => handleDeleteFile(file)}
@@ -500,25 +608,24 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-8">
               <p className="truncate text-sm font-semibold text-white">{lightboxFile.name}</p>
               <a
-                href={lightboxFile.public_url}
+                href={getDriveDownloadUrl(lightboxFile)}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-1 inline-flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white transition-colors"
               >
-                Abrir original ↗
+                Abrir original
               </a>
             </div>
             {/* Content */}
             <div className="flex max-h-[85vh] items-center justify-center bg-zinc-900">
               {isImageFile(lightboxFile) ? (
-                <img
-                  src={lightboxFile.public_url}
-                  alt={lightboxFile.name}
+                <DriveImage
+                  file={lightboxFile}
                   className="max-h-[85vh] max-w-full object-contain"
                 />
               ) : isVideoFile(lightboxFile) ? (
                 <VideoPlayer
-                  src={lightboxFile.public_url}
+                  file={lightboxFile}
                   controls
                   autoPlay
                   className="max-h-[85vh] max-w-full"
@@ -527,7 +634,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 <div className="flex flex-col items-center justify-center gap-6 p-12 text-white">
                   <span className="text-6xl">♪</span>
                   <p className="text-center text-sm font-semibold">{lightboxFile.name}</p>
-                  <audio src={lightboxFile.public_url} controls autoPlay className="w-full max-w-sm" />
+                  <audio src={lightboxFile.public_url} controls autoPlay preload="metadata" className="w-full max-w-sm" />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 p-12 text-white">
