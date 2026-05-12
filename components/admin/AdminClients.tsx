@@ -9,6 +9,16 @@ import {
   listAdminClients,
   updateAdminClient,
 } from '../../services/adminClientService';
+import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
+
+type AdminFaq = {
+  id: string;
+  stage_type: string;
+  title: string;
+  content: string;
+  image_url?: string | null;
+  order: number;
+};
 
 const emptyForm: ClientPayload = {
   name: '',
@@ -52,6 +62,9 @@ const getInitials = (name: string) =>
 const inputClass = 'mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10';
 const labelSpanClass = 'text-[10px] font-bold uppercase tracking-widest text-zinc-500';
 
+const isPreviewVideo = (url?: string | null) =>
+  /\.(mp4|m4v|mov|webm|avi|mkv|mpeg|mpg|3gp|wmv|ogv)(\?|$)/i.test(url || '');
+
 const AdminClients: React.FC = () => {
   const [password, setPassword] = useState(() => localStorage.getItem('cases_admin_password') || '');
   const [passwordInput, setPasswordInput] = useState(password);
@@ -68,33 +81,13 @@ const AdminClients: React.FC = () => {
   const [adminTab, setAdminTab] = useState<'clients' | 'faqs'>('clients');
 
   // FAQ state
-  const [faqs, setFaqs] = useState<Array<{id: string; stage_type: string; title: string; content: string; image_url?: string; order: number}>>([]);
+  const [faqs, setFaqs] = useState<AdminFaq[]>([]);
   const [faqsLoading, setFaqsLoading] = useState(false);
   const [faqForm, setFaqForm] = useState({ stage_type: '', title: '', content: '', image_url: '', order: 0 });
+  const [editingFaqId, setEditingFaqId] = useState<string | null>(null);
+  const [previewFaq, setPreviewFaq] = useState<AdminFaq | null>(null);
   const [faqSaving, setFaqSaving] = useState(false);
   const [faqError, setFaqError] = useState<string | null>(null);
-
-  const CASE_STAGE_TYPES = [
-    '01. (CADEIRA) Fotos intraorais do antes (4 fotos)',
-    '02. (ESTUDIO) Video panoramico do antes',
-    '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
-    '04. (ESTUDIO) Video expectativa (paciente)',
-    '05. Imagens 3D - Planejamento do laboratorio (escaneamento)',
-    '06. Videos do procedimento',
-    '07. Fotos DETALHES em macro das proteses fora da boca',
-    '08. Imagens 3D - Tomografia e RX',
-    '09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)',
-    '10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)',
-    '11. (ESTUDIO) Retratos do depois (posados)',
-    '12. (ESTUDIO) - Fotos em close do sorriso',
-    '13. (ESTUDIO) Fotos em close artisticas do sorriso',
-    '14. (ESTUDIO) Video RESULTADO risada gostosa',
-    '15. (ESTUDIO) Video DEPOIMENTO paciente',
-    '16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega',
-    '17. Video DEPOIMENTO produzido - videomaker',
-    '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',
-    '19. Foto com o Doutor (O Brinde da Vitoria)',
-  ];
 
   const loadFaqs = async () => {
     setFaqsLoading(true);
@@ -109,22 +102,49 @@ const AdminClients: React.FC = () => {
     e.preventDefault();
     setFaqSaving(true); setFaqError(null);
     try {
-      const res = await fetch('/api/faq', {
-        method: 'POST',
+      const res = await fetch(editingFaqId ? `/api/faq?id=${encodeURIComponent(editingFaqId)}` : '/api/faq', {
+        method: editingFaqId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         body: JSON.stringify({ ...faqForm, order: Number(faqForm.order) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao salvar FAQ.');
-      setFaqs(prev => [...prev, data.faq]);
+      if (editingFaqId) {
+        setFaqs(prev => prev.map(faq => faq.id === editingFaqId ? data.faq : faq));
+      } else {
+        setFaqs(prev => [...prev, data.faq]);
+      }
       setFaqForm({ stage_type: faqForm.stage_type, title: '', content: '', image_url: '', order: 0 });
+      setEditingFaqId(null);
     } catch (err) { setFaqError(err instanceof Error ? err.message : 'Erro'); } finally { setFaqSaving(false); }
+  };
+
+  const handleFaqEdit = (faq: AdminFaq) => {
+    setEditingFaqId(faq.id);
+    setFaqError(null);
+    setFaqForm({
+      stage_type: faq.stage_type,
+      title: faq.title,
+      content: faq.content || '',
+      image_url: faq.image_url || '',
+      order: faq.order || 0,
+    });
+    window.setTimeout(() => document.getElementById('faq-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+
+  const handleFaqCancelEdit = () => {
+    setEditingFaqId(null);
+    setFaqError(null);
+    setFaqForm({ stage_type: faqForm.stage_type, title: '', content: '', image_url: '', order: 0 });
   };
 
   const handleFaqDelete = async (id: string) => {
     if (!window.confirm('Excluir este FAQ?')) return;
     const res = await fetch(`/api/faq?id=${id}`, { method: 'DELETE', headers: { 'X-Admin-Password': password } });
-    if (res.ok) setFaqs(prev => prev.filter(f => f.id !== id));
+    if (res.ok) {
+      setFaqs(prev => prev.filter(f => f.id !== id));
+      if (editingFaqId === id) handleFaqCancelEdit();
+    }
   };
 
   const isAuthenticated = Boolean(password);
@@ -338,9 +358,16 @@ const AdminClients: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight text-zinc-900">FAQs das etapas</h2>
           <p className="mt-1 text-sm text-zinc-500">Cadastre até 3 FAQs por etapa. Eles aparecem para os clientes ao clicar no ⓘ em cada card.</p>
 
-          {/* Create FAQ form */}
-          <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h3 className="text-base font-bold text-zinc-900">Novo FAQ</h3>
+          {/* Create/Edit FAQ form */}
+          <section id="faq-form-panel" className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-base font-bold text-zinc-900">{editingFaqId ? 'Editar FAQ' : 'Novo FAQ'}</h3>
+              {editingFaqId && (
+                <button type="button" onClick={handleFaqCancelEdit} className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50">
+                  Cancelar edição
+                </button>
+              )}
+            </div>
             {faqError && <p className="mt-3 text-sm font-medium text-red-600">{faqError}</p>}
             <form onSubmit={handleFaqSave} className="mt-4 space-y-4">
               <label className="block">
@@ -352,7 +379,7 @@ const AdminClients: React.FC = () => {
                   className={inputClass}
                 >
                   <option value="">Selecione a etapa...</option>
-                  {CASE_STAGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {CASE_STAGE_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
               <label className="block">
@@ -367,9 +394,16 @@ const AdminClients: React.FC = () => {
                 <span className={labelSpanClass}>Conteúdo / Instruções</span>
                 <textarea value={faqForm.content} onChange={e => setFaqForm(p => ({...p, content: e.target.value}))} className={`${inputClass} min-h-[100px] resize-y`} placeholder="Descreva o que deve ser enviado nesta etapa..." />
               </label>
-              <button type="submit" disabled={faqSaving} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 active:scale-95 transition-all">
-                {faqSaving ? 'Salvando...' : 'Salvar FAQ'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button type="submit" disabled={faqSaving} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 active:scale-95 transition-all">
+                  {faqSaving ? 'Salvando...' : editingFaqId ? 'Salvar edição' : 'Salvar FAQ'}
+                </button>
+                {editingFaqId && (
+                  <button type="button" onClick={handleFaqCancelEdit} className="rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-50 transition-all">
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </form>
           </section>
 
@@ -392,9 +426,17 @@ const AdminClients: React.FC = () => {
                       {faq.image_url && <img src={faq.image_url} alt={faq.title} className="mt-2 h-20 w-auto rounded-lg object-cover" />}
                       {faq.content && <p className="mt-1 text-sm text-zinc-600 line-clamp-2">{faq.content}</p>}
                     </div>
-                    <button type="button" onClick={() => handleFaqDelete(faq.id)} className="shrink-0 rounded-xl border border-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors">
-                      Excluir
-                    </button>
+                    <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                      <button type="button" onClick={() => setPreviewFaq(faq)} className="rounded-xl border border-sky-100 px-3 py-1.5 text-xs font-bold text-sky-700 hover:bg-sky-50 transition-colors">
+                        Ver popup
+                      </button>
+                      <button type="button" onClick={() => handleFaqEdit(faq)} className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors">
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => handleFaqDelete(faq.id)} className="rounded-xl border border-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors">
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -679,6 +721,44 @@ const AdminClients: React.FC = () => {
             )}
           </div>
         </section>
+        </div>
+      )}
+      {previewFaq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setPreviewFaq(null)}>
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-sky-600">Preview da popup</p>
+                <h2 className="mt-0.5 text-base font-black text-zinc-900">{previewFaq.title}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewFaq(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[72vh] overflow-y-auto px-6 py-5">
+              <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500">{previewFaq.stage_type}</span>
+              {previewFaq.content ? (
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-600">{previewFaq.content}</p>
+              ) : (
+                <p className="mt-4 text-sm font-semibold text-zinc-400">Sem conteúdo textual cadastrado.</p>
+              )}
+              {previewFaq.image_url && (
+                <div className="mt-5 overflow-hidden rounded-2xl border border-emerald-100 bg-emerald-50">
+                  {isPreviewVideo(previewFaq.image_url) ? (
+                    <video src={previewFaq.image_url} controls className="max-h-[360px] w-full bg-black object-contain" />
+                  ) : (
+                    <img src={previewFaq.image_url} alt={previewFaq.title} className="max-h-[360px] w-full object-contain" />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </main>

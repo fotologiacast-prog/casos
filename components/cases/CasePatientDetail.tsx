@@ -1,6 +1,6 @@
 import React from 'react';
 import { CasePatient, CaseStage } from '../../types';
-import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS } from '../../utils/caseConstants';
+import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS, getCanonicalCaseStageTitle } from '../../utils/caseConstants';
 import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
@@ -17,9 +17,9 @@ interface CasePatientDetailProps {
 
 const momentVisuals: Record<string, { bar: string; badge: string; panel: string; label: string }> = {
   Planejamento: {
-    bar: 'bg-zinc-950',
-    badge: 'bg-zinc-950 text-white',
-    panel: 'border-zinc-300 bg-white',
+    bar: 'bg-emerald-400',
+    badge: 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200',
+    panel: 'border-emerald-200 bg-emerald-50/30',
     label: 'Antes e briefing',
   },
   Procedimento: {
@@ -58,7 +58,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
-    return patient.stages.find(stage => stage.title === definition.title) || {
+    return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
       id: `missing-${definition.title}`,
       boardId: patient.boardId,
       parentItemId: patient.id,
@@ -243,7 +243,6 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
       <div className="mt-8 space-y-10">
         {CASE_STAGE_MOMENTS.map(moment => {
           const stages = orderedStages.filter(stage => stage.moment === moment);
-          const captured = stages.filter(stage => stage.status === 'Capturado' || stage.files.length > 0).length;
           const visual = momentVisuals[moment] || momentVisuals.Planejamento;
 
           return (
@@ -256,15 +255,10 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                       {CASE_STAGE_MOMENTS.indexOf(moment) + 1}
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">Momento</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">Fase</p>
                       <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950">{moment}</h2>
                       <p className="mt-0.5 text-sm font-medium text-zinc-500">{visual.label}</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1.5 text-xs font-black ${visual.badge}`}>
-                      {captured}/{stages.length} capturados
-                    </span>
                   </div>
                 </div>
               </div>

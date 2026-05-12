@@ -6,10 +6,10 @@ const MONDAY_CASE_TYPE_LABEL = "Caso";
 
 const CASE_STAGE_DEFINITIONS = [
   { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
-  { title: "02. (ESTUDIO) Video panoramico do antes", moment: "Planejamento" },
+  { title: "02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (ESTUDIO) Video panoramico do antes"] },
   { title: "03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)", moment: "Planejamento" },
   { title: "04. (ESTUDIO) Video expectativa (paciente)", moment: "Planejamento" },
-  { title: "05. Imagens 3D - Planejamento do laboratorio (escaneamento)", moment: "Procedimento" },
+  { title: "05. (COMPUTADOR) Imagens 3D do Planejamento", moment: "Procedimento", legacyTitles: ["05. Imagens 3D - Planejamento do laboratorio (escaneamento)"] },
   { title: "06. Videos do procedimento", moment: "Procedimento" },
   { title: "07. Fotos DETALHES em macro das proteses fora da boca", moment: "Procedimento" },
   { title: "08. Imagens 3D - Tomografia e RX", moment: "Procedimento" },
@@ -26,11 +26,17 @@ const CASE_STAGE_DEFINITIONS = [
   { title: "19. Foto com o Doutor (O Brinde da Vitoria)", moment: "Evento" },
 ] as const;
 
+const getLegacyStageTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
+  "legacyTitles" in stage ? stage.legacyTitles : [];
+
 const getCaseStageDefinition = (title: string) =>
-  CASE_STAGE_DEFINITIONS.find(stage => stage.title === title);
+  CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyStageTitles(stage).includes(title));
 
 const getCaseStageMoment = (title: string) =>
   getCaseStageDefinition(title)?.moment || "Planejamento";
+
+const getCanonicalCaseStageTitle = (title: string) =>
+  getCaseStageDefinition(title)?.title || title;
 
 const getCaseStageExpectedItems = (title: string) =>
   [];
@@ -115,7 +121,10 @@ const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: 
     const existingNames = new Set(caseStages.map(stage => stage.stage_name));
 
     return CASE_STAGE_DEFINITIONS
-      .filter(stage => !existingKeys.has(makeStageKey(stage.title)) && !existingNames.has(stage.title))
+      .filter(stage => {
+        const names = [stage.title, ...getLegacyStageTitles(stage)];
+        return !existingKeys.has(makeStageKey(stage.title)) && !names.some(name => existingNames.has(name));
+      })
       .map((stage, index) => ({
         case_id: caseRow.id,
         stage_key: makeStageKey(stage.title),
@@ -160,7 +169,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
         id: stage.id,
         boardId: caseRow.monday_item_id || caseRow.id,
         parentItemId: caseRow.id,
-        title: stage.stage_name,
+        title: getCanonicalCaseStageTitle(stage.stage_name),
         moment: stage.moment || getCaseStageMoment(stage.stage_name),
         expectedItems: getCaseStageExpectedItems(stage.stage_name),
         status: stage.status === "capturado" ? "Capturado" : "Fazer",

@@ -9,10 +9,10 @@ export const CASE_STAGE_MOMENTS: CaseStageMoment[] = [
 
 export const CASE_STAGE_DEFINITIONS = [
   { title: '01. (CADEIRA) Fotos intraorais do antes (4 fotos)', moment: 'Planejamento' },
-  { title: '02. (ESTUDIO) Video panoramico do antes', moment: 'Planejamento' },
+  { title: '02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes', moment: 'Planejamento', legacyTitles: ['02. (ESTUDIO) Video panoramico do antes'] },
   { title: '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)', moment: 'Planejamento' },
   { title: '04. (ESTUDIO) Video expectativa (paciente)', moment: 'Planejamento' },
-  { title: '05. Imagens 3D - Planejamento do laboratorio (escaneamento)', moment: 'Procedimento' },
+  { title: '05. (COMPUTADOR) Imagens 3D do Planejamento', moment: 'Procedimento', legacyTitles: ['05. Imagens 3D - Planejamento do laboratorio (escaneamento)'] },
   { title: '06. Videos do procedimento', moment: 'Procedimento' },
   { title: '07. Fotos DETALHES em macro das proteses fora da boca', moment: 'Procedimento' },
   { title: '08. Imagens 3D - Tomografia e RX', moment: 'Procedimento' },
@@ -31,9 +31,22 @@ export const CASE_STAGE_DEFINITIONS = [
 
 export const CASE_STAGE_TITLES = CASE_STAGE_DEFINITIONS.map(stage => stage.title);
 
+const getLegacyTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
+  'legacyTitles' in stage ? stage.legacyTitles : [];
+
 export const getCaseStageMoment = (title: string): CaseStageMoment => {
-  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title);
+  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
   return (definition?.moment || 'Planejamento') as CaseStageMoment;
+};
+
+export const getCanonicalCaseStageTitle = (title: string): string => {
+  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
+  return definition?.title || title;
+};
+
+export const getCaseStageFaqTypes = (title: string): string[] => {
+  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
+  return definition ? [definition.title, ...getLegacyTitles(definition)] : [title];
 };
 
 export const getCaseStageExpectedItems = (title: string): string[] => {

@@ -28,7 +28,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const supabase = await getSupabase(false);
       let query = supabase.from("stage_faqs").select("*").order("stage_type").order("order");
       if (req.query.stage_type) {
-        query = query.eq("stage_type", String(req.query.stage_type));
+        const stageTypes = String(req.query.stage_type)
+          .split("|")
+          .map(item => item.trim())
+          .filter(Boolean);
+        query = stageTypes.length > 1 ? query.in("stage_type", stageTypes) : query.eq("stage_type", stageTypes[0]);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -69,10 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "PUT") {
       const id = String(req.query.id || req.body?.id || "").trim();
       if (!id) return res.status(400).json({ error: "ID do FAQ ausente." });
-      const { title, content, image_url, order } = req.body || {};
+      const { stage_type, title, content, image_url, order } = req.body || {};
       const { data, error } = await supabase
         .from("stage_faqs")
-        .update({ title, content, image_url, order })
+        .update({ stage_type, title, content, image_url, order })
         .eq("id", id)
         .select()
         .single();
