@@ -163,6 +163,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [faqOpen, setFaqOpen] = useState(false);
   const [exampleOpen, setExampleOpen] = useState(false);
   const [faqLoading, setFaqLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (!isUploading) return;
@@ -191,14 +192,12 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     }
   };
 
-  const handleOpenFaq = async () => {
-    setFaqOpen(true);
-    await loadFaqs();
-  };
-
-  const handleOpenExamples = async () => {
-    setExampleOpen(true);
-    await loadFaqs();
+  const handleToggleExpand = async () => {
+    const nextState = !isExpanded;
+    setIsExpanded(nextState);
+    if (nextState && faqs.length === 0) {
+      await loadFaqs();
+    }
   };
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
@@ -258,266 +257,168 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     } finally {
       setDeletingFileId(null);
     }
-  };
-
   return (
     <div
       id={`stage-${stage.id}`}
-      className={`relative rounded-2xl transition-all duration-200 overflow-hidden ${
+      className={`relative rounded-[2rem] transition-all duration-300 overflow-hidden ${
         isCaptured
-          ? 'border-2 border-emerald-500 bg-gradient-to-br from-emerald-50 via-white to-white shadow-[0_18px_42px_rgba(16,185,129,0.22)] ring-4 ring-emerald-100'
-          : 'border border-zinc-200 bg-white'
-      }`}
+          ? 'bg-white shadow-[0_12px_36px_rgba(16,185,129,0.12)]'
+          : 'bg-white shadow-sm'
+      } ${isExpanded ? 'ring-2 ring-emerald-500/10' : 'border border-zinc-100 hover:border-zinc-200'}`}
     >
-      {/* Moment accent strip */}
-      <div className={`h-2 w-full ${isCaptured ? 'bg-emerald-500' : accentClass} opacity-90`} />
-      {isCaptured && (
-        <div className="pointer-events-none absolute left-0 top-2 bottom-0 w-1.5 bg-emerald-500" />
-      )}
-
-      <div className="p-5">
-        {/* Header row */}
-        <div className="flex items-center gap-4">
-          <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-              isCaptured ? 'bg-emerald-600 text-white' : 'bg-zinc-100 text-zinc-600'
-            }`}
-          >
-            {isCaptured ? (
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              index + 1
-            )}
-          </span>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold text-zinc-900">{stage.title}</h3>
-              {isPlaceholder && (
-                <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-500">
-                  Pendente sincronização
-                </span>
-              )}
-              {isCaptured && !isPlaceholder && (
-                <span className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-sm ring-2 ring-emerald-200">
-                  Capturado
-                </span>
-              )}
-              {!isCaptured && !isPlaceholder && (
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
-                  Falta enviar
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-sm text-zinc-500">
-              {isPlaceholder
-                ? 'Esta etapa será habilitada automaticamente'
-                : stage.files.length > 0
-                ? `${stage.files.length} arquivo${stage.files.length === 1 ? '' : 's'} enviado${stage.files.length === 1 ? '' : 's'}`
-                : 'Nenhum arquivo enviado ainda'}
-            </p>
-          </div>
-
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenFaq}
-              title="Ver FAQ"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-700 transition-all hover:border-sky-300 hover:bg-sky-100"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenExamples}
-              title="Ver exemplos visuais"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition-all hover:border-emerald-300 hover:bg-emerald-100"
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 7.81 3.22-3.22a1.75 1.75 0 0 1 2.47 0l1.06 1.06 2.56-2.56a1.75 1.75 0 0 1 2.47 0l3.22 3.22V5.25a.75.75 0 0 0-.75-.75H3.25a.75.75 0 0 0-.75.75v7.81ZM17.5 14.75v-1.07l-4.28-4.28a.25.25 0 0 0-.35 0l-2.56 2.56 1.22 1.22a.75.75 0 1 1-1.06 1.06l-3.34-3.34a.25.25 0 0 0-.35 0L2.5 15.18a.75.75 0 0 0 .75.32h13.5a.75.75 0 0 0 .75-.75ZM6.5 7a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
+      <div 
+        className="cursor-pointer px-6 py-5 flex items-center gap-4 transition-colors hover:bg-zinc-50/50"
+        onClick={handleToggleExpand}
+      >
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg transition-all ${
+          isCaptured ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-400'
+        }`}>
+          {isCaptured ? (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          )}
         </div>
 
-        {/* Expected items checklist */}
-        {!!stage.expectedItems?.length && (
-          <div className="mt-4 rounded-xl bg-zinc-50 p-4">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-zinc-400">
-              Itens esperados
-            </p>
-            <div className="space-y-2">
-              {stage.expectedItems.map(item => (
-                <div key={item} className="flex items-start gap-2.5">
-                  <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-bold ${isCaptured ? 'bg-black text-white' : 'bg-zinc-200 text-zinc-600'}`}>
-                    {isCaptured ? '✓' : item.match(/^(\d+)/)?.[1] || '·'}
-                  </span>
-                  <span className="text-sm leading-5 text-zinc-700">{item.replace(/^\d+\.\s*/, '')}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
+          {isCaptured ? (
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mt-0.5">Capturado · {stage.files.length} arquivos</p>
+          ) : (
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-0.5">Pendente de envio</p>
+          )}
+        </div>
 
-        {/* Uploaded files */}
-        {stage.files.length > 0 && (
-          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-widest text-emerald-800">
-                Arquivos capturados <span className="ml-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-white text-[10px]">{stage.files.length}</span>
-              </p>
-              {!isPlaceholder && (
+        <div className={`h-8 w-8 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+          </svg>
+        </div>
+      </div>
+
+      <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-6 pb-8 space-y-8">
+          {/* Upload Area */}
+          {!isCaptured ? (
+            <div 
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={`group relative rounded-3xl border-2 border-dashed p-10 text-center transition-all ${
+                isDragging ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-100 bg-zinc-50/50 hover:border-zinc-300 hover:bg-zinc-50'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-base font-black text-zinc-900 tracking-tight">Arraste fotos, vídeos, áudios ou</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-400">Toque para buscar na galeria ou câmera</p>
+                </div>
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={isUploading}
-                  className="relative overflow-hidden rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-bold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+                  className="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#34C759] px-8 py-3 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50"
                 >
-                  {isUploading && uploadProgress !== null && (
-                    <div className="absolute inset-0 bg-zinc-100 transition-all duration-300" style={{ width: `${uploadProgress.percentage}%` }} />
+                  {isUploading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {uploadProgress?.percentage}% Enviando...
+                    </span>
+                  ) : (
+                    'Selecionar arquivos'
                   )}
-                  <span className="relative z-10">
-                    {isUploading ? getUploadLabel(uploadProgress) : '+ Adicionar'}
-                  </span>
                 </button>
-              )}
+              </div>
+              <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {stage.files.map(file => (
-                <div
-                  key={file.id}
-                  className="group relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 hover:border-zinc-400 hover:shadow-md transition-all duration-200"
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Arquivos enviados</h4>
+                <button
+                  onClick={() => inputRef.current?.click()}
+                  className="text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors"
                 >
-                  {/* Clickable thumbnail */}
-                  <button
-                    type="button"
-                    onClick={() => setLightboxFile(file)}
-                    className="block w-full text-left"
-                  >
-                    <div className="relative aspect-[4/3] bg-zinc-100">
-                      {isImageFile(file) && file.public_url !== '#' ? (
-                        <img
-                          src={file.public_url}
-                          alt={file.name}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      ) : isVideoFile(file) && file.public_url !== '#' ? (
-                        <VideoPlayer src={file.public_url} className="h-full w-full object-cover" muted />
-                      ) : isAudioFile(file) ? (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-600 shadow-sm text-xl">♪</span>
-                          <span className="text-[10px] font-bold uppercase tracking-widest">Áudio</span>
-                        </div>
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-zinc-400">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-500 shadow-sm text-xl">📎</span>
-                        </div>
-                      )}
-                      {isVideoFile(file) && (
-                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">Vídeo</span>
-                      )}
-                      {isAudioFile(file) && (
-                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">Áudio</span>
-                      )}
-                      {/* Expand hint */}
-                      <span className="absolute right-2 top-2 hidden group-hover:flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                          <path fillRule="evenodd" d="M3.5 3A.5.5 0 0 0 3 3.5v4a.5.5 0 0 0 1 0V4.707l3.646 3.647a.5.5 0 0 0 .708-.708L4.707 4H7.5a.5.5 0 0 0 0-1h-4ZM16.5 3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.707l-3.646 3.647a.5.5 0 0 1-.708-.708L15.293 4H12.5a.5.5 0 0 1 0-1h4ZM3 12.5a.5.5 0 0 1 1 0v2.793l3.646-3.647a.5.5 0 0 1 .708.708L4.707 16H7.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5v-4ZM17 12.5a.5.5 0 0 0-1 0v2.793l-3.646-3.647a.5.5 0 0 0-.708.708L15.293 16H12.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 .5-.5v-4Z" clipRule="evenodd" />
-                        </svg>
-                      </span>
-                    </div>
-                  </button>
-                  {/* Remove button */}
-                  {!isPlaceholder && (
+                  + Adicionar mais
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {stage.files.map(file => (
+                  <div key={file.id} className="group relative aspect-square rounded-2xl bg-zinc-100 overflow-hidden border border-zinc-100">
+                    {isImageFile(file) ? (
+                      <img src={file.public_url} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                    ) : (
+                      <VideoPlayer src={file.public_url} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                    )}
                     <button
-                      type="button"
                       onClick={() => handleDeleteFile(file)}
-                      disabled={deletingFileId === file.id}
-                      className="w-full border-t border-red-50 bg-red-50 px-3 py-1.5 text-[11px] font-bold text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
+                      className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      {deletingFileId === file.id ? 'Removendo...' : '✕ Remover'}
+                      ✕
                     </button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
+              <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
+            </div>
+          )}
+
+          {/* FAQ / Requirements Section */}
+          <div className="space-y-8 pt-4 border-t border-zinc-100">
+            {/* Requisitos */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-[#34C759] tracking-tight">Requisitos</h4>
+              <div className="space-y-3">
+                {(faqs.length > 0 ? faqs.filter(f => !f.image_url) : [{ title: 'Mínimo de 4 fotos', id: '1' }, { title: 'Boa iluminação', id: '2' }, { title: 'Foco nítido e enquadramento adequado', id: '3' }]).map(req => (
+                  <div key={req.id} className="flex items-center gap-3">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold text-zinc-500 leading-tight">{req.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Exemplos */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-black text-[#34C759] tracking-tight">Exemplos</h4>
+              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
+                {faqs.filter(f => f.image_url).length > 0 ? (
+                  faqs.filter(f => f.image_url).map(example => (
+                    <div key={example.id} className="h-28 w-28 shrink-0 rounded-2xl bg-zinc-100 overflow-hidden border border-zinc-200">
+                      {isExampleVideo(example.image_url!) ? (
+                        <video src={example.image_url!} className="h-full w-full object-cover" />
+                      ) : (
+                        <img src={example.image_url!} className="h-full w-full object-cover" />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-[10px] font-bold text-zinc-400 italic">Nenhum exemplo cadastrado.</div>
+                )}
+              </div>
+              {/* Pagination Dots (Visual only) */}
+              <div className="flex justify-center gap-1.5 pt-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-zinc-900" />
+                <div className="h-1.5 w-1.5 rounded-full bg-zinc-200" />
+                <div className="h-1.5 w-1.5 rounded-full bg-zinc-200" />
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Upload zone */}
-        {!isCaptured && (
-          <div className="mt-4">
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept={UPLOAD_ACCEPT}
-              onChange={handleInputChange}
-              className="hidden"
-              disabled={isPlaceholder}
-            />
-
-            {isPlaceholder ? (
-              <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 px-4 py-5 text-center">
-                <p className="text-sm font-medium text-zinc-400">Upload será habilitado automaticamente</p>
-              </div>
-            ) : (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                className={`rounded-xl border-2 border-dashed px-4 py-6 text-center transition-all duration-200 ${
-                  isDragging
-                    ? 'border-black bg-zinc-50 scale-[1.01]'
-                    : 'border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6 text-zinc-500">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-700">
-                      {isDragging ? 'Solte os arquivos aqui' : 'Arraste fotos, vídeos, áudios ou'}
-                    </p>
-                    <p className="mt-0.5 text-xs text-zinc-400">Imagens, vídeos e áudios em formatos variados</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    disabled={isUploading}
-                    className="relative overflow-hidden rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors active:scale-95"
-                  >
-                    {isUploading && uploadProgress !== null && (
-                      <div className="absolute inset-0 bg-white/20 transition-all duration-300" style={{ width: `${uploadProgress.percentage}%` }} />
-                    )}
-                    {isUploading ? (
-                      <span className="relative z-10 flex flex-col items-center gap-0.5">
-                        <span className="flex items-center gap-2">
-                          <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          {getUploadLabel(uploadProgress)}
-                        </span>
-                        {getUploadDetail(uploadProgress) && (
-                          <span className="text-[10px] font-medium text-white/70">
-                            {getUploadDetail(uploadProgress)}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span className="relative z-10">Selecionar arquivos</span>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+        </div>
+      </div>          </div>
         )}
 
         {/* Add more files when already captured */}
@@ -541,112 +442,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           </div>
         )}
       </div>
-
-      {/* FAQ Popup */}
-      {faqOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onClick={() => setFaqOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Guia da etapa</p>
-                <h2 className="mt-0.5 text-base font-black text-zinc-900">{stage.title}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFaqOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                </svg>
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-6">
-              {faqLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <span className="h-6 w-6 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
-                </div>
-              ) : faqs.length === 0 ? (
-                <div className="py-10 text-center">
-                  <span className="text-4xl">📋</span>
-                  <p className="mt-3 text-sm font-semibold text-zinc-500">Nenhuma instrução cadastrada ainda.</p>
-                  <p className="mt-1 text-xs text-zinc-400">O administrador pode adicionar exemplos no painel /admin.</p>
-                </div>
-              ) : (
-                faqs.map((faq, i) => (
-                  <div key={faq.id} className={i > 0 ? 'border-t border-zinc-100 pt-6' : ''}>
-                    <h3 className="text-sm font-bold text-zinc-900">{faq.title}</h3>
-                    {faq.content && (
-                      <p className="mt-2 text-sm leading-relaxed text-zinc-600 whitespace-pre-wrap">{faq.content}</p>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Examples Popup */}
-      {exampleOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          onClick={() => setExampleOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Exemplos visuais</p>
-                <h2 className="mt-0.5 text-base font-black text-zinc-900">{stage.title}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setExampleOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                </svg>
-              </button>
-            </div>
-            <div className="max-h-[72vh] overflow-y-auto p-5">
-              {faqLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <span className="h-6 w-6 rounded-full border-2 border-zinc-300 border-t-emerald-600 animate-spin" />
-                </div>
-              ) : exampleFaqs.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-zinc-200 py-12 text-center">
-                  <p className="text-sm font-semibold text-zinc-500">Nenhum exemplo visual cadastrado.</p>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {exampleFaqs.map(faq => (
-                    <div key={faq.id} className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
-                      {isExampleVideo(faq.image_url || '') ? (
-                        <video src={faq.image_url || ''} controls className="h-full max-h-[420px] w-full bg-black object-contain" />
-                      ) : (
-                        <img src={faq.image_url || ''} alt={faq.title} className="max-h-[420px] w-full object-contain" loading="lazy" />
-                      )}
-                      <div className="border-t border-zinc-200 bg-white px-4 py-3">
-                        <p className="text-sm font-bold text-zinc-900">{faq.title}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Lightbox */}
       {lightboxFile && (

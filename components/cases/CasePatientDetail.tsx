@@ -109,99 +109,88 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     }
   };
 
+  const getMomentProgress = (moment: string) => {
+    const momentStages = orderedStages.filter(s => s.moment === moment);
+    const captured = momentStages.filter(s => s.status === 'Capturado' || s.files.length > 0).length;
+    const total = momentStages.length;
+    return {
+      captured,
+      total,
+      percentage: Math.round((captured / total) * 100),
+      isComplete: captured === total,
+    };
+  };
+
   return (
-    <div className="animate-fade-in">
-      {/* Back button */}
-      <button
-        type="button"
-        onClick={onBack}
-        className="mb-5 inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm hover:border-zinc-400 hover:bg-zinc-50 transition-all active:scale-95"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M7.793 14.707a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414l4-4a1 1 0 1 1 1.414 1.414L5.5 9H17a1 1 0 1 1 0 2H5.5l2.293 2.293a1 1 0 0 1 0 1.414Z" clipRule="evenodd" />
-        </svg>
-        Voltar
-      </button>
-
-      {/* Patient header card */}
-      <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-        {/* Black top bar */}
-        <div className="h-2 bg-black" />
-
-        <div className="p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Caso clínico</p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900 leading-tight">{patient.name}</h1>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {chips.map((chip, i) => (
-                  <span key={i} className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700">
-                    {chip}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Progress */}
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 min-w-[200px]">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Progresso</p>
-                <p className="text-sm font-bold text-zinc-900">{progress.captured}/{progress.total}</p>
-              </div>
-              <div className="mt-3 h-2.5 rounded-full bg-zinc-200 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-black transition-all duration-500"
-                  style={{ width: `${progress.percentage}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">{progress.percentage}% capturado</p>
-              {readyTestimonialCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => onOpenTestimonials?.(patient)}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800 transition-colors hover:bg-emerald-100"
-                >
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                    <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
-                  </svg>
-                  Depoimento pronto
-                </button>
-              )}
+    <div className="animate-fade-in bg-zinc-50 min-h-screen pb-20">
+      {/* Header Navigation Style */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-zinc-100">
+        <div className="mx-auto max-w-2xl px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="p-2 hover:bg-zinc-100 rounded-full transition-colors">
+              <svg className="h-5 w-5 text-zinc-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.793 14.707a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414l4-4a1 1 0 1 1 1.414 1.414L5.5 9H17a1 1 0 1 1 0 2H5.5l2.293 2.293a1 1 0 0 1 0 1.414Z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-1 rounded-full bg-zinc-100 p-1">
+              <button className="px-5 py-1.5 bg-white shadow-sm rounded-full text-xs font-black text-zinc-900">Cases</button>
+              <button 
+                onClick={() => onOpenTestimonials?.(patient)} 
+                className="px-5 py-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-800 transition-colors"
+              >
+                Materiais
+              </button>
             </div>
           </div>
-
-          {(patient.procedureDescription || patient.notes) && (
-            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 border-t border-zinc-100 pt-5">
-              {patient.procedureDescription && (
-                <div className="rounded-xl bg-zinc-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Descrição do procedimento</p>
-                  <p className="mt-2 text-sm text-zinc-700 leading-relaxed">{patient.procedureDescription}</p>
-                </div>
-              )}
-              {patient.notes && (
-                <div className="rounded-xl bg-zinc-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">Observações</p>
-                  <p className="mt-2 text-sm text-zinc-700 leading-relaxed">{patient.notes}</p>
-                </div>
+          <div className="relative">
+            <div className="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-400">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {readyTestimonialCount > 0 && (
+                <span className="absolute top-0 right-0 h-2.5 w-2.5 bg-emerald-400 rounded-full border-2 border-white ring-1 ring-emerald-100 animate-pulse" />
               )}
             </div>
-          )}
-
-          <div className="mt-5 border-t border-zinc-100 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteOpen(true);
-                setDeleteConfirm('');
-                setDeleteError(null);
-              }}
-              className="text-xs font-semibold text-zinc-400 underline underline-offset-4 hover:text-red-600 transition-colors"
-            >
-              Limpar caso
-            </button>
           </div>
         </div>
       </div>
+
+      <div className="mx-auto max-w-2xl px-4 pt-6 space-y-8">
+        {/* Patient Minimal Info */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Paciente</p>
+            <h1 className="text-2xl font-black text-zinc-900 tracking-tight">{patient.name}</h1>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
+            className="h-9 w-9 rounded-full bg-white border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-red-500 hover:border-red-100 transition-all shadow-sm"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex items-center gap-1.5 rounded-2xl bg-zinc-200/50 p-1 w-fit">
+          {[
+            { id: 'all', label: 'Todas etapas' },
+            { id: 'todo', label: 'Pendentes' },
+            { id: 'captured', label: 'Capturadas' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setFilter(item.id as any)}
+              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                filter === item.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
       {deleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
@@ -240,35 +229,10 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
       )}
 
-      {/* Filter and Summary */}
-      <div className="mt-8 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm">
-            {[
-              { id: 'all', label: 'Todas' },
-              { id: 'todo', label: 'Pendentes' },
-              { id: 'captured', label: 'Capturadas' },
-            ].map(item => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setFilter(item.id as any)}
-                className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all ${
-                  filter === item.id
-                    ? 'bg-zinc-900 text-white shadow-md'
-                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {filter !== 'captured' && progress.captured < progress.total && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-5">
-            <h3 className="text-xs font-black uppercase tracking-widest text-amber-700">Faltam {progress.total - progress.captured} etapas:</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
+          <div className="rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Pendentes ({progress.total - progress.captured})</h3>
+            <div className="mt-4 flex flex-wrap gap-2">
               {orderedStages
                 .filter(s => s.status === 'Fazer')
                 .map(s => (
@@ -279,7 +243,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                       const el = document.getElementById(`stage-${s.id}`);
                       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }}
-                    className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-[10px] font-bold text-amber-800 shadow-sm transition-all hover:bg-amber-100 active:scale-95"
+                    className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[10px] font-black uppercase text-zinc-600 shadow-sm transition-all hover:border-zinc-400 active:scale-95"
                   >
                     {s.title}
                   </button>
@@ -287,57 +251,89 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Stages */}
-      <div className="mt-8 space-y-10">
-        {CASE_STAGE_MOMENTS.map(moment => {
-          const stages = orderedStages
-            .filter(stage => stage.moment === moment)
-            .filter(stage => {
-              if (filter === 'captured') return stage.status === 'Capturado';
-              if (filter === 'todo') return stage.status === 'Fazer';
-              return true;
-            });
+        {/* Stages */}
+        <div className="space-y-12">
+          {CASE_STAGE_MOMENTS.map((moment, mIdx) => {
+            const stages = orderedStages
+              .filter(stage => stage.moment === moment)
+              .filter(stage => {
+                if (filter === 'captured') return stage.status === 'Capturado';
+                if (filter === 'todo') return stage.status === 'Fazer';
+                return true;
+              });
 
-          if (stages.length === 0) return null;
-          const visual = momentVisuals[moment] || momentVisuals.Planejamento;
+            if (stages.length === 0) return null;
+            const momentProgress = getMomentProgress(moment);
+            
+            const gradients = [
+              'from-[#73EBC4] via-[#61D7B1] to-[#4EC4A0]', // Planejamento
+              'from-[#FFD97D] via-[#FFC857] to-[#FFAE3C]', // Procedimento
+              'from-[#FF9AA2] via-[#FF8087] to-[#FF6B6B]', // Entrega
+              'from-[#A2D2FF] via-[#91C1F2] to-[#7EB0E5]', // Evento
+            ];
+            const currentGradient = gradients[mIdx] || gradients[0];
 
-          return (
-            <section key={moment} className={`overflow-hidden rounded-3xl border shadow-sm ${visual.panel}`}>
-              <div className={`h-2 w-full ${visual.bar}`} />
-              <div className="border-b border-black/5 bg-white/80 px-5 py-5 backdrop-blur">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${visual.badge}`}>
-                      {CASE_STAGE_MOMENTS.indexOf(moment) + 1}
+            return (
+              <section key={moment} className="space-y-6">
+                {/* Phase Header Card */}
+                <div className={`relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br ${currentGradient} p-8 text-white shadow-xl shadow-zinc-200/50 transition-all`}>
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white text-2xl font-black text-zinc-900 shadow-lg ring-8 ring-white/20">
+                        {mIdx + 1}
+                      </div>
+                      <div>
+                        <div className="inline-flex rounded-full bg-white/20 px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-white backdrop-blur-sm">
+                          Fase atual
+                        </div>
+                        <h2 className="mt-2 text-3xl font-black tracking-tight">{moment}</h2>
+                        <p className="mt-1 text-sm font-bold text-white/80">{momentVisuals[moment]?.label}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">Fase</p>
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-zinc-950">{moment}</h2>
-                      <p className="mt-0.5 text-sm font-medium text-zinc-500">{visual.label}</p>
+
+                    {/* Circular Progress Indicator */}
+                    <div className="relative h-20 w-20 shrink-0">
+                      <svg className="h-full w-full" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="16" fill="none" className="stroke-white/20" strokeWidth="3" />
+                        <circle
+                          cx="18"
+                          cy="18"
+                          r="16"
+                          fill="none"
+                          className="stroke-white transition-all duration-1000 ease-out"
+                          strokeWidth="3"
+                          strokeDasharray={`${momentProgress.percentage}, 100`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-xs font-black">{momentProgress.captured}/{momentProgress.total}</span>
+                        <span className="text-[8px] font-bold uppercase opacity-80">etapas</span>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Decorative background circle */}
+                  <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
                 </div>
-              </div>
-              <div className="space-y-3 p-4 sm:p-5">
-                {stages.map(stage => {
-                  const index = orderedStages.findIndex(item => item.title === stage.title);
-                  return (
+
+                <div className="space-y-4">
+                  {stages.map(stage => (
                     <CaseStageCard
                       key={stage.id}
-                      index={index}
+                      index={orderedStages.findIndex(item => item.title === stage.title)}
                       stage={stage}
                       onUpload={handleUpload}
                       onFileDeleted={handleFileDeleted}
                       isPlaceholder={stage.id.startsWith('missing-')}
                     />
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
