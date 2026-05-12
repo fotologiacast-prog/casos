@@ -88,18 +88,56 @@ const UPLOAD_ACCEPT = [
   '.arw',
 ].join(',');
 
-const momentAccent: Record<CaseStageMoment, string> = {
-  Planejamento: 'bg-emerald-400',
-  Procedimento: 'bg-zinc-700',
-  Entrega: 'bg-zinc-500',
-  Evento: 'bg-zinc-300',
-};
-
-const momentLabel: Record<CaseStageMoment, string> = {
-  Planejamento: 'Planejamento',
-  Procedimento: 'Procedimento',
-  Entrega: 'Entrega',
-  Evento: 'Evento',
+const momentCapturedTheme: Record<CaseStageMoment, {
+  border: string;
+  hoverBorder: string;
+  ring: string;
+  shadow: string;
+  icon: string;
+  text: string;
+  buttonText: string;
+  uploadButton: string;
+}> = {
+  Planejamento: {
+    border: 'border-emerald-300',
+    hoverBorder: 'hover:border-emerald-400',
+    ring: 'ring-emerald-100',
+    shadow: 'shadow-[0_14px_40px_rgba(16,185,129,0.16)]',
+    icon: 'bg-emerald-100 text-emerald-600',
+    text: 'text-emerald-600',
+    buttonText: 'text-emerald-600 hover:text-emerald-700',
+    uploadButton: 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20',
+  },
+  Procedimento: {
+    border: 'border-amber-300',
+    hoverBorder: 'hover:border-amber-400',
+    ring: 'ring-amber-100',
+    shadow: 'shadow-[0_14px_40px_rgba(245,158,11,0.16)]',
+    icon: 'bg-amber-100 text-amber-600',
+    text: 'text-amber-600',
+    buttonText: 'text-amber-600 hover:text-amber-700',
+    uploadButton: 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20',
+  },
+  Entrega: {
+    border: 'border-rose-300',
+    hoverBorder: 'hover:border-rose-400',
+    ring: 'ring-rose-100',
+    shadow: 'shadow-[0_14px_40px_rgba(244,63,94,0.14)]',
+    icon: 'bg-rose-100 text-rose-600',
+    text: 'text-rose-600',
+    buttonText: 'text-rose-600 hover:text-rose-700',
+    uploadButton: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20',
+  },
+  Evento: {
+    border: 'border-sky-300',
+    hoverBorder: 'hover:border-sky-400',
+    ring: 'ring-sky-100',
+    shadow: 'shadow-[0_14px_40px_rgba(14,165,233,0.15)]',
+    icon: 'bg-sky-100 text-sky-600',
+    text: 'text-sky-600',
+    buttonText: 'text-sky-600 hover:text-sky-700',
+    uploadButton: 'bg-sky-500 hover:bg-sky-600 shadow-sky-500/20',
+  },
 };
 
 const formatBytes = (bytes: number) => {
@@ -160,9 +198,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [lightboxFile, setLightboxFile] = useState<CaseStage['files'][number] | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [faqs, setFaqs] = useState<StageFaq[]>([]);
-  const [faqOpen, setFaqOpen] = useState(false);
-  const [exampleOpen, setExampleOpen] = useState(false);
-  const [faqLoading, setFaqLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -179,7 +214,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
   const loadFaqs = async () => {
     if (faqs.length > 0) return;
-    setFaqLoading(true);
     try {
       const stageTypes = getCaseStageFaqTypes(stageType).join('|');
       const res = await fetch(`/api/faq?stage_type=${encodeURIComponent(stageTypes)}`);
@@ -187,9 +221,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         const data = await res.json();
         setFaqs(data.faqs || []);
       }
-    } catch {/* silent */} finally {
-      setFaqLoading(false);
-    }
+    } catch {/* silent */}
   };
 
   const handleToggleExpand = async () => {
@@ -202,8 +234,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
-  const accentClass = momentAccent[moment] || momentAccent.Planejamento;
-  const exampleFaqs = faqs.filter(faq => faq.image_url);
+  const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
+  const textFaqs = faqs.filter(faq => !faq.image_url);
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0 || isPlaceholder) return;
@@ -264,16 +296,16 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       id={`stage-${stage.id}`}
       className={`relative rounded-[1.55rem] sm:rounded-[2rem] transition-all duration-300 overflow-hidden ${
         isCaptured
-          ? 'bg-white border-2 border-emerald-300 shadow-[0_14px_40px_rgba(16,185,129,0.16)] ring-1 ring-emerald-100'
+          ? `bg-white border-2 ${capturedTheme.border} ${capturedTheme.shadow} ring-1 ${capturedTheme.ring}`
           : 'bg-white shadow-sm'
-      } ${isExpanded ? 'ring-2 ring-emerald-500/15' : isCaptured ? 'hover:border-emerald-400' : 'border border-zinc-100 hover:border-zinc-200'}`}
+      } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'border border-zinc-100 hover:border-zinc-200'}`}
     >
       <div 
         className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 flex items-center gap-3.5 sm:gap-4 transition-colors hover:bg-zinc-50/50"
         onClick={handleToggleExpand}
       >
         <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl text-lg transition-all ${
-          isCaptured ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-400'
+          isCaptured ? capturedTheme.icon : 'bg-zinc-100 text-zinc-400'
         }`}>
           {isCaptured ? (
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
@@ -289,7 +321,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         <div className="flex-1 min-w-0">
           <h3 className="text-[0.95rem] sm:text-base font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
           {isCaptured ? (
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mt-0.5">Capturado · {stage.files.length} arquivos</p>
+            <p className={`text-[10px] font-black uppercase tracking-widest ${capturedTheme.text} mt-0.5`}>Capturado · {stage.files.length} arquivos</p>
           ) : (
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-0.5">Pendente de envio</p>
           )}
@@ -328,7 +360,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={isUploading}
-                  className="mt-1 inline-flex items-center justify-center rounded-2xl bg-[#34C759] px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50 sm:mt-2 sm:px-8 sm:py-3 sm:text-sm"
+                  className={`mt-1 inline-flex items-center justify-center rounded-2xl px-6 py-2.5 text-xs font-black text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 sm:mt-2 sm:px-8 sm:py-3 sm:text-sm ${capturedTheme.uploadButton}`}
                 >
                   {isUploading ? (
                     <span className="flex items-center gap-2">
@@ -348,7 +380,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Arquivos enviados</h4>
                 <button
                   onClick={() => inputRef.current?.click()}
-                  className="text-xs font-black text-emerald-600 hover:text-emerald-700 transition-colors"
+                  className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
                 >
                   + Adicionar mais
                 </button>
@@ -375,14 +407,14 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           )}
 
           {/* FAQ / Requirements Section */}
-          <div className="space-y-8 pt-4 border-t border-zinc-100">
-            {/* Requisitos */}
+          <div className="space-y-6 pt-4 border-t border-zinc-100">
+            {/* FAQ */}
             <div className="space-y-4">
-              <h4 className="text-sm font-black text-[#34C759] tracking-tight">Requisitos</h4>
+              <h4 className={`text-sm font-black tracking-tight ${capturedTheme.text}`}>FAQ</h4>
               <div className="space-y-3">
-                {(faqs.length > 0 ? faqs.filter(f => !f.image_url) : [{ title: 'Mínimo de 4 fotos', id: '1' }, { title: 'Boa iluminação', id: '2' }, { title: 'Foco nítido e enquadramento adequado', id: '3' }]).map(req => (
+                {(textFaqs.length > 0 ? textFaqs : [{ title: 'Mínimo de 4 fotos', id: '1' }, { title: 'Boa iluminação', id: '2' }, { title: 'Foco nítido e enquadramento adequado', id: '3' }]).map(req => (
                   <div key={req.id} className="flex items-center gap-3">
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${capturedTheme.icon}`}>
                       <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
                       </svg>
@@ -395,7 +427,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
             {/* Exemplos */}
             <div className="space-y-4">
-              <h4 className="text-sm font-black text-[#34C759] tracking-tight">Exemplos</h4>
+              <h4 className={`text-sm font-black tracking-tight ${capturedTheme.text}`}>Exemplos visuais</h4>
               <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
                 {faqs.filter(f => f.image_url).length > 0 ? (
                   faqs.filter(f => f.image_url).map(example => (
