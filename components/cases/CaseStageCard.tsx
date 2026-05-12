@@ -257,6 +257,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     } finally {
       setDeletingFileId(null);
     }
+  };
+
   return (
     <div
       id={`stage-${stage.id}`}
