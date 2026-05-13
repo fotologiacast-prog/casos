@@ -329,8 +329,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               .replace(/[^a-z0-9]+/g, " ")
               .trim();
 
-          const findCol = (...names: string[]) =>
-            columns.find((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
+          const readOnlyTypes = ["formula", "creation_log", "last_updated", "auto_number", "item_id", "progress", "lookup", "board_relation", "subtasks", "mirror"];
+          const findCol = (colNames: string | string[], preferredTypes: string[] = []) => {
+            const names = Array.isArray(colNames) ? colNames : [colNames];
+            const matches = columns.filter((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
+            if (matches.length === 0) return undefined;
+
+            const writableMatches = matches.filter((c) => !readOnlyTypes.includes(c.type));
+            const preferredMatch = writableMatches.find((c) => preferredTypes.includes(c.type));
+            return preferredMatch || writableMatches[0] || matches[0];
+          };
 
           const targetGroup = groups.find(group => {
             const title = normalizeKey(group.title);
@@ -342,13 +350,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const columnUpdates: { id: string; title: string; value: unknown }[] = [];
 
-          const set = (colNames: string | string[], value: unknown) => {
+          const set = (colNames: string | string[], value: unknown, preferredTypes: string[] = []) => {
             const names = Array.isArray(colNames) ? colNames : [colNames];
-            const col = findCol(...names);
+            const col = findCol(names, preferredTypes);
             if (!col || value === undefined || value === null || String(value).trim() === "") return;
             
             // Prevent updating read-only/auto-calculated columns
-            const readOnlyTypes = ["formula", "creation_log", "last_updated", "auto_number", "item_id", "progress", "lookup", "board_relation", "subtasks"];
             if (readOnlyTypes.includes(col.type)) {
               console.log(`[Cases API] Ignorando coluna "${names.join(", ")}" porque o tipo "${col.type}" é somente leitura.`);
               return;
@@ -369,16 +376,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           const dentistResponsible = String(payload.dentist_responsible || "").trim();
-          set("Cliente", clientLabel);
-          set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL);
+          set(["Cliente", "#Cliente"], clientLabel, ["status", "color", "dropdown", "text"]);
+          set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL, ["status", "color", "dropdown", "text"]);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
           set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
           set(["Idade", "#Idade"], calculateAge(payload.birth_date));
-          if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender);
-          if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure);
-          if (dentistResponsible) set(["Dentista Responsável", "#Dentista Responsável", "Dentista Responsavel", "#Dentista Responsavel"], dentistResponsible);
+          if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender, ["status", "color", "dropdown", "text"]);
+          if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure, ["dropdown", "status", "color", "text"]);
+          if (dentistResponsible) set(["Dentista Responsável", "#Dentista Responsável", "Dentista Responsavel", "#Dentista Responsavel"], dentistResponsible, ["text", "long_text", "status", "color", "dropdown"]);
           if (caseDriveFolderId) {
-            const driveCol = findCol("Drive do cliente", "#Drive do cliente", "Drive", "Pasta Drive");
+            const driveCol = findCol(["Drive do cliente", "#Drive do cliente", "Drive", "Pasta Drive"], ["link", "text"]);
             if (driveCol) {
               const driveUrl = `https://drive.google.com/drive/folders/${caseDriveFolderId}`;
               columnUpdates.push({
@@ -442,7 +449,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ) { id }
             }`;
 
-            for (const update of columnUpdates) {
+            const updateMondayColumns = async (updates: typeof columnUpdates) => {
+              if (updates.length === 0) return;
+              const columnValues = updates.reduce<Record<string, unknown>>((acc, update) => {
+                acc[update.id] = update.value;
+                return acc;
+              }, {});
               const updateResponse = await fetch("https://api.monday.com/v2", {
                 method: "POST",
                 headers: {
@@ -455,18 +467,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   variables: {
                     boardId: String(mondayBoardId),
                     itemId: String(mondayItemId),
-                    columnValues: JSON.stringify({ [update.id]: update.value }),
+                    columnValues: JSON.stringify(columnValues),
                   },
                 }),
               });
               const updateData = await updateResponse.json().catch(() => ({}));
               if (!updateResponse.ok || updateData.errors) {
-                columnErrors.push({
+                updates.forEach((update) => columnErrors.push({
                   column: update.title,
                   error: updateData.errors?.map((error: any) => error.message).join(" ") || `HTTP ${updateResponse.status}`,
-                });
+                }));
               }
-            }
+            };
+
+            const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
+            const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
+
+            await updateMondayColumns(clientColumnUpdates);
+            await updateMondayColumns(otherColumnUpdates);
 
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;
