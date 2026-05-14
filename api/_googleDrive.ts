@@ -179,6 +179,7 @@ export const startDriveResumableUpload = async (input: {
         "Content-Type": "application/json; charset=UTF-8",
         "X-Upload-Content-Type": input.mimeType || "application/octet-stream",
         ...(input.sizeBytes ? { "X-Upload-Content-Length": String(input.sizeBytes) } : {}),
+        ...(input.origin ? { Origin: input.origin } : {}),
       },
       body: JSON.stringify({
         name: input.fileName,
