@@ -129,8 +129,11 @@ const uploadDriveChunk = async (
     const chunk = file.slice(start, end + 1);
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', uploadUrl, true);
+    const isFullFile = start === 0 && end === file.size - 1;
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-    xhr.setRequestHeader('Content-Range', `bytes ${start}-${end}/${file.size}`);
+    if (!isFullFile) {
+      xhr.setRequestHeader('Content-Range', `bytes ${start}-${end}/${file.size}`);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
