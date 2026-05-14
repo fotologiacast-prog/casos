@@ -152,7 +152,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         src={asset.public_url}
         className="h-full w-full object-contain"
         playsInline
-        preload="metadata"
+        preload="none"
         onClick={togglePlayback}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
@@ -203,7 +203,7 @@ const AudioPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => (
       <p className="break-words text-sm font-bold">{asset.name}</p>
       <p className="mt-1 text-xs font-medium text-white/50">Arquivo de áudio</p>
     </div>
-    <audio src={asset.public_url} controls preload="metadata" className="w-full max-w-sm" />
+    <audio src={asset.public_url} controls preload="none" className="w-full max-w-sm" />
   </div>
 );
 

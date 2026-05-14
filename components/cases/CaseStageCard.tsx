@@ -207,11 +207,13 @@ const DriveImage = ({
   className,
   onClick,
   preferThumbnail = false,
+  thumbnailOnly = false,
 }: {
   file: CaseStage['files'][number];
   className: string;
   onClick?: () => void;
   preferThumbnail?: boolean;
+  thumbnailOnly?: boolean;
 }) => {
   const thumbnailUrl = getDriveThumbnailUrl(file);
   const getInitialSrc = () => {
@@ -225,7 +227,7 @@ const DriveImage = ({
   useEffect(() => {
     setSrc(getInitialSrc());
     setFailed(false);
-  }, [file.id, file.public_url, file.type, preferThumbnail, thumbnailUrl]);
+  }, [file.id, file.public_url, file.type, preferThumbnail, thumbnailOnly, thumbnailUrl]);
 
   if (!src || failed) {
     return <MediaFallback file={file} label="Preview indisponível" />;
@@ -238,7 +240,7 @@ const DriveImage = ({
       onClick={onClick}
       onError={() => {
         if (src !== thumbnailUrl && thumbnailUrl) setSrc(thumbnailUrl);
-        else if (src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
+        else if (!thumbnailOnly && src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
         else setFailed(true);
       }}
       loading="lazy"
@@ -523,7 +525,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 {stage.files.map(file => (
                   <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
                     {isImageFile(file) ? (
-                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} preferThumbnail />
+                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} preferThumbnail thumbnailOnly />
                     ) : isVideoFile(file) ? (
                       <VideoTile file={file} onClick={() => setLightboxFile(file)} />
                     ) : isAudioFile(file) ? (

@@ -49,13 +49,7 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
       alt={name}
       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
       loading="lazy"
-      onError={() => {
-        if (thumbnail?.fallbackSrc && currentSrc !== thumbnail.fallbackSrc) {
-          setCurrentSrc(thumbnail.fallbackSrc);
-          return;
-        }
-        setFailed(true);
-      }}
+      onError={() => setFailed(true)}
     />
   );
 };

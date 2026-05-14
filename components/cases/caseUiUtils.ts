@@ -3,7 +3,6 @@ import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 
 export type CaseThumbnail = {
   src: string;
-  fallbackSrc?: string;
 };
 
 export const getCapturedCount = (patient: CasePatient) =>
@@ -60,10 +59,7 @@ const getThumbnailCandidate = (url: string): CaseThumbnail => {
     const parsed = new URL(url, window.location.origin);
     const fileId = parsed.pathname === '/api/drive-file' ? parsed.searchParams.get('fileId') : null;
     return fileId
-      ? {
-          src: `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1`,
-          fallbackSrc: url,
-        }
+      ? { src: `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1` }
       : { src: url };
   } catch {
     return { src: url };
