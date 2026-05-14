@@ -176,6 +176,26 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
+const AudioIcon = ({ className = 'h-8 w-8' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </svg>
+);
+
+const AttachmentIcon = ({ className = 'h-8 w-8' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m21.44 11.05-8.49 8.49a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 1 1-2.83-2.83l8.49-8.48" />
+  </svg>
+);
+
+const WarningIcon = ({ className = 'h-5 w-5' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+    <path fillRule="evenodd" d="M8.485 2.495a1.75 1.75 0 0 1 3.03 0l6.28 10.99A1.75 1.75 0 0 1 16.28 16.1H3.72a1.75 1.75 0 0 1-1.515-2.615l6.28-10.99ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+  </svg>
+);
+
 const getUploadLabel = (progress: UploadProgressInfo | null) => {
   if (!progress) return 'Preparando upload...';
   if (progress.phase === 'preparing') return 'Preparando upload...';
@@ -244,6 +264,9 @@ const DriveImage = ({
   return (
     <img
       src={src}
+      alt={file.name || 'Arquivo enviado'}
+      width={800}
+      height={800}
       className={className}
       onClick={onClick}
       onError={() => {
@@ -251,6 +274,7 @@ const DriveImage = ({
         else if (!thumbnailOnly && src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
         else setFailed(true);
       }}
+      decoding="async"
       loading="lazy"
     />
   );
@@ -269,7 +293,11 @@ const DriveThumbnailImage = ({ file, className }: { file: CaseStage['files'][num
   return (
     <img
       src={src}
+      alt={file.name || 'Miniatura do arquivo'}
+      width={800}
+      height={800}
       className={className}
+      decoding="async"
       loading="lazy"
       onError={() => setSrc(null)}
     />
@@ -279,7 +307,7 @@ const DriveThumbnailImage = ({ file, className }: { file: CaseStage['files'][num
 const VideoTile = ({ file, onClick }: { file: CaseStage['files'][number]; onClick: () => void }) => {
   const thumbnailUrl = getDriveThumbnailUrl(file);
   return (
-    <button type="button" onClick={onClick} className="relative h-full w-full bg-zinc-950 text-white">
+    <button type="button" onClick={onClick} className="relative h-full w-full bg-zinc-950 text-white" aria-label={`Abrir video ${file.name}`}>
       {thumbnailUrl ? (
         <DriveThumbnailImage file={file} className="h-full w-full object-cover opacity-85" />
       ) : (
@@ -353,6 +381,17 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isUploading]);
+
+  useEffect(() => {
+    if (!faqOpen && !lightboxFile) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setFaqOpen(false);
+      setLightboxFile(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [faqOpen, lightboxFile]);
 
   const stageType = stage.title;
 
@@ -454,6 +493,16 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       <div 
         className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 flex items-center gap-3.5 sm:gap-4 lg:gap-5 transition-colors hover:bg-zinc-50/50"
         onClick={handleToggleExpand}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleToggleExpand();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-controls={`stage-panel-${stage.id}`}
       >
         <div className={`flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-2xl lg:rounded-[1.25rem] text-lg transition-all ${
           isCaptured ? capturedTheme.icon : 'bg-zinc-100 text-zinc-400'
@@ -482,9 +531,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           type="button"
           onClick={handleOpenFaq}
           className={`hidden shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-colors sm:inline-flex ${capturedTheme.icon}`}
-          title="Ver FAQ da etapa"
+          aria-label={`Ver FAQ da etapa ${stage.title}`}
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
             <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8-3.5a1.5 1.5 0 0 0-1.493 1.356.75.75 0 1 1-1.493-.143A3 3 0 1 1 10.75 10.6v.15a.75.75 0 0 1-1.5 0V10a.75.75 0 0 1 .75-.75A1.5 1.5 0 1 0 10 6.5Zm0 8.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
           </svg>
           FAQ
@@ -493,10 +542,10 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         <button
           type="button"
           onClick={handleOpenFaq}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:hidden ${capturedTheme.icon}`}
-          title="Ver FAQ da etapa"
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:hidden ${capturedTheme.icon}`}
+          aria-label={`Ver FAQ da etapa ${stage.title}`}
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
             <path fillRule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-8-3.5a1.5 1.5 0 0 0-1.493 1.356.75.75 0 1 1-1.493-.143A3 3 0 1 1 10.75 10.6v.15a.75.75 0 0 1-1.5 0V10a.75.75 0 0 1 .75-.75A1.5 1.5 0 1 0 10 6.5Zm0 8.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
           </svg>
         </button>
@@ -508,7 +557,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         </div>
       </div>
 
-      <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div id={`stage-panel-${stage.id}`} className={`overflow-hidden transition-[max-height,opacity] duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-5 pb-6 space-y-6 sm:px-6 sm:pb-8 sm:space-y-8 lg:px-8 lg:pb-9">
           {/* Upload Area */}
           {!isCaptured ? (
@@ -553,6 +602,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Arquivos enviados</h4>
                 <button
+                  type="button"
                   onClick={() => inputRef.current?.click()}
                   className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
                 >
@@ -563,23 +613,30 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 {stage.files.map(file => (
                   <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
                     {isImageFile(file) ? (
-                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} preferThumbnail thumbnailOnly />
+                      <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full" aria-label={`Abrir imagem ${file.name}`}>
+                        <DriveImage file={file} className="h-full w-full object-cover" preferThumbnail thumbnailOnly />
+                      </button>
                     ) : isVideoFile(file) ? (
                       <VideoTile file={file} onClick={() => setLightboxFile(file)} />
                     ) : isAudioFile(file) ? (
-                      <button type="button" onClick={() => setLightboxFile(file)} className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 p-4 text-center text-white">
-                        <span className="text-3xl">♪</span>
+                      <button type="button" onClick={() => setLightboxFile(file)} className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 p-4 text-center text-white" aria-label={`Abrir audio ${file.name}`}>
+                        <AudioIcon className="h-8 w-8" />
                       </button>
                     ) : (
-                      <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full">
+                      <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full" aria-label={`Abrir arquivo ${file.name}`}>
                         <MediaFallback file={file} label="Arquivo" />
                       </button>
                     )}
                     <button
-                      onClick={() => handleDeleteFile(file)}
-                      className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      type="button"
+                      onClick={(event) => { event.stopPropagation(); handleDeleteFile(file); }}
+                      disabled={deletingFileId === file.id}
+                      aria-label={`Remover arquivo ${file.name}`}
+                      className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-50 sm:h-9 sm:w-9 sm:opacity-0 sm:group-hover:opacity-100"
                     >
-                      ✕
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                      </svg>
                     </button>
                   </div>
                 ))}
@@ -606,8 +663,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         )}
 
         {error && (
-          <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3">
-            <span className="text-red-500">⚠</span>
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3" role="status" aria-live="polite">
+            <WarningIcon className="h-5 w-5 shrink-0 text-red-500" />
             <p className="text-sm font-medium text-red-700">{error}</p>
           </div>
         )}
@@ -615,8 +672,11 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       {/* FAQ Popup */}
       {faqOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-4 backdrop-blur-sm"
           onClick={() => setFaqOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`FAQ da etapa ${stage.title}`}
         >
           <div
             className="w-full max-w-2xl overflow-hidden rounded-[1.5rem] bg-white shadow-2xl"
@@ -633,7 +693,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200"
                 aria-label="Fechar FAQ"
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                   <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
                 </svg>
               </button>
@@ -669,7 +729,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                             {isExampleVideo(faq.image_url) ? (
                               <video src={faq.image_url} controls className="max-h-[420px] w-full bg-black object-contain" />
                             ) : (
-                              <img src={faq.image_url} alt={faq.title} className="max-h-[420px] w-full object-contain" />
+                              <img src={faq.image_url} alt={faq.title} width={960} height={540} loading="lazy" decoding="async" className="max-h-[420px] w-full object-contain" />
                             )}
                           </div>
                         </div>
@@ -686,8 +746,11 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       {/* Lightbox */}
       {lightboxFile && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/90 p-4 backdrop-blur-sm"
           onClick={() => setLightboxFile(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Pre-visualizacao de ${lightboxFile.name}`}
         >
           <div
             className="relative max-h-full max-w-4xl w-full overflow-hidden rounded-2xl"
@@ -698,8 +761,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               type="button"
               onClick={() => setLightboxFile(null)}
               className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur hover:bg-black/80 transition-colors"
+              aria-label="Fechar pre-visualizacao"
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                 <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
               </svg>
             </button>
@@ -719,12 +783,12 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 />
               ) : isAudioFile(lightboxFile) ? (
                 <div className="flex flex-col items-center justify-center gap-6 p-12 text-white">
-                  <span className="text-6xl">♪</span>
+                  <AudioIcon className="h-16 w-16" />
                   <audio src={lightboxFile.public_url} controls autoPlay preload="metadata" className="w-full max-w-sm" />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 p-12 text-white">
-                  <span className="text-5xl">📎</span>
+                  <AttachmentIcon className="h-14 w-14" />
                 </div>
               )}
             </div>

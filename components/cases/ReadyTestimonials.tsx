@@ -85,6 +85,11 @@ const getDrivePreviewUrl = (url: string) => {
   return fileId ? `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview` : null;
 };
 
+const getDriveThumbnailUrl = (url: string) => {
+  const fileId = getDriveFileIdFromUrl(url);
+  return fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w1000` : null;
+};
+
 const ageRanges = [
   { value: 'all', label: 'Todas idades' },
   { value: '0-18', label: 'Até 18' },
@@ -126,7 +131,40 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [showDrivePlayer, setShowDrivePlayer] = useState(false);
   const drivePreviewUrl = getDrivePreviewUrl(asset.public_url);
+  const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
+
+  if (drivePreviewUrl && !showDrivePlayer) {
+    return (
+      <button
+        type="button"
+        onClick={() => setShowDrivePlayer(true)}
+        className="relative flex h-full min-h-[240px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white"
+        aria-label={`Reproduzir ${asset.name}`}
+      >
+        {driveThumbnailUrl ? (
+          <img
+            src={driveThumbnailUrl}
+            alt=""
+            width={1000}
+            height={1000}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover opacity-80"
+          />
+        ) : (
+          <span className="absolute inset-0 bg-zinc-900" />
+        )}
+        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white text-zinc-950 shadow-xl">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="ml-0.5 h-7 w-7" aria-hidden="true">
+            <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
+          </svg>
+        </span>
+      </button>
+    );
+  }
 
   if (drivePreviewUrl) {
     return (
@@ -135,6 +173,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         className="h-full w-full bg-black"
         allow="autoplay; fullscreen"
         allowFullScreen
+        loading="lazy"
         title={asset.name}
       />
     );
@@ -166,7 +205,9 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   if (hasError) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900 p-8 text-center text-white">
-        <span className="mb-3 text-3xl">⏳</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="mb-3 h-9 w-9 text-zinc-400" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 2h12M6 22h12M8 2c0 4 2.5 6 4 7 1.5-1 4-3 4-7M8 22c0-4 2.5-6 4-7 1.5 1 4 3 4 7" />
+        </svg>
         <p className="text-sm font-black uppercase tracking-widest text-zinc-400">Processando no Drive</p>
         <p className="mt-2 text-xs leading-relaxed text-zinc-500">
           O Google Drive ainda está processando este vídeo. <br />
@@ -195,6 +236,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
           type="button"
           onClick={togglePlayback}
           className="inline-flex items-center gap-2 rounded-full bg-black/80 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
+          aria-label={isPlaying ? `Pausar ${asset.name}` : `Reproduzir ${asset.name}`}
         >
           {isPlaying ? (
             <>
@@ -214,7 +256,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
           type="button"
           onClick={handleFullscreen}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
-          title="Tela cheia"
+          aria-label={`Abrir ${asset.name} em tela cheia`}
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
             <path d="M13.28 2.22a.75.75 0 0 0-1.06 1.06l1.47 1.47-1.47 1.47a.75.75 0 1 0 1.06 1.06l1.47-1.47 1.47 1.47a.75.75 0 0 0 1.06-1.06l-1.47-1.47 1.47-1.47a.75.75 0 0 0-1.06-1.06l-1.47 1.47-1.47-1.47ZM3.75 2a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-2.25A.75.75 0 0 1 3 5V2.75a.75.75 0 0 1 .75-.75ZM3 15v2.25c0 .414.336.75.75.75h2.25a.75.75 0 0 0 0-1.5h-1.5V15a.75.75 0 0 0-1.5 0ZM16.25 18a.75.75 0 0 1-.75-.75V15.75h-1.5a.75.75 0 0 1 0-1.5h2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75Z" />
@@ -228,7 +270,11 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
 const AudioPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => (
   <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-zinc-950 px-5 text-white">
     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-3xl">
-      ♪
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-8 w-8" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
     </div>
     <p className="text-xs font-medium uppercase tracking-widest text-white/50">Áudio</p>
     <audio src={asset.public_url} controls preload="none" className="w-full max-w-sm" />
@@ -241,7 +287,10 @@ const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
       <img
         src={asset.public_url}
         alt={asset.name}
+        width={1000}
+        height={1000}
         className="h-full w-full object-contain"
+        decoding="async"
         loading="lazy"
       />
     );
@@ -473,8 +522,10 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
           </svg>
           <input
+            name="testimonial-search"
             value={search}
             onChange={event => setSearch(event.target.value)}
+            autoComplete="off"
             placeholder="Buscar por paciente, depoimento ou arquivo..."
             className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
           />
@@ -509,7 +560,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
       ) : (
         <div className="mt-6 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
           {filteredTestimonials.map(testimonial => (
-            <article key={testimonial.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md">
+            <article key={testimonial.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md" style={{ contentVisibility: 'auto', containIntrinsicSize: '420px' }}>
               {/* Title header */}
               <div className="border-b border-zinc-100 px-4 py-3 bg-zinc-50/50">
                 <div className="flex items-center justify-between gap-3">
@@ -573,7 +624,10 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                         onClick={() => onOpenCase(testimonial.caseId)}
                         className="text-[11px] font-bold text-zinc-500 hover:text-zinc-950 transition-colors flex items-center gap-1"
                       >
-                        Ver caso ↗
+                        Ver caso
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                          <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v3.69a.75.75 0 0 0 1.5 0v-5.5A.75.75 0 0 0 14.25 5h-5.5a.75.75 0 0 0 0 1.5h3.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z" clipRule="evenodd" />
+                        </svg>
                       </button>
                     )}
                   </div>

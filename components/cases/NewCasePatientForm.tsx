@@ -92,12 +92,15 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
           {/* Name */}
           <div>
-            <label className={labelClass}>Nome do paciente *</label>
+            <label htmlFor="patient-name" className={labelClass}>Nome do paciente *</label>
             <input
+              id="patient-name"
+              name="patient-name"
               required
               value={formData.name}
               onChange={set('name')}
-              placeholder="Ex: Maria da Silva"
+              autoComplete="name"
+              placeholder="Ex: Maria da Silva..."
               className={inputClass}
             />
           </div>
@@ -105,19 +108,25 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
           {/* Birth date + Gender */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Data de nascimento</label>
+              <label htmlFor="patient-birth-date" className={labelClass}>Data de nascimento</label>
               <input
+                id="patient-birth-date"
+                name="patient-birth-date"
                 type="date"
                 value={formData.birthDate}
                 onChange={set('birthDate')}
+                autoComplete="bday"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Sexo</label>
+              <label htmlFor="patient-gender" className={labelClass}>Sexo</label>
               <select
+                id="patient-gender"
+                name="patient-gender"
                 value={formData.gender}
                 onChange={set('gender')}
+                autoComplete="off"
                 className={inputClass}
               >
                 {CASE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
@@ -141,6 +150,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
                   >
                     <input
                       type="checkbox"
+                      name="patient-procedures"
                       checked={checked}
                       onChange={() => toggleProcedure(option)}
                       className="h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
@@ -153,22 +163,28 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
           </div>
 
           <div>
-            <label className={labelClass}>Dentista responsável</label>
+            <label htmlFor="dentist-responsible" className={labelClass}>Dentista responsável</label>
             <input
+              id="dentist-responsible"
+              name="dentist-responsible"
               value={formData.dentistResponsible}
               onChange={set('dentistResponsible')}
-              placeholder="Ex: Dra. Ana Silva"
+              autoComplete="off"
+              placeholder="Ex: Dra. Ana Silva..."
               className={inputClass}
             />
           </div>
 
           <div>
-            <label className={labelClass}>Observação</label>
+            <label htmlFor="case-notes" className={labelClass}>Observação</label>
             <textarea
+              id="case-notes"
+              name="case-notes"
               rows={4}
               value={formData.notes}
               onChange={set('notes')}
-              placeholder="Observações internas sobre o caso. Vai para o balão do Monday."
+              autoComplete="off"
+              placeholder="Observações internas sobre o caso. Vai para o balão do Monday..."
               className={`${inputClass} resize-y`}
             />
           </div>

@@ -47,7 +47,10 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
     <img
       src={currentSrc}
       alt={name}
+      width={800}
+      height={450}
       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+      decoding="async"
       loading="lazy"
       onError={() => setFailed(true)}
     />
@@ -64,6 +67,15 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
   return (
     <article
       onClick={() => onOpen(patient)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen(patient);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir etapas do paciente ${patient.name}`}
       className="group w-full cursor-pointer overflow-hidden rounded-[1.6rem] border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-xl"
     >
       {/* Thumbnail or Fallback */}
@@ -122,9 +134,10 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenTestimonials?.(patient); }}
+              aria-label={`Abrir materiais prontos de ${patient.name}`}
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700"
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
                 <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
               </svg>
               Pronto
@@ -134,7 +147,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
           )}
           <span className="text-xs font-semibold text-slate-400 transition-colors group-hover:text-slate-700 flex items-center gap-1">
             Ver etapas
-            <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+            <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3" aria-hidden="true">
               <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
             </svg>
           </span>

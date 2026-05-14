@@ -89,6 +89,15 @@ const AdminClients: React.FC = () => {
   const [faqSaving, setFaqSaving] = useState(false);
   const [faqError, setFaqError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!previewFaq) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewFaq(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewFaq]);
+
   const loadFaqs = async () => {
     setFaqsLoading(true);
     try {
@@ -295,10 +304,14 @@ const AdminClients: React.FC = () => {
             </div>
           )}
 
+          <label htmlFor="admin-password" className="sr-only">Senha admin</label>
           <input
+            id="admin-password"
+            name="admin-password"
             type="password"
             value={passwordInput}
             onChange={event => setPasswordInput(event.target.value)}
+            autoComplete="current-password"
             className="mt-6 w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white outline-none transition-all placeholder:text-zinc-500 focus:border-white/30 focus:ring-2 focus:ring-white/10"
             placeholder="Senha admin"
           />
@@ -384,15 +397,15 @@ const AdminClients: React.FC = () => {
               </label>
               <label className="block">
                 <span className={labelSpanClass}>Título</span>
-                <input value={faqForm.title} onChange={e => setFaqForm(p => ({...p, title: e.target.value}))} required className={inputClass} placeholder="Ex: Quantas fotos enviar?" />
+                <input name="faq-title" value={faqForm.title} onChange={e => setFaqForm(p => ({...p, title: e.target.value}))} required autoComplete="off" className={inputClass} placeholder="Ex: Quantas fotos enviar..." />
               </label>
               <label className="block">
                 <span className={labelSpanClass}>URL da imagem (opcional)</span>
-                <input value={faqForm.image_url} onChange={e => setFaqForm(p => ({...p, image_url: e.target.value}))} className={inputClass} placeholder="https://..." />
+                <input name="faq-image-url" type="url" inputMode="url" value={faqForm.image_url} onChange={e => setFaqForm(p => ({...p, image_url: e.target.value}))} autoComplete="off" className={inputClass} placeholder="https://..." />
               </label>
               <label className="block">
                 <span className={labelSpanClass}>Conteúdo / Instruções</span>
-                <textarea value={faqForm.content} onChange={e => setFaqForm(p => ({...p, content: e.target.value}))} className={`${inputClass} min-h-[100px] resize-y`} placeholder="Descreva o que deve ser enviado nesta etapa..." />
+                <textarea name="faq-content" value={faqForm.content} onChange={e => setFaqForm(p => ({...p, content: e.target.value}))} autoComplete="off" className={`${inputClass} min-h-[100px] resize-y`} placeholder="Descreva o que deve ser enviado nesta etapa..." />
               </label>
               <div className="flex flex-wrap gap-2">
                 <button type="submit" disabled={faqSaving} className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 disabled:opacity-50 active:scale-95 transition-all">
@@ -423,7 +436,7 @@ const AdminClients: React.FC = () => {
                     <div className="min-w-0 flex-1">
                       <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500 mb-1">{faq.stage_type}</span>
                       <p className="font-bold text-zinc-900">{faq.title}</p>
-                      {faq.image_url && <img src={faq.image_url} alt={faq.title} className="mt-2 h-20 w-auto rounded-lg object-cover" />}
+                      {faq.image_url && <img src={faq.image_url} alt={faq.title} width={160} height={80} loading="lazy" decoding="async" className="mt-2 h-20 w-auto rounded-lg object-cover" />}
                       {faq.content && <p className="mt-1 text-sm text-zinc-600 line-clamp-2">{faq.content}</p>}
                     </div>
                     <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
@@ -494,8 +507,10 @@ const AdminClients: React.FC = () => {
                     <label className="block md:col-span-2">
                       <span className={labelSpanClass}>Nome</span>
                       <input
+                        name="client-name"
                         value={form.name}
                         onChange={event => handleNameChange(event.target.value)}
+                        autoComplete="organization"
                         className={inputClass}
                         placeholder="Nome do cliente"
                         required
@@ -504,8 +519,10 @@ const AdminClients: React.FC = () => {
                     <label className="block">
                       <span className={labelSpanClass}>Board ID Monday</span>
                       <input
+                        name="client-board-id"
                         value={form.boardId}
                         readOnly
+                        autoComplete="off"
                         className={`${inputClass} bg-zinc-50 font-mono text-zinc-500`}
                         placeholder="18054403734"
                         required
@@ -515,8 +532,10 @@ const AdminClients: React.FC = () => {
                     <label className="block">
                       <span className={labelSpanClass}>Label no Monday</span>
                       <input
+                        name="client-monday-label"
                         value={form.case_client_label || ''}
                         onChange={event => setForm(prev => ({ ...prev, case_client_label: event.target.value, monday_client_label: event.target.value }))}
+                        autoComplete="off"
                         className={inputClass}
                         placeholder="Nome da clínica no board"
                       />
@@ -530,8 +549,11 @@ const AdminClients: React.FC = () => {
                     <label className="block">
                       <span className={labelSpanClass}>Token do link</span>
                       <input
+                        name="client-public-token"
                         value={form.case_public_token}
                         onChange={event => setForm(prev => ({ ...prev, case_public_token: event.target.value }))}
+                        autoComplete="off"
+                        spellCheck={false}
                         className={`${inputClass} font-mono`}
                         placeholder="Ex: clinica-silva-a1b2c"
                         required
@@ -540,36 +562,41 @@ const AdminClients: React.FC = () => {
                     <label className="block">
                       <span className={labelSpanClass}>Pasta Drive ID</span>
                       <input
+                        name="client-drive-folder-id"
                         value={form.drive_folder_id || ''}
                         onChange={event => setForm(prev => ({ ...prev, drive_folder_id: event.target.value }))}
+                        autoComplete="off"
+                        spellCheck={false}
                         className={`${inputClass} font-mono`}
                         placeholder="ID da pasta raiz no Drive"
                       />
                     </label>
-                    <label className="block md:col-span-2">
-                      <span className={labelSpanClass}>Senha do portal da clínica</span>
-                      <div className="relative">
-                        <input
-                          type={showPortalPassword ? 'text' : 'password'}
-                          value={form.portal_password || ''}
-                          onChange={event => setForm(prev => ({ ...prev, portal_password: event.target.value }))}
-                          className={`${inputClass} pr-10`}
-                          placeholder="Deixe em branco para acesso livre"
-                          autoComplete="new-password"
-                        />
+	                    <label className="block md:col-span-2">
+	                      <span className={labelSpanClass}>Senha do portal da clínica</span>
+	                      <div className="relative">
+	                        <input
+	                          type={showPortalPassword ? 'text' : 'password'}
+	                          id="client-portal-password"
+	                          name="client-portal-password"
+	                          value={form.portal_password || ''}
+	                          onChange={event => setForm(prev => ({ ...prev, portal_password: event.target.value }))}
+	                          className={`${inputClass} pr-10`}
+		                          placeholder="Deixe em branco para acesso livre"
+		                          autoComplete="new-password"
+		                        />
                         <button
                           type="button"
                           onClick={() => setShowPortalPassword(v => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
-                          tabIndex={-1}
-                        >
-                          {showPortalPassword ? (
-                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                          aria-label={showPortalPassword ? 'Ocultar senha do portal' : 'Mostrar senha do portal'}
+	                        >
+	                          {showPortalPassword ? (
+	                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                               <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
                               <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clipRule="evenodd" />
                             </svg>
-                          ) : (
-                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+	                          ) : (
+	                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                               <path fillRule="evenodd" d="M3.28 2.22a.75.75 0 0 0-1.06 1.06l14.5 14.5a.75.75 0 1 0 1.06-1.06l-1.745-1.745a10.029 10.029 0 0 0 3.3-4.38 1.651 1.651 0 0 0 0-1.185A10.004 10.004 0 0 0 9.999 3a9.956 9.956 0 0 0-4.744 1.194L3.28 2.22ZM7.752 6.69l1.092 1.092a2.5 2.5 0 0 1 3.374 3.373l1.091 1.092a4 4 0 0 0-5.557-5.557Z" clipRule="evenodd" />
                               <path d="M10.748 13.93l2.523 2.523a10.003 10.003 0 0 1-3.27.547c-4.258 0-7.894-2.66-9.337-6.41a1.651 1.651 0 0 1 0-1.186A10.007 10.007 0 0 1 2.839 6.02L6.07 9.252a4 4 0 0 0 4.678 4.678Z" />
                             </svg>
@@ -724,7 +751,13 @@ const AdminClients: React.FC = () => {
         </div>
       )}
       {previewFaq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setPreviewFaq(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewFaq(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview do FAQ ${previewFaq.title}`}
+        >
           <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
               <div>
@@ -735,8 +768,9 @@ const AdminClients: React.FC = () => {
                 type="button"
                 onClick={() => setPreviewFaq(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors"
+                aria-label="Fechar preview do FAQ"
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                   <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
                 </svg>
               </button>
@@ -753,7 +787,7 @@ const AdminClients: React.FC = () => {
                   {isPreviewVideo(previewFaq.image_url) ? (
                     <video src={previewFaq.image_url} controls className="max-h-[360px] w-full bg-black object-contain" />
                   ) : (
-                    <img src={previewFaq.image_url} alt={previewFaq.title} className="max-h-[360px] w-full object-contain" />
+                    <img src={previewFaq.image_url} alt={previewFaq.title} width={960} height={540} loading="lazy" decoding="async" className="max-h-[360px] w-full object-contain" />
                   )}
                 </div>
               )}

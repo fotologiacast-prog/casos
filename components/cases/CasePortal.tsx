@@ -327,6 +327,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             <img
               src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
               alt="Impact Doctor"
+              width={180}
+              height={40}
               className="h-8 w-auto max-w-[180px] object-contain sm:h-10"
             />
           </div>
@@ -352,12 +354,17 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               }}
               className="mt-6 space-y-4"
             >
+              <label htmlFor="portal-password" className="sr-only">Senha do portal</label>
               <input
+                id="portal-password"
+                name="portal-password"
                 type="password"
                 value={pwInput}
                 onChange={e => { setPwInput(e.target.value); setPwError(false); }}
                 placeholder="Senha"
-                autoFocus
+                autoComplete="current-password"
+                aria-invalid={pwError}
+                aria-describedby={pwError ? 'portal-password-error' : undefined}
                 className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all ${
                   pwError
                     ? 'border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-200'
@@ -365,7 +372,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                 }`}
               />
               {pwError && (
-                <p className="text-sm font-medium text-red-600">Senha incorreta. Tente novamente.</p>
+                <p id="portal-password-error" className="text-sm font-medium text-red-600" aria-live="polite">Senha incorreta. Tente novamente.</p>
               )}
               <button
                 type="submit"
@@ -393,11 +400,14 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               setSelectedPatientId(null);
               setTestimonialSearch('');
             }}
+            aria-label="Voltar para a lista de casos"
             className="flex shrink-0 items-center gap-3 transition-opacity hover:opacity-80 active:scale-95"
           >
             <img
               src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
               alt="Impact Doctor"
+              width={180}
+              height={32}
               className="h-6 w-auto max-w-[128px] shrink-0 object-contain sm:h-8 sm:max-w-[180px]"
             />
           </button>
@@ -411,7 +421,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                   : 'text-zinc-500 hover:text-zinc-900'
               }`}
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                 <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
               </svg>
               Casos
@@ -425,7 +435,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                   : 'text-zinc-500 hover:text-zinc-900'
               }`}
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                 <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
               </svg>
               <span className="hidden sm:inline">Materiais Prontos</span>

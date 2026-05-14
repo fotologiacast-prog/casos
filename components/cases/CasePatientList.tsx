@@ -140,7 +140,13 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
                 Atualizando
               </span>
             ) : (
-              '↻ Atualizar'
+              <span className="flex items-center gap-2">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466.75.75 0 0 0-1.061 1.061 7 7 0 0 0 11.713-3.138.75.75 0 0 0-1.451-.389ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466.75.75 0 1 0 1.061-1.061A7 7 0 0 0 3.237 8.187a.75.75 0 1 0 1.451.389Z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M6.75 8.25A.75.75 0 0 1 6 9H3.25a.75.75 0 0 1-.75-.75V5.5a.75.75 0 0 1 1.5 0v1.19l1.22-1.22a.75.75 0 0 1 1.06 1.06L5.06 7.75H6a.75.75 0 0 1 .75.5Zm6.5 3.5A.75.75 0 0 1 14 11h2.75a.75.75 0 0 1 .75.75v2.75a.75.75 0 0 1-1.5 0v-1.19l-1.22 1.22a.75.75 0 1 1-1.06-1.06l1.22-1.22H14a.75.75 0 0 1-.75-.5Z" clipRule="evenodd" />
+                </svg>
+                Atualizar
+              </span>
             )}
           </button>
           <button
@@ -160,8 +166,10 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
           </svg>
           <input
+            name="case-search"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            autoComplete="off"
             placeholder="Buscar paciente..."
             className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-colors"
           />

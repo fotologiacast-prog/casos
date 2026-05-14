@@ -129,8 +129,9 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
           <button
             onClick={onBack}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-zinc-100 px-3 text-xs font-black uppercase tracking-wider text-zinc-700 transition-colors hover:bg-zinc-200"
+            type="button"
           >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M7.793 14.707a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414l4-4a1 1 0 1 1 1.414 1.414L5.5 9H17a1 1 0 1 1 0 2H5.5l2.293 2.293a1 1 0 0 1 0 1.414Z" clipRule="evenodd" />
             </svg>
             Casos
@@ -199,7 +200,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
 
       {deleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/45 p-4" role="dialog" aria-modal="true" aria-label={`Confirmar exclusao de ${patient.name}`}>
           <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-6 shadow-2xl">
             <p className="text-[11px] font-bold uppercase tracking-widest text-red-500">Ação crítica</p>
             <h2 className="mt-2 text-xl font-bold text-zinc-950">Limpar caso de {patient.name}?</h2>
@@ -207,12 +208,14 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
               Isso remove este paciente do Monday, do Supabase e do Drive. Para confirmar, digite <strong>Certeza</strong>.
             </p>
             <input
+              name="delete-confirmation"
               value={deleteConfirm}
               onChange={event => setDeleteConfirm(event.target.value)}
+              autoComplete="off"
               className="mt-4 w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm font-semibold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
               placeholder="Digite Certeza"
             />
-            {deleteError && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{deleteError}</p>}
+            {deleteError && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" aria-live="polite">{deleteError}</p>}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
