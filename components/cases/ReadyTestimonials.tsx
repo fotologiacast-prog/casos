@@ -113,6 +113,41 @@ const splitProcedures = (value?: string | null) =>
     .map(item => item.trim())
     .filter(Boolean);
 
+const formatDuration = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return '0:00';
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.floor(value % 60);
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+const PlayIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
+  </svg>
+);
+
+const PauseIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M5.75 4.5a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Zm7.75 0a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Z" />
+  </svg>
+);
+
+const VolumeIcon = ({ muted, className = 'h-4 w-4' }: { muted: boolean; className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+    {muted ? (
+      <path d="M9.383 3.076A1 1 0 0 1 11 3.858v12.284a1 1 0 0 1-1.617.782L5.35 13.75H3.5A1.5 1.5 0 0 1 2 12.25v-4.5a1.5 1.5 0 0 1 1.5-1.5h1.85l4.033-3.174Zm5.337 4.144a.75.75 0 0 1 1.06 0L17 8.44l1.22-1.22a.75.75 0 1 1 1.06 1.06L18.06 9.5l1.22 1.22a.75.75 0 1 1-1.06 1.06L17 10.56l-1.22 1.22a.75.75 0 0 1-1.06-1.06l1.22-1.22-1.22-1.22a.75.75 0 0 1 0-1.06Z" />
+    ) : (
+      <path d="M9.383 3.076A1 1 0 0 1 11 3.858v12.284a1 1 0 0 1-1.617.782L5.35 13.75H3.5A1.5 1.5 0 0 1 2 12.25v-4.5a1.5 1.5 0 0 1 1.5-1.5h1.85l4.033-3.174Zm5.802 2.739a.75.75 0 0 1 1.06 0 5.25 5.25 0 0 1 0 7.425.75.75 0 1 1-1.06-1.06 3.75 3.75 0 0 0 0-5.305.75.75 0 0 1 0-1.06Zm-2.12 2.12a.75.75 0 0 1 1.06 0 2.25 2.25 0 0 1 0 3.18.75.75 0 1 1-1.06-1.06.75.75 0 0 0 0-1.06.75.75 0 0 1 0-1.06Z" />
+    )}
+  </svg>
+);
+
+const FullscreenIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M3.75 2A1.75 1.75 0 0 0 2 3.75v3a.75.75 0 0 0 1.5 0v-3a.25.25 0 0 1 .25-.25h3a.75.75 0 0 0 0-1.5h-3Zm9.5 0a.75.75 0 0 0 0 1.5h3a.25.25 0 0 1 .25.25v3a.75.75 0 0 0 1.5 0v-3A1.75 1.75 0 0 0 16.25 2h-3Zm-10.5 10.5a.75.75 0 0 0-.75.75v3A1.75 1.75 0 0 0 3.75 18h3a.75.75 0 0 0 0-1.5h-3a.25.25 0 0 1-.25-.25v-3a.75.75 0 0 0-.75-.75Zm14.5 0a.75.75 0 0 0-.75.75v3a.25.25 0 0 1-.25.25h-3a.75.75 0 0 0 0 1.5h3A1.75 1.75 0 0 0 18 16.25v-3a.75.75 0 0 0-.75-.75Z" />
+  </svg>
+);
+
 const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label: string }> = ({ value, onChange, options, label }) => (
   <label className="flex flex-col gap-1">
     <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{label}</span>
@@ -132,15 +167,20 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [showDrivePlayer, setShowDrivePlayer] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(0.85);
+  const [isMuted, setIsMuted] = useState(false);
   const drivePreviewUrl = getDrivePreviewUrl(asset.public_url);
   const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
+  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   if (drivePreviewUrl && !showDrivePlayer) {
     return (
       <button
         type="button"
         onClick={() => setShowDrivePlayer(true)}
-        className="relative flex h-full min-h-[240px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white"
+        className="relative flex h-full min-h-[260px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white"
         aria-label={`Reproduzir ${asset.name}`}
       >
         {driveThumbnailUrl ? (
@@ -156,11 +196,16 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         ) : (
           <span className="absolute inset-0 bg-zinc-900" />
         )}
-        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-        <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white text-zinc-950 shadow-xl">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="ml-0.5 h-7 w-7" aria-hidden="true">
-            <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
-          </svg>
+        <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/5" />
+        <span className="absolute left-4 top-4 rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white backdrop-blur">
+          Vídeo
+        </span>
+        <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-white text-zinc-950 shadow-2xl transition-transform duration-200 hover:scale-105">
+          <PlayIcon className="ml-1 h-8 w-8" />
+        </span>
+        <span className="absolute inset-x-4 bottom-4 rounded-2xl bg-black/55 px-4 py-3 text-left text-white shadow-lg backdrop-blur-md">
+          <span className="block text-sm font-black">Abrir player</span>
+          <span className="mt-0.5 block text-xs font-medium text-white/65">Controles completos do Google Drive</span>
         </span>
       </button>
     );
@@ -202,6 +247,40 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
     }
   };
 
+  const handleLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    setDuration(video.duration || 0);
+    video.volume = volume;
+    video.muted = isMuted;
+  };
+
+  const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const nextTime = Number(event.target.value);
+    video.currentTime = nextTime;
+    setCurrentTime(nextTime);
+  };
+
+  const handleVolume = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    const nextVolume = Number(event.target.value);
+    setVolume(nextVolume);
+    setIsMuted(nextVolume === 0);
+    if (video) {
+      video.volume = nextVolume;
+      video.muted = nextVolume === 0;
+    }
+  };
+
+  const toggleMute = () => {
+    const video = videoRef.current;
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (video) video.muted = nextMuted;
+  };
+
   if (hasError) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900 p-8 text-center text-white">
@@ -218,7 +297,7 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   }
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center">
+    <div className="group/player relative flex h-full min-h-[260px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white">
       <video
         ref={videoRef}
         src={asset.public_url}
@@ -226,42 +305,68 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         playsInline
         preload="none"
         onClick={togglePlayback}
+        onLoadedMetadata={handleLoadedMetadata}
+        onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
         onError={() => setHasError(true)}
       />
-      <div className="absolute bottom-3 left-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={togglePlayback}
-          className="inline-flex items-center gap-2 rounded-full bg-black/80 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
-          aria-label={isPlaying ? `Pausar ${asset.name}` : `Reproduzir ${asset.name}`}
-        >
-          {isPlaying ? (
-            <>
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path d="M5.75 4.5a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Zm7.75 0a.75.75 0 0 1 .75.75v9.5a.75.75 0 0 1-1.5 0v-9.5a.75.75 0 0 1 .75-.75Z" />
-              </svg>
-            </>
-          ) : (
-            <>
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
-              </svg>
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={handleFullscreen}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/80 text-white shadow-lg backdrop-blur transition-colors hover:bg-black"
-          aria-label={`Abrir ${asset.name} em tela cheia`}
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-            <path d="M13.28 2.22a.75.75 0 0 0-1.06 1.06l1.47 1.47-1.47 1.47a.75.75 0 1 0 1.06 1.06l1.47-1.47 1.47 1.47a.75.75 0 0 0 1.06-1.06l-1.47-1.47 1.47-1.47a.75.75 0 0 0-1.06-1.06l-1.47 1.47-1.47-1.47ZM3.75 2a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-2.25A.75.75 0 0 1 3 5V2.75a.75.75 0 0 1 .75-.75ZM3 15v2.25c0 .414.336.75.75.75h2.25a.75.75 0 0 0 0-1.5h-1.5V15a.75.75 0 0 0-1.5 0ZM16.25 18a.75.75 0 0 1-.75-.75V15.75h-1.5a.75.75 0 0 1 0-1.5h2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75Z" />
-          </svg>
-        </button>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-16 opacity-100 transition-opacity duration-200 sm:opacity-95 sm:group-hover/player:opacity-100">
+        <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/45 p-3 shadow-2xl backdrop-blur-md">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step="0.1"
+            value={Math.min(currentTime, duration || currentTime)}
+            onChange={handleSeek}
+            aria-label={`Progresso de ${asset.name}`}
+            className="h-1.5 w-full cursor-pointer accent-white"
+            style={{ background: `linear-gradient(to right, white ${progress}%, rgba(255,255,255,.22) ${progress}%)` }}
+          />
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-zinc-950 shadow-lg transition-transform active:scale-95"
+              aria-label={isPlaying ? `Pausar ${asset.name}` : `Reproduzir ${asset.name}`}
+            >
+              {isPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="ml-0.5 h-5 w-5" />}
+            </button>
+            <span className="min-w-[5.6rem] text-xs font-bold tabular-nums text-white/85">
+              {formatDuration(currentTime)} / {formatDuration(duration)}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                aria-label={isMuted ? `Ativar som de ${asset.name}` : `Silenciar ${asset.name}`}
+              >
+                <VolumeIcon muted={isMuted || volume === 0} />
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={handleVolume}
+                aria-label={`Volume de ${asset.name}`}
+                className="hidden h-1.5 w-20 cursor-pointer accent-white sm:block"
+              />
+              <button
+                type="button"
+                onClick={handleFullscreen}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                aria-label={`Abrir ${asset.name} em tela cheia`}
+              >
+                <FullscreenIcon />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -558,39 +663,48 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           </p>
         </div>
       ) : (
-        <div className="mt-6 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
+        <div className="mt-7 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
           {filteredTestimonials.map(testimonial => (
-            <article key={testimonial.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md" style={{ contentVisibility: 'auto', containIntrinsicSize: '420px' }}>
-              {/* Title header */}
-              <div className="border-b border-zinc-100 px-4 py-3 bg-zinc-50/50">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Material</p>
+            <article
+              key={testimonial.id}
+              className="break-inside-avoid overflow-hidden rounded-[1.6rem] border border-zinc-200 bg-white shadow-[0_18px_45px_rgba(24,24,27,0.07)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_24px_60px_rgba(24,24,27,0.1)]"
+              style={{ contentVisibility: 'auto', containIntrinsicSize: '480px' }}
+            >
+              <div className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">{testimonial.patientName}</p>
+                    <h2 className="mt-1 text-lg font-black leading-tight tracking-tight text-zinc-950">{testimonial.title}</h2>
+                  </div>
                   {testimonial.creativeType && (
-                    <span className="shrink-0 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-indigo-700">
+                    <span className="shrink-0 rounded-full bg-zinc-950 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
                       {testimonial.creativeType}
                     </span>
                   )}
                 </div>
-                <h2 className="mt-0.5 text-base font-black leading-snug text-zinc-950">{testimonial.title}</h2>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <InfoChip value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
+                  <InfoChip value={testimonial.patientGender} />
+                  <InfoChip value={testimonial.patientProcedure} />
+                </div>
               </div>
 
-              {/* Assets - Pinterest Style */}
-              <div className="space-y-4 p-4">
+              <div className="space-y-3 px-3 pb-3">
                 {testimonial.assets.map(asset => (
                   <div
                     key={asset.id}
-                    className="group overflow-hidden rounded-xl border border-zinc-100 bg-zinc-50 transition-all hover:border-zinc-300"
+                    className="group overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-zinc-950 shadow-inner"
                   >
-                    <div className="flex min-h-[200px] items-center justify-center overflow-hidden bg-zinc-100">
+                    <div className="flex min-h-[260px] items-center justify-center overflow-hidden bg-zinc-950">
                       <AssetPreview asset={asset} />
                     </div>
-                    <div className="p-3">
+                    <div className="border-t border-white/10 bg-zinc-950/95 p-3">
                       <a
                         href={getDownloadUrl(token, testimonial, asset, isDemo)}
                         download={asset.name}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-800"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-zinc-950 transition-colors hover:bg-zinc-200"
                       >
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                           <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
                           <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
                         </svg>
@@ -601,36 +715,29 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 ))}
               </div>
 
-              {/* Meta info at bottom */}
-              <div className="px-4 py-4 border-t border-zinc-100 bg-zinc-50/30">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <InfoChip value={testimonial.patientName} />
-                    <InfoChip value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
-                    <InfoChip value={testimonial.patientGender} />
-                    <InfoChip value={testimonial.patientProcedure} />
-                    <InfoChip value={testimonial.creativeType} />
-                    <InfoChip value={formatCaseDate(testimonial.caseCreatedAt)} />
+              <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Caso</p>
+                    <p className="mt-0.5 truncate text-xs font-bold text-zinc-700">{formatCaseDate(testimonial.caseCreatedAt) || 'Sem data'}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    {testimonial.status && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        {testimonial.status}
-                      </span>
-                    )}
-                    {onOpenCase && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenCase(testimonial.caseId)}
-                        className="text-[11px] font-bold text-zinc-500 hover:text-zinc-950 transition-colors flex items-center gap-1"
-                      >
-                        Ver caso
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-                          <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v3.69a.75.75 0 0 0 1.5 0v-5.5A.75.75 0 0 0 14.25 5h-5.5a.75.75 0 0 0 0 1.5h3.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+                  {testimonial.status && (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">
+                      {testimonial.status}
+                    </span>
+                  )}
+                  {onOpenCase && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCase(testimonial.caseId)}
+                      className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-zinc-500 transition-colors hover:bg-white hover:text-zinc-950"
+                    >
+                      Ver caso
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                        <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v3.69a.75.75 0 0 0 1.5 0v-5.5A.75.75 0 0 0 14.25 5h-5.5a.75.75 0 0 0 0 1.5h3.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             </article>
