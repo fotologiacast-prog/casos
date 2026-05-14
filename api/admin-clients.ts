@@ -55,10 +55,10 @@ const ensureClientDriveFolder = async (payload: ReturnType<typeof normalizeClien
 
   const rootFolderId = process.env.DRIVE_ROOT_FOLDER_ID || process.env.VITE_DRIVE_ROOT_FOLDER_ID;
   if (!rootFolderId) return payload;
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return payload;
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !process.env.GOOGLE_REFRESH_TOKEN) return payload;
 
   const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive.js");
-  const accessToken = await getGoogleAccessToken();
+  const accessToken = await getGoogleAccessToken({ preferOAuth: true });
   const folder = await findOrCreateDriveFolder(accessToken, rootFolderId, sanitizeDriveFolderName(payload.name));
   return {
     ...payload,

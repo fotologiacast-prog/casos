@@ -4,6 +4,10 @@ type ServiceAccount = {
   token_uri?: string;
 };
 
+type GoogleAccessTokenOptions = {
+  preferOAuth?: boolean;
+};
+
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
 const base64Url = (input: Buffer | string) =>
@@ -45,29 +49,26 @@ const signJwt = async (serviceAccount: ServiceAccount) => {
   return `${unsignedJwt}.${base64Url(signature)}`;
 };
 
-export const getGoogleAccessToken = async () => {
-  const hasServiceAccount = Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  const hasRefreshToken = Boolean(process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const getOAuthAccessToken = async () => {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID || "",
+      client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN || "",
+      grant_type: "refresh_token",
+    }),
+  });
 
-  if (!hasServiceAccount && hasRefreshToken) {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error_description || data.error || "Falha ao renovar token OAuth do Google.");
-    }
-    return data.access_token as string;
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error_description || data.error || "Falha ao renovar token OAuth do Google.");
   }
+  return data.access_token as string;
+};
 
+const getServiceAccountAccessToken = async () => {
   const serviceAccount = getServiceAccount();
   const assertion = await signJwt(serviceAccount);
 
@@ -86,6 +87,25 @@ export const getGoogleAccessToken = async () => {
   }
 
   return data.access_token as string;
+};
+
+export const getGoogleAccessToken = async (options: GoogleAccessTokenOptions = {}) => {
+  const hasServiceAccount = Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const hasRefreshToken = Boolean(process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+  if (options.preferOAuth && hasRefreshToken) {
+    return getOAuthAccessToken();
+  }
+
+  if (hasServiceAccount) {
+    return getServiceAccountAccessToken();
+  }
+
+  if (hasRefreshToken) {
+    return getOAuthAccessToken();
+  }
+
+  throw new Error("Credenciais do Google Drive ausentes.");
 };
 
 const driveRequest = async (accessToken: string, path: string, init: RequestInit = {}) => {
