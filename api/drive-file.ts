@@ -15,61 +15,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { getDriveFile, getDriveMediaResponse, getGoogleAccessToken } = await import("./_googleDrive.js");
     const accessToken = await getGoogleAccessToken();
-    const metadata = await getDriveFile(accessToken, fileId);
 
-    const streamResponse = async (sourceResponse: Response, contentTypeFallback?: string | null) => {
-      const sourceContentType = sourceResponse.headers.get("content-type");
-      const contentType = !sourceContentType || sourceContentType === "application/octet-stream"
-        ? contentTypeFallback || "application/octet-stream"
-        : sourceContentType;
-      res.setHeader("Content-Type", contentType);
+    if (req.query.thumbnail === "1") {
+      const metadata = await getDriveFile(accessToken, fileId);
+      if (!metadata.thumbnailLink) return res.status(404).end();
+
+      const thumbnailResponse = await fetch(metadata.thumbnailLink, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!thumbnailResponse.ok) return res.status(thumbnailResponse.status).end();
+
+      res.setHeader("Content-Type", thumbnailResponse.headers.get("content-type") || "image/jpeg");
       res.setHeader("Cache-Control", "private, max-age=1800");
-      res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(metadata.name || "arquivo")}`);
-      res.setHeader("Accept-Ranges", sourceResponse.headers.get("accept-ranges") || "bytes");
-
-      if (sourceResponse.headers.has("content-range")) {
-        res.setHeader("Content-Range", sourceResponse.headers.get("content-range")!);
+      if (thumbnailResponse.headers.has("content-length")) {
+        res.setHeader("Content-Length", thumbnailResponse.headers.get("content-length")!);
       }
-      if (sourceResponse.headers.has("content-length")) {
-        res.setHeader("Content-Length", sourceResponse.headers.get("content-length")!);
-      }
+      if (req.method === "HEAD") return res.status(200).end();
+      if (!thumbnailResponse.body) return res.end();
 
-      res.status(sourceResponse.status);
-      if (req.method === "HEAD") return res.end();
-      if (!sourceResponse.body) return res.end();
-
-      const reader = sourceResponse.body.getReader();
+      const reader = thumbnailResponse.body.getReader();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         res.write(value);
       }
       return res.end();
-    };
-
-    if (req.query.thumbnail === "1") {
-      if (!metadata.thumbnailLink) {
-        if (String(metadata.mimeType || "").startsWith("image/")) {
-          const imageResponse = await getDriveMediaResponse(accessToken, fileId, req.headers.range);
-          return streamResponse(imageResponse, metadata.mimeType);
-        }
-        return res.status(404).end();
-      }
-
-      let thumbnailResponse = await fetch(metadata.thumbnailLink);
-      if (!thumbnailResponse.ok) {
-        thumbnailResponse = await fetch(metadata.thumbnailLink, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-      }
-      if (!thumbnailResponse.ok) return res.status(thumbnailResponse.status).end();
-
-      return streamResponse(thumbnailResponse, "image/jpeg");
     }
 
     const driveResponse = await getDriveMediaResponse(accessToken, fileId, req.headers.range);
+
+    const contentType = driveResponse.headers.get("content-type") || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "private, max-age=3600");
-    return streamResponse(driveResponse, metadata.mimeType);
+    res.setHeader("Accept-Ranges", driveResponse.headers.get("accept-ranges") || "bytes");
+
+    if (driveResponse.headers.has("content-range")) {
+      res.setHeader("Content-Range", driveResponse.headers.get("content-range")!);
+    }
+    if (driveResponse.headers.has("content-length")) {
+      res.setHeader("Content-Length", driveResponse.headers.get("content-length")!);
+    }
+
+    res.status(driveResponse.status);
+    if (req.method === "HEAD") return res.end();
+
+    if (!driveResponse.body) return res.end();
+
+    const reader = driveResponse.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+    return res.end();
   } catch (error) {
     console.error("[Drive Proxy Error]", error);
     return res.status(500).json({
