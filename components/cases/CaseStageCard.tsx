@@ -194,7 +194,7 @@ const getUploadDetail = (progress: UploadProgressInfo | null) => {
   return filePrefix ? `${filePrefix} · ${size}` : size;
 };
 
-const MediaFallback = ({ file, label }: { file: CaseStage['files'][number]; label: string }) => (
+const MediaFallback = ({ label }: { file: CaseStage['files'][number]; label: string }) => (
   <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-zinc-950 p-5 text-center text-white">
     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-6 w-6">
@@ -203,7 +203,6 @@ const MediaFallback = ({ file, label }: { file: CaseStage['files'][number]; labe
     </div>
     <div>
       <p className="text-xs font-black uppercase tracking-widest text-zinc-300">{label}</p>
-      <p className="mt-1 max-w-xs break-words text-xs font-semibold text-zinc-500">{file.name}</p>
       <p className="mt-2 text-[10px] font-semibold leading-relaxed text-zinc-500">
         Arquivo recebido no Drive, mas sem prévia compatível no navegador.
       </p>
@@ -293,9 +292,6 @@ const VideoTile = ({ file, onClick }: { file: CaseStage['files'][number]; onClic
             <path d="M6.3 3.84A1 1 0 0 0 4.75 4.67v10.66a1 1 0 0 0 1.55.83l8-5.33a1 1 0 0 0 0-1.66l-8-5.33Z" />
           </svg>
         </span>
-      </span>
-      <span className="absolute bottom-2 left-2 right-2 truncate rounded-full bg-black/60 px-2 py-1 text-[10px] font-bold backdrop-blur">
-        {file.name}
       </span>
     </button>
   );
@@ -573,7 +569,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                     ) : isAudioFile(file) ? (
                       <button type="button" onClick={() => setLightboxFile(file)} className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 p-4 text-center text-white">
                         <span className="text-3xl">♪</span>
-                        <span className="line-clamp-2 text-[10px] font-bold">{file.name}</span>
                       </button>
                     ) : (
                       <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full">
@@ -708,10 +703,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
               </svg>
             </button>
-            {/* Filename */}
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-5 pb-4 pt-8">
-              <p className="truncate text-sm font-semibold text-white">{lightboxFile.name}</p>
-            </div>
             {/* Content */}
             <div className="flex max-h-[85vh] items-center justify-center bg-zinc-900">
               {isImageFile(lightboxFile) ? (
@@ -729,13 +720,11 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               ) : isAudioFile(lightboxFile) ? (
                 <div className="flex flex-col items-center justify-center gap-6 p-12 text-white">
                   <span className="text-6xl">♪</span>
-                  <p className="text-center text-sm font-semibold">{lightboxFile.name}</p>
                   <audio src={lightboxFile.public_url} controls autoPlay preload="metadata" className="w-full max-w-sm" />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 p-12 text-white">
                   <span className="text-5xl">📎</span>
-                  <p className="text-center text-sm">{lightboxFile.name}</p>
                 </div>
               )}
             </div>

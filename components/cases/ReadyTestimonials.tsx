@@ -230,10 +230,7 @@ const AudioPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => (
     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-3xl">
       ♪
     </div>
-    <div className="max-w-full text-center">
-      <p className="break-words text-sm font-bold">{asset.name}</p>
-      <p className="mt-1 text-xs font-medium text-white/50">Arquivo de áudio</p>
-    </div>
+    <p className="text-xs font-medium uppercase tracking-widest text-white/50">Áudio</p>
     <audio src={asset.public_url} controls preload="none" className="w-full max-w-sm" />
   </div>
 );
