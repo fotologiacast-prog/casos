@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       getGoogleAccessToken,
       startDriveResumableUpload,
     } = await import("./_googleDrive.js");
-    const accessToken = await getGoogleAccessToken();
+    const accessToken = await getGoogleAccessToken({ preferOAuth: true });
     const stage = await getStageContext(supabase, stageId);
 
     if (action === "start") {

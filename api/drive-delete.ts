@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (actualDriveFileId) {
       try {
         const { getGoogleAccessToken } = await import("./_googleDrive.js");
-        const accessToken = await getGoogleAccessToken();
+        const accessToken = await getGoogleAccessToken({ preferOAuth: true });
         const driveRes = await fetch(
           `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(actualDriveFileId)}`,
           {
