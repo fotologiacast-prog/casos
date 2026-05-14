@@ -20,6 +20,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const metadata = await getDriveFile(accessToken, fileId);
       if (!metadata.thumbnailLink) return res.status(404).end();
 
+      if (req.query.proxy !== "1") {
+        res.setHeader("Cache-Control", "private, max-age=300");
+        res.setHeader("Location", metadata.thumbnailLink);
+        return res.status(302).end();
+      }
+
       const thumbnailResponse = await fetch(metadata.thumbnailLink, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });

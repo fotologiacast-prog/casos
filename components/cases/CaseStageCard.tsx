@@ -52,9 +52,9 @@ const getDriveFileIdFromUrl = (url: string) => {
   }
 };
 
-const getDriveThumbnailUrl = (file: CaseStage['files'][number]) => {
+const getDriveThumbnailUrl = (file: CaseStage['files'][number], proxy = false) => {
   const fileId = getDriveFileIdFromUrl(file.public_url);
-  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1` : null;
+  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1${proxy ? '&proxy=1' : ''}` : null;
 };
 
 const UPLOAD_ACCEPT = [
@@ -216,6 +216,7 @@ const DriveImage = ({
   thumbnailOnly?: boolean;
 }) => {
   const thumbnailUrl = getDriveThumbnailUrl(file);
+  const proxyThumbnailUrl = getDriveThumbnailUrl(file, true);
   const getInitialSrc = () => {
     if (preferThumbnail && thumbnailUrl) return thumbnailUrl;
     if (isBrowserImageFile(file)) return file.public_url;
@@ -240,10 +241,35 @@ const DriveImage = ({
       onClick={onClick}
       onError={() => {
         if (src !== thumbnailUrl && thumbnailUrl) setSrc(thumbnailUrl);
+        else if (src !== proxyThumbnailUrl && proxyThumbnailUrl) setSrc(proxyThumbnailUrl);
         else if (!thumbnailOnly && src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
         else setFailed(true);
       }}
       loading="lazy"
+    />
+  );
+};
+
+const DriveThumbnailImage = ({ file, className }: { file: CaseStage['files'][number]; className: string }) => {
+  const directThumbnailUrl = getDriveThumbnailUrl(file);
+  const proxyThumbnailUrl = getDriveThumbnailUrl(file, true);
+  const [src, setSrc] = useState(directThumbnailUrl);
+
+  useEffect(() => {
+    setSrc(directThumbnailUrl);
+  }, [directThumbnailUrl]);
+
+  if (!src) return <div className="h-full w-full bg-zinc-900" />;
+
+  return (
+    <img
+      src={src}
+      className={className}
+      loading="lazy"
+      onError={() => {
+        if (src !== proxyThumbnailUrl && proxyThumbnailUrl) setSrc(proxyThumbnailUrl);
+        else setSrc(null);
+      }}
     />
   );
 };
@@ -253,7 +279,7 @@ const VideoTile = ({ file, onClick }: { file: CaseStage['files'][number]; onClic
   return (
     <button type="button" onClick={onClick} className="relative h-full w-full bg-zinc-950 text-white">
       {thumbnailUrl ? (
-        <img src={thumbnailUrl} className="h-full w-full object-cover opacity-85" loading="lazy" />
+        <DriveThumbnailImage file={file} className="h-full w-full object-cover opacity-85" />
       ) : (
         <div className="h-full w-full bg-zinc-900" />
       )}
