@@ -61,6 +61,11 @@ const getDriveThumbnailUrl = (file: CaseStage['files'][number]) => {
   return fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800` : null;
 };
 
+const getDrivePreviewUrl = (url: string) => {
+  const fileId = getDriveFileIdFromUrl(url);
+  return fileId ? `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview` : null;
+};
+
 const UPLOAD_ACCEPT = [
   'image/*',
   'video/*',
@@ -298,6 +303,19 @@ const VideoTile = ({ file, onClick }: { file: CaseStage['files'][number]; onClic
 
 const VideoPlayer = ({ file, className, controls, autoPlay, muted, onClick }: any) => {
   const [hasError, setHasError] = useState(false);
+  const drivePreviewUrl = getDrivePreviewUrl(file.public_url);
+  if (drivePreviewUrl) {
+    return (
+      <iframe
+        src={drivePreviewUrl}
+        className={`${className} aspect-video w-full bg-black`}
+        allow="autoplay; fullscreen"
+        allowFullScreen
+        title={file.name}
+      />
+    );
+  }
+
   if (hasError) {
     return <MediaFallback file={file} label="Vídeo não reproduzível neste navegador" />;
   }

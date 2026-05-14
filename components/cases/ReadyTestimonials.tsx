@@ -67,6 +67,24 @@ const isVideoAsset = (asset: TestimonialAsset) =>
 const isAudioAsset = (asset: TestimonialAsset) =>
   /\.(mp3|m4a|aac|wav|wave|aiff?|flac|ogg|oga|opus|wma|amr|caf|alac)$/i.test(asset.name);
 
+const getDriveFileIdFromUrl = (url: string) => {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.hostname === 'drive.google.com') {
+      const pathMatch = parsed.pathname.match(/\/file\/d\/([^/]+)/);
+      return parsed.searchParams.get('id') || pathMatch?.[1] || null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const getDrivePreviewUrl = (url: string) => {
+  const fileId = getDriveFileIdFromUrl(url);
+  return fileId ? `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview` : null;
+};
+
 const ageRanges = [
   { value: 'all', label: 'Todas idades' },
   { value: '0-18', label: 'Até 18' },
@@ -108,6 +126,19 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const drivePreviewUrl = getDrivePreviewUrl(asset.public_url);
+
+  if (drivePreviewUrl) {
+    return (
+      <iframe
+        src={drivePreviewUrl}
+        className="h-full w-full bg-black"
+        allow="autoplay; fullscreen"
+        allowFullScreen
+        title={asset.name}
+      />
+    );
+  }
 
   const togglePlayback = async () => {
     const video = videoRef.current;
