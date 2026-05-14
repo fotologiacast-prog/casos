@@ -206,14 +206,26 @@ const DriveImage = ({
   file,
   className,
   onClick,
+  preferThumbnail = false,
 }: {
   file: CaseStage['files'][number];
   className: string;
   onClick?: () => void;
+  preferThumbnail?: boolean;
 }) => {
   const thumbnailUrl = getDriveThumbnailUrl(file);
-  const [src, setSrc] = useState(() => (isBrowserImageFile(file) ? file.public_url : thumbnailUrl));
+  const getInitialSrc = () => {
+    if (preferThumbnail && thumbnailUrl) return thumbnailUrl;
+    if (isBrowserImageFile(file)) return file.public_url;
+    return thumbnailUrl;
+  };
+  const [src, setSrc] = useState<string | null>(getInitialSrc);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setSrc(getInitialSrc());
+    setFailed(false);
+  }, [file.id, file.public_url, file.type, preferThumbnail, thumbnailUrl]);
 
   if (!src || failed) {
     return <MediaFallback file={file} label="Preview indisponível" />;
@@ -226,6 +238,7 @@ const DriveImage = ({
       onClick={onClick}
       onError={() => {
         if (src !== thumbnailUrl && thumbnailUrl) setSrc(thumbnailUrl);
+        else if (src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
         else setFailed(true);
       }}
       loading="lazy"
@@ -510,7 +523,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 {stage.files.map(file => (
                   <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
                     {isImageFile(file) ? (
-                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} />
+                      <DriveImage file={file} className="h-full w-full object-cover" onClick={() => setLightboxFile(file)} preferThumbnail />
                     ) : isVideoFile(file) ? (
                       <VideoTile file={file} onClick={() => setLightboxFile(file)} />
                     ) : isAudioFile(file) ? (
