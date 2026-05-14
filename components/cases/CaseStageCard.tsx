@@ -46,15 +46,19 @@ const isExampleVideo = (url: string) =>
 const getDriveFileIdFromUrl = (url: string) => {
   try {
     const parsed = new URL(url, window.location.origin);
-    return parsed.searchParams.get('fileId');
+    if (parsed.hostname === 'drive.google.com') {
+      const pathMatch = parsed.pathname.match(/\/file\/d\/([^/]+)/);
+      return parsed.searchParams.get('id') || pathMatch?.[1] || null;
+    }
+    return null;
   } catch {
     return null;
   }
 };
 
-const getDriveThumbnailUrl = (file: CaseStage['files'][number], proxy = false) => {
+const getDriveThumbnailUrl = (file: CaseStage['files'][number]) => {
   const fileId = getDriveFileIdFromUrl(file.public_url);
-  return fileId ? `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1${proxy ? '&proxy=1' : ''}` : null;
+  return fileId ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800` : null;
 };
 
 const UPLOAD_ACCEPT = [
@@ -216,7 +220,6 @@ const DriveImage = ({
   thumbnailOnly?: boolean;
 }) => {
   const thumbnailUrl = getDriveThumbnailUrl(file);
-  const proxyThumbnailUrl = getDriveThumbnailUrl(file, true);
   const getInitialSrc = () => {
     if (preferThumbnail && thumbnailUrl) return thumbnailUrl;
     if (isBrowserImageFile(file)) return file.public_url;
@@ -241,7 +244,6 @@ const DriveImage = ({
       onClick={onClick}
       onError={() => {
         if (src !== thumbnailUrl && thumbnailUrl) setSrc(thumbnailUrl);
-        else if (src !== proxyThumbnailUrl && proxyThumbnailUrl) setSrc(proxyThumbnailUrl);
         else if (!thumbnailOnly && src !== file.public_url && isBrowserImageFile(file)) setSrc(file.public_url);
         else setFailed(true);
       }}
@@ -252,7 +254,6 @@ const DriveImage = ({
 
 const DriveThumbnailImage = ({ file, className }: { file: CaseStage['files'][number]; className: string }) => {
   const directThumbnailUrl = getDriveThumbnailUrl(file);
-  const proxyThumbnailUrl = getDriveThumbnailUrl(file, true);
   const [src, setSrc] = useState(directThumbnailUrl);
 
   useEffect(() => {
@@ -266,10 +267,7 @@ const DriveThumbnailImage = ({ file, className }: { file: CaseStage['files'][num
       src={src}
       className={className}
       loading="lazy"
-      onError={() => {
-        if (src !== proxyThumbnailUrl && proxyThumbnailUrl) setSrc(proxyThumbnailUrl);
-        else setSrc(null);
-      }}
+      onError={() => setSrc(null)}
     />
   );
 };

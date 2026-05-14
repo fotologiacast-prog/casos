@@ -181,6 +181,35 @@ export const startDriveResumableUpload = async (input: {
 export const getDriveFile = async (accessToken: string, fileId: string) =>
   driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,iconLink&supportsAllDrives=true`);
 
+export const getDirectDriveFileUrl = (fileId: string) =>
+  `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+
+export const ensureDriveFilePublic = async (accessToken: string, fileId: string) => {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "anyone",
+        role: "reader",
+        allowFileDiscovery: false,
+      }),
+    }
+  );
+
+  if (!response.ok && response.status !== 409) {
+    const data = await response.json().catch(() => ({}));
+    const message = data.error?.message || "Falha ao publicar arquivo no Google Drive.";
+    if (!/already exists|already has|permission/i.test(message)) {
+      throw new Error(message);
+    }
+  }
+};
+
 export const getDriveMediaResponse = async (accessToken: string, fileId: string, range?: string) => {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,

@@ -92,7 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const driveFileId = String(req.body?.driveFileId || "").trim();
       if (!driveFileId) return res.status(400).json({ error: "driveFileId ausente." });
 
+      const { ensureDriveFilePublic, getDirectDriveFileUrl } = await import("./_googleDrive.js");
+      await ensureDriveFilePublic(accessToken, driveFileId);
       const driveFile = await getDriveFile(accessToken, driveFileId);
+      const directFileUrl = getDirectDriveFileUrl(driveFile.id);
       const filePayload = {
         client_id: stage.cases.client_id,
         case_id: stage.case_id,
@@ -102,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mime_type: driveFile.mimeType,
         size_bytes: driveFile.size ? Number(driveFile.size) : null,
         web_view_link: driveFile.webViewLink,
-        web_content_link: driveFile.webContentLink,
+        web_content_link: directFileUrl,
       };
 
       const { data: insertedFile, error: fileError } = await supabase

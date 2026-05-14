@@ -3,7 +3,6 @@ import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 
 export type CaseThumbnail = {
   src: string;
-  fallbackSrc?: string;
 };
 
 export const getCapturedCount = (patient: CasePatient) =>
@@ -58,17 +57,23 @@ const isImageFile = (file: StageFile) => {
 const getThumbnailCandidate = (url: string): CaseThumbnail => {
   try {
     const parsed = new URL(url, window.location.origin);
-    const fileId = parsed.pathname === '/api/drive-file' ? parsed.searchParams.get('fileId') : null;
-    return fileId
-      ? {
-          src: `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1`,
-          fallbackSrc: `/api/drive-file?fileId=${encodeURIComponent(fileId)}&thumbnail=1&proxy=1`,
-        }
-      : { src: url };
+    const fileId = getDriveFileId(parsed);
+    return fileId ? { src: getGoogleDriveThumbnailUrl(fileId) } : { src: url };
   } catch {
     return { src: url };
   }
 };
+
+const getDriveFileId = (url: URL) => {
+  if (url.hostname === 'drive.google.com') {
+    const pathMatch = url.pathname.match(/\/file\/d\/([^/]+)/);
+    return url.searchParams.get('id') || pathMatch?.[1] || null;
+  }
+  return null;
+};
+
+const getGoogleDriveThumbnailUrl = (fileId: string) =>
+  `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800`;
 
 const THUMBNAIL_PRIORITY_STAGES = [
   '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',

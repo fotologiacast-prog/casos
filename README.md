@@ -108,9 +108,10 @@ Fluxo usado:
 2. O backend autentica com a service account, cria/acha a pasta da etapa e retorna uma URL resumable do Google Drive.
 3. O navegador envia o arquivo direto para essa URL do Google.
 4. O frontend confirma em `/api/drive-upload`.
-5. O backend salva o arquivo em `case_files` e marca a etapa como `capturado`.
+5. O backend abre somente aquele arquivo individual como "qualquer pessoa com o link pode visualizar".
+6. O backend salva o link direto do Google Drive em `case_files` e marca a etapa como `capturado`.
 
-Para mostrar imagens privadas na galeria, o app usa `/api/drive-file?fileId=<id>` como preview autenticado pelo backend.
+Previews e downloads usam o link direto do Google Drive. O app nao faz proxy de arquivos pela Vercel.
 
 ## Google Drive
 
