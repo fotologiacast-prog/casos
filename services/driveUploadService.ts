@@ -230,10 +230,29 @@ export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[], o
       phase: 'preparing',
     });
     const { uploadUrl } = await requestDriveUploadStart(stage.id, file);
-    const uploadedFile = await putFileDirectlyToDrive(uploadUrl, file, onProgress, {
-      fileIndex: index + 1,
-      fileCount: files.length,
+    
+    // TESTE MARTELO DE JUIZ: Upload via Backend Proxy
+    console.warn("[DEBUG] Testando upload via Proxy Backend...");
+    const fileBase64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(file);
     });
-    await requestDriveUploadComplete(stage.id, uploadedFile.id);
+
+    const proxyResponse = await fetch('/api/debug-upload-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uploadUrl,
+        fileBase64,
+        mimeType: file.type || 'application/octet-stream',
+      }),
+    });
+
+    const proxyData = await proxyResponse.json();
+    if (!proxyResponse.ok) throw new Error(proxyData.details || proxyData.error || 'Falha no proxy de upload.');
+    
+    const uploadedFileId = proxyData.id;
+    await requestDriveUploadComplete(stage.id, uploadedFileId);
   }
 };
