@@ -253,7 +253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let caseDriveFolderId: string | null = null;
       if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
         const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive.js");
-        const accessToken = await getGoogleAccessToken({ preferOAuth: true });
+        const accessToken = await getGoogleAccessToken();
         const folder = await findOrCreateDriveFolder(
           accessToken,
           client.drive_folder_id,
@@ -557,7 +557,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (existingCase.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
         const { deleteDriveFile, getGoogleAccessToken } = await import("./_googleDrive.js");
-        const accessToken = await getGoogleAccessToken({ preferOAuth: true });
+        const accessToken = await getGoogleAccessToken();
         await deleteDriveFile(accessToken, existingCase.drive_folder_id);
       }
 
