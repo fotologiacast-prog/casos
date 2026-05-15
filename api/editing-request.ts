@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const ALLOWED_EDITING_MOMENTS = new Set(["Entrega", "Evento", "Agência", "Agencia"]);
+const EDITING_RESPONSIBLE_USER_ID = 68685168;
+const EDITING_PRIORITY_LABEL = "Critical ⚠️";
 
 const serializeApiError = (error: unknown) => {
   if (error instanceof Error) return error.message;
@@ -69,6 +71,90 @@ const mondayRequest = async (query: string, variables: Record<string, unknown>) 
   return data;
 };
 
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
+const getColumnSettings = (column: { settings_str?: string | null }) => {
+  try {
+    return JSON.parse(column.settings_str || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const findStatusLabelIndex = (column: { settings_str?: string | null }, label: string) => {
+  const settings = getColumnSettings(column);
+  const labels = settings?.labels;
+  if (!labels || typeof labels !== "object") return null;
+  const target = normalizeKey(label);
+  const match = Object.entries(labels).find(([, value]) => normalizeKey(String(value)) === target);
+  return match ? Number(match[0]) : null;
+};
+
+const updateEditingSubitemColumns = async (subitemId: string, boardId?: string | null) => {
+  if (!boardId) return { skipped: true, reason: "subitem_board_id_ausente" };
+
+  const columnsQuery = `query ($boardIds: [ID!]) {
+    boards(ids: $boardIds) {
+      columns { id title type settings_str }
+    }
+  }`;
+  const columnsData = await mondayRequest(columnsQuery, { boardIds: [String(boardId)] });
+  const columns: { id: string; title: string; type: string; settings_str?: string | null }[] =
+    columnsData?.data?.boards?.[0]?.columns || [];
+
+  const findColumn = (names: string[], types: string[] = []) => {
+    const matches = columns.filter(column => names.some(name => normalizeKey(column.title) === normalizeKey(name)));
+    if (matches.length === 0) return undefined;
+    return matches.find(column => types.includes(column.type)) || matches[0];
+  };
+
+  const priorityColumn = findColumn(["Priority", "Prioridade"], ["status", "color"]);
+  const responsibleColumn = findColumn(["Responsável", "Responsavel", "Pessoa", "Pessoa responsável", "Pessoa responsavel"], ["people", "person"]);
+  const deadlineColumn = findColumn(["Prazo do criativo", "Prazo", "Data", "Deadline"], ["date"]);
+
+  const columnValues: Record<string, unknown> = {};
+
+  if (priorityColumn) {
+    const priorityIndex = findStatusLabelIndex(priorityColumn, EDITING_PRIORITY_LABEL);
+    columnValues[priorityColumn.id] = Number.isFinite(priorityIndex)
+      ? { index: priorityIndex }
+      : { label: EDITING_PRIORITY_LABEL };
+  }
+
+  if (responsibleColumn) {
+    columnValues[responsibleColumn.id] = {
+      personsAndTeams: [{ id: EDITING_RESPONSIBLE_USER_ID, kind: "person" }],
+    };
+  }
+
+  if (deadlineColumn) {
+    columnValues[deadlineColumn.id] = { date: getTodayDate() };
+  }
+
+  if (Object.keys(columnValues).length === 0) {
+    return { skipped: true, reason: "colunas_nao_encontradas" };
+  }
+
+  const updateMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+    change_multiple_column_values(
+      board_id: $boardId,
+      item_id: $itemId,
+      column_values: $columnValues,
+      create_labels_if_missing: false
+    ) { id }
+  }`;
+  await mondayRequest(updateMutation, {
+    boardId: String(boardId),
+    itemId: String(subitemId),
+    columnValues: JSON.stringify(columnValues),
+  });
+
+  return {
+    skipped: false,
+    updatedColumns: Object.keys(columnValues),
+  };
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -120,7 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const itemQuery = `query ($itemIds: [ID!]) {
       items(ids: $itemIds) {
-        subitems { id name }
+        subitems { id name board { id } }
       }
     }`;
     const existingData = await mondayRequest(itemQuery, { itemIds: [String(caseRow.monday_item_id)] });
@@ -129,19 +215,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const existingSubitem = subitems.find((subitem: any) => normalizeKey(subitem.name) === normalizeKey(taskName));
 
     if (existingSubitem) {
-      return res.status(200).json({ ok: true, existing: true, subitemId: existingSubitem.id });
+      const columnUpdate = await updateEditingSubitemColumns(existingSubitem.id, existingSubitem.board?.id);
+      return res.status(200).json({ ok: true, existing: true, subitemId: existingSubitem.id, columnUpdate });
     }
 
     const createMutation = `mutation ($parentItemId: ID!, $itemName: String!) {
-      create_subitem(parent_item_id: $parentItemId, item_name: $itemName) { id }
+      create_subitem(parent_item_id: $parentItemId, item_name: $itemName) { id board { id } }
     }`;
     const createdData = await mondayRequest(createMutation, {
       parentItemId: String(caseRow.monday_item_id),
       itemName: taskName,
     });
-    const subitemId = createdData?.data?.create_subitem?.id;
+    const subitem = createdData?.data?.create_subitem;
+    const subitemId = subitem?.id;
+    if (!subitemId) throw new Error("Monday nao retornou o ID do subelemento de edicao.");
+    const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id);
 
-    return res.status(201).json({ ok: true, existing: false, subitemId });
+    return res.status(201).json({ ok: true, existing: false, subitemId, columnUpdate });
   } catch (error) {
     return res.status(500).json({
       error: "Falha ao mandar para edição.",
