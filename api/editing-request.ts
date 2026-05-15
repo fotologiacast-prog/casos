@@ -154,9 +154,17 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
       board_id: $boardId,
       item_id: $itemId,
       column_values: $columnValues,
-      create_labels_if_missing: false
+      create_labels_if_missing: true
     ) { id }
   }`;
+
+  console.log("[Editing Request] Atualizando colunas do subelemento:", {
+    subitemId,
+    boardId,
+    columnCount: Object.keys(columnValues).length,
+    columns: Object.keys(columnValues),
+  });
+
   await mondayRequest(updateMutation, {
     boardId: String(boardId),
     itemId: String(subitemId),

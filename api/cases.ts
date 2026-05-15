@@ -398,15 +398,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (type === "status" || type === "color") {
               const labelIndex = findStatusLabelIndex(col, text);
               if (isCliente && !Number.isFinite(labelIndex)) {
-                const availableLabels = getStatusLabelNames(col);
+                // Label not found by index — log warning but still try by text label
+                console.warn(`[Cases API] Label de Cliente "${text}" nao encontrada por indice. Tentando por label direta.`);
                 mondayResult.clientLabelWarning = {
                   requestedLabel: text,
                   columnTitle: col.title,
-                  availableLabels,
-                  message: `Label de Cliente "${text}" nao encontrada nas labels do Monday.`,
+                  availableLabels: getStatusLabelNames(col),
+                  message: `Label de Cliente "${text}" nao encontrada por indice. Enviando label direta.`,
                 };
-                return;
               }
+              // Always try to set — by index if found, by label text as fallback
               formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
             }
             else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
@@ -491,16 +492,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
 
             const columnErrors: { column: string; error: string }[] = [];
-            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!, $createLabels: Boolean) {
               change_multiple_column_values(
                 board_id: $boardId,
                 item_id: $itemId,
                 column_values: $columnValues,
-                create_labels_if_missing: false
+                create_labels_if_missing: $createLabels
               ) { id }
             }`;
 
-            const updateMondayColumns = async (updates: typeof columnUpdates) => {
+            const updateMondayColumns = async (updates: typeof columnUpdates, createLabels = false) => {
               if (updates.length === 0) return;
               const columnValues = updates.reduce<Record<string, unknown>>((acc, update) => {
                 acc[update.id] = update.value;
@@ -519,6 +520,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boardId: String(mondayBoardId),
                     itemId: String(mondayItemId),
                     columnValues: JSON.stringify(columnValues),
+                    createLabels,
                   },
                 }),
               });
@@ -531,53 +533,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               }
             };
 
-            await updateMondayColumns(clientColumnUpdates);
-            const clientColumnError = columnErrors.find(error => normalizeKey(error.column) === "cliente");
-            const clientColumnFailed = Boolean(clientColumnError || mondayResult.clientLabelWarning);
-
-            if (clientColumnFailed) {
-              mondayResult.skippedColumnsAfterClientError = otherColumnUpdates.map(update => update.title);
-            } else {
-              await updateMondayColumns(otherColumnUpdates);
-            }
+            // Update client column first (with create_labels_if_missing: true as safety net)
+            await updateMondayColumns(clientColumnUpdates, true);
+            // Always update remaining columns regardless of client column result
+            await updateMondayColumns(otherColumnUpdates, false);
 
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;
               console.warn("[Cases API] Item criado no Monday, mas algumas colunas nao atualizaram.", JSON.stringify(columnErrors));
-            }
-
-            if (clientColumnFailed) {
-              const diagnostics = [
-                "⚠️ Diagnóstico automático do Portal de Casos",
-                `Campo: Cliente`,
-                `Label enviada: ${clientLabel || "(vazia)"}`,
-                mondayResult.clientLabelWarning?.message ? `Aviso: ${mondayResult.clientLabelWarning.message}` : null,
-                clientColumnError ? `Erro ao atualizar Cliente: ${clientColumnError.error}` : null,
-                mondayResult.clientLabelWarning?.availableLabels?.length
-                  ? `Labels disponíveis no Monday: ${mondayResult.clientLabelWarning.availableLabels.join(", ")}`
-                  : null,
-                otherColumnUpdates.length > 0 ? `Demais colunas puladas ate corrigir Cliente: ${otherColumnUpdates.map(update => update.title).join(", ")}` : null,
-              ].filter(Boolean).join("<br>");
-
-              const diagnosticResponse = await fetch("https://api.monday.com/v2", {
-                method: "POST",
-                headers: {
-                  Authorization: mondayToken.trim(),
-                  "Content-Type": "application/json",
-                  "API-Version": "2024-10",
-                },
-                body: JSON.stringify({
-                  query: `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }`,
-                  variables: {
-                    itemId: String(mondayItemId),
-                    body: diagnostics,
-                  },
-                }),
-              });
-              const diagnosticData = await diagnosticResponse.json().catch(() => ({}));
-              if (!diagnosticResponse.ok || diagnosticData.errors) {
-                mondayResult.diagnosticUpdateError = diagnosticData.errors || diagnosticData;
-              }
             }
 
             if (payload.notes) {
