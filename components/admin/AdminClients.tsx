@@ -10,6 +10,14 @@ import {
   updateAdminClient,
 } from '../../services/adminClientService';
 import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
+import AdminDashboardPanel from './AdminDashboardPanel';
+import AdminNotificationsPanel from './AdminNotificationsPanel';
+
+type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'notifications';
+
+interface AdminClientsProps {
+  initialTab?: AdminTab;
+}
 
 type AdminFaq = {
   id: string;
@@ -65,7 +73,44 @@ const labelSpanClass = 'text-[10px] font-bold uppercase tracking-widest text-zin
 const isPreviewVideo = (url?: string | null) =>
   /\.(mp4|m4v|mov|webm|avi|mkv|mpeg|mpg|3gp|wmv|ogv)(\?|$)/i.test(url || '');
 
-const AdminClients: React.FC = () => {
+const adminCards: Array<{
+  id: AdminTab;
+  title: string;
+  description: string;
+  meta: string;
+  tone: string;
+}> = [
+  {
+    id: 'clients',
+    title: 'Cadastro de Clientes',
+    description: 'Gerencie links, senhas, labels do Monday e pastas do Drive.',
+    meta: 'Base da operação',
+    tone: 'from-[#e8f6ff] to-white text-[#20a8f5]',
+  },
+  {
+    id: 'faqs',
+    title: 'Faqs',
+    description: 'Edite instruções e exemplos que aparecem em cada etapa do portal.',
+    meta: 'Conteúdo guiado',
+    tone: 'from-emerald-50 to-white text-emerald-600',
+  },
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    description: 'Veja pacientes por cliente, materiais enviados para edição e prontos.',
+    meta: 'Relatórios',
+    tone: 'from-amber-50 to-white text-amber-600',
+  },
+  {
+    id: 'notifications',
+    title: 'Notificações',
+    description: 'Publique avisos manuais para todos os clientes ou para uma clínica específica.',
+    meta: 'Comunicados',
+    tone: 'from-sky-50 to-white text-sky-600',
+  },
+];
+
+const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
   const [password, setPassword] = useState(() => localStorage.getItem('cases_admin_password') || '');
   const [passwordInput, setPasswordInput] = useState(password);
   const [clients, setClients] = useState<Client[]>([]);
@@ -78,7 +123,7 @@ const AdminClients: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [showPortalPassword, setShowPortalPassword] = useState(false);
-  const [adminTab, setAdminTab] = useState<'clients' | 'faqs'>('clients');
+  const [adminTab, setAdminTab] = useState<AdminTab>(initialTab);
 
   // FAQ state
   const [faqs, setFaqs] = useState<AdminFaq[]>([]);
@@ -326,47 +371,118 @@ const AdminClients: React.FC = () => {
     );
   }
 
+  const openAdminTab = (tab: AdminTab) => {
+    setAdminTab(tab);
+    if (tab === 'faqs') void loadFaqs();
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+    <main className="impact-page">
+      <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-2xl">
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Admin</p>
-              <h1 className="text-lg font-bold text-zinc-900">Portal Impact Doctor</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#20a8f5]">Admin</p>
+              <h1 className="text-lg font-black text-[#082653]">Portal Impact Doctor</h1>
             </div>
-            <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-1">
-              <button
-                type="button"
-                onClick={() => setAdminTab('clients')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  adminTab === 'clients' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                Clientes
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAdminTab('faqs'); loadFaqs(); }}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  adminTab === 'faqs' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                FAQs das etapas
-              </button>
+            <div className="hidden items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl md:flex">
+              {[
+                ['home', 'Início'],
+                ['clients', 'Clientes'],
+                ['faqs', 'Faqs'],
+                ['dashboard', 'Dashboard'],
+                ['notifications', 'Notificações'],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => openAdminTab(id as AdminTab)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
+                    adminTab === id ? 'bg-white text-[#09315f] shadow-sm' : 'text-[#7894b7] hover:text-[#09315f]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
+          <select
+            value={adminTab}
+            onChange={event => openAdminTab(event.target.value as AdminTab)}
+            className="min-w-0 flex-1 rounded-2xl border border-[#cfe7fb] bg-white/80 px-3 py-2 text-xs font-black text-[#09315f] shadow-[0_8px_24px_rgba(22,78,129,0.08)] outline-none md:hidden"
+            aria-label="Navegação do admin"
+          >
+            <option value="home">Início</option>
+            <option value="clients">Clientes</option>
+            <option value="faqs">Faqs</option>
+            <option value="dashboard">Dashboard</option>
+            <option value="notifications">Notificações</option>
+          </select>
           <button
             type="button"
             onClick={() => { localStorage.removeItem('cases_admin_password'); setPassword(''); }}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50"
+            className="impact-secondary min-h-10 px-4 text-xs"
           >
             Sair
           </button>
         </div>
       </header>
 
-      {adminTab === 'faqs' ? (
+      {adminTab === 'home' ? (
+        <div className="impact-shell">
+          <section className="impact-glass overflow-hidden rounded-[2.2rem] p-6 sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#20a8f5]">Central admin</p>
+                <h2 className="mt-2 max-w-2xl text-4xl font-black tracking-tight text-[#082653] sm:text-5xl">
+                  Escolha o que deseja ajustar
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-[#6d8db1]">
+                  Clientes, FAQs, relatórios e avisos ficam separados em áreas claras para mexer sem esbarrar no restante da plataforma.
+                </p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/70 bg-white/70 px-5 py-4 text-right shadow-[0_16px_45px_rgba(22,78,129,0.1)]">
+                <p className="text-3xl font-black text-[#082653]">{clients.length}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#6d8db1]">clientes cadastrados</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 sm:grid-cols-2">
+            {adminCards.map(card => (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => openAdminTab(card.id)}
+                className="group impact-soft-card overflow-hidden rounded-[2rem] p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_24px_70px_rgba(22,78,129,0.16)] active:scale-[0.99]"
+              >
+                <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${card.tone}`}>
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6" aria-hidden="true">
+                    <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">{card.meta}</p>
+                <h3 className="mt-2 text-2xl font-black tracking-tight text-[#082653]">{card.title}</h3>
+                <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-[#6d8db1]">{card.description}</p>
+                <span className="mt-6 inline-flex items-center gap-2 text-xs font-black text-[#0b3768]">
+                  Abrir
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true">
+                    <path fillRule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              </button>
+            ))}
+          </section>
+        </div>
+      ) : adminTab === 'dashboard' ? (
+        <div className="impact-shell">
+          <AdminDashboardPanel password={password} />
+        </div>
+      ) : adminTab === 'notifications' ? (
+        <div className="impact-shell">
+          <AdminNotificationsPanel password={password} clients={clients} />
+        </div>
+      ) : adminTab === 'faqs' ? (
         <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
           <h2 className="text-3xl font-bold tracking-tight text-zinc-900">FAQs das etapas</h2>
           <p className="mt-1 text-sm text-zinc-500">Cadastre até 3 FAQs por etapa. Eles aparecem para os clientes ao clicar no ⓘ em cada card.</p>

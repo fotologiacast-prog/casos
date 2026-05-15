@@ -55,11 +55,11 @@ export const deleteSupabaseCasePatient = async (token: string, caseId: string): 
   await readApiResponse(response, 'Falha ao limpar caso.');
 };
 
-export const requestCaseStageEditing = async (token: string, caseId: string, stageId: string): Promise<void> => {
+export const requestCaseStageEditing = async (token: string, caseId: string, stageId: string): Promise<any> => {
   const response = await fetch('/api/editing-request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, caseId, stageId }),
   });
-  await readApiResponse(response, 'Falha ao mandar para edição.');
+  return readApiResponse(response, 'Falha ao mandar para edição.');
 };

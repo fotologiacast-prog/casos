@@ -90,7 +90,7 @@ const findStatusLabelIndex = (column: { settings_str?: string | null }, label: s
   return match ? Number(match[0]) : null;
 };
 
-const updateEditingSubitemColumns = async (subitemId: string, boardId?: string | null) => {
+const updateEditingSubitemColumns = async (subitemId: string, boardId?: string | null, materialUrl?: string | null) => {
   if (!boardId) return { skipped: true, reason: "subitem_board_id_ausente" };
 
   const columnsQuery = `query ($boardIds: [ID!]) {
@@ -111,6 +111,10 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
   const priorityColumn = findColumn(["Priority", "Prioridade"], ["status", "color"]);
   const responsibleColumn = findColumn(["Responsável", "Responsavel", "Pessoa", "Pessoa responsável", "Pessoa responsavel"], ["people", "person"]);
   const deadlineColumn = findColumn(["Prazo do criativo", "Prazo", "Data", "Deadline"], ["date"]);
+  const materialColumn = findColumn(
+    ["Material para Edição", "Material para Edicao", "#Material para Edição", "#Material para Edicao", "Material", "Link do Drive", "Drive"],
+    ["link", "long_text", "long-text", "text"]
+  );
 
   const columnValues: Record<string, unknown> = {};
 
@@ -129,6 +133,16 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
 
   if (deadlineColumn) {
     columnValues[deadlineColumn.id] = { date: getTodayDate() };
+  }
+
+  if (materialColumn && materialUrl) {
+    if (materialColumn.type === "link") {
+      columnValues[materialColumn.id] = { url: materialUrl, text: "Material para edição" };
+    } else if (materialColumn.type === "long_text" || materialColumn.type === "long-text") {
+      columnValues[materialColumn.id] = { text: materialUrl };
+    } else {
+      columnValues[materialColumn.id] = materialUrl;
+    }
   }
 
   if (Object.keys(columnValues).length === 0) {
@@ -153,6 +167,48 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
     skipped: false,
     updatedColumns: Object.keys(columnValues),
   };
+};
+
+const getDriveFolderUrl = (folderId?: string | null) =>
+  folderId ? `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}` : null;
+
+const getDriveFileUrl = (file: any) => {
+  if (file?.web_view_link) return file.web_view_link;
+  if (file?.drive_file_id) return `https://drive.google.com/file/d/${encodeURIComponent(file.drive_file_id)}/view`;
+  if (file?.web_content_link) return file.web_content_link;
+  return null;
+};
+
+const persistEditingRequest = async (
+  supabase: any,
+  payload: {
+    clientId: number;
+    caseId: string;
+    stageId: string;
+    mondayItemId: string;
+    mondaySubitemId: string;
+    stageName: string;
+    materialUrl: string | null;
+  }
+) => {
+  const { error } = await supabase
+    .from("case_editing_requests")
+    .upsert(
+      [{
+        client_id: payload.clientId,
+        case_id: payload.caseId,
+        stage_id: payload.stageId,
+        monday_item_id: payload.mondayItemId,
+        monday_subitem_id: payload.mondaySubitemId,
+        stage_name: payload.stageName,
+        material_url: payload.materialUrl,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      }],
+      { onConflict: "case_id,stage_id" }
+    );
+
+  if (error) throw error;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -187,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: stageRow, error: stageError } = await supabase
       .from("case_stages")
-      .select("id, case_id, stage_name, moment")
+      .select("id, case_id, stage_name, moment, drive_folder_id")
       .eq("id", stageId)
       .eq("case_id", caseId)
       .maybeSingle();
@@ -197,12 +253,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "A edição só pode ser solicitada a partir da fase Entrega." });
     }
 
-    const { count, error: filesError } = await supabase
+    const { data: fileRows, error: filesError } = await supabase
       .from("case_files")
-      .select("id", { count: "exact", head: true })
+      .select("id, drive_file_id, web_view_link, web_content_link, file_name")
       .eq("stage_id", stageId);
     if (filesError) throw filesError;
-    if (!count) return res.status(400).json({ error: "Envie ao menos um arquivo nesta etapa antes de mandar para edição." });
+    if (!fileRows || fileRows.length === 0) return res.status(400).json({ error: "Envie ao menos um arquivo nesta etapa antes de mandar para edição." });
+
+    const materialUrl =
+      getDriveFolderUrl(stageRow.drive_folder_id) ||
+      fileRows.map(getDriveFileUrl).find(Boolean) ||
+      null;
 
     const itemQuery = `query ($itemIds: [ID!]) {
       items(ids: $itemIds) {
@@ -215,7 +276,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const existingSubitem = subitems.find((subitem: any) => normalizeKey(subitem.name) === normalizeKey(taskName));
 
     if (existingSubitem) {
-      const columnUpdate = await updateEditingSubitemColumns(existingSubitem.id, existingSubitem.board?.id);
+      const columnUpdate = await updateEditingSubitemColumns(existingSubitem.id, existingSubitem.board?.id, materialUrl);
+      await persistEditingRequest(supabase, {
+        clientId: Number(client.id),
+        caseId: String(caseRow.id),
+        stageId: String(stageRow.id),
+        mondayItemId: String(caseRow.monday_item_id),
+        mondaySubitemId: String(existingSubitem.id),
+        stageName: String(stageRow.stage_name),
+        materialUrl,
+      });
       return res.status(200).json({ ok: true, existing: true, subitemId: existingSubitem.id, columnUpdate });
     }
 
@@ -229,7 +299,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const subitem = createdData?.data?.create_subitem;
     const subitemId = subitem?.id;
     if (!subitemId) throw new Error("Monday nao retornou o ID do subelemento de edicao.");
-    const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id);
+    const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl);
+    await persistEditingRequest(supabase, {
+      clientId: Number(client.id),
+      caseId: String(caseRow.id),
+      stageId: String(stageRow.id),
+      mondayItemId: String(caseRow.monday_item_id),
+      mondaySubitemId: String(subitemId),
+      stageName: String(stageRow.stage_name),
+      materialUrl,
+    });
 
     return res.status(201).json({ ok: true, existing: false, subitemId, columnUpdate });
   } catch (error) {

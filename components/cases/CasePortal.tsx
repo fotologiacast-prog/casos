@@ -9,6 +9,7 @@ import CasePatientList from './CasePatientList';
 import NewCasePatientForm, { NewCasePatientPayload } from './NewCasePatientForm';
 import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
+import { fetchPortalNotifications, PortalNotification } from '../../services/portalNotificationService';
 
 interface CasePortalProps {
   token: string;
@@ -97,6 +98,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [pwError, setPwError] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [manualNotifications, setManualNotifications] = useState<PortalNotification[]>([]);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
 
   const selectedPatient = useMemo(
@@ -119,10 +121,17 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     [editedTestimonials, readNotificationIds]
   );
 
+  const unreadManualNotifications = useMemo(
+    () => manualNotifications.filter(item => !readNotificationIds.includes(`admin:${item.id}`)),
+    [manualNotifications, readNotificationIds]
+  );
+
   const editedAssetCount = useMemo(
     () => unreadEditedTestimonials.reduce((sum, item) => sum + Math.max(item.assets.length, 1), 0),
     [unreadEditedTestimonials]
   );
+
+  const unreadNotificationCount = editedAssetCount + unreadManualNotifications.length;
 
   const loadPatients = useCallback(async (client: PortalClient, refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
@@ -137,6 +146,20 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       if (refreshing) setIsRefreshing(false);
     }
   }, [token]);
+
+  const loadManualNotifications = useCallback(async (client: PortalClient | null = portalClient) => {
+    if (!client || client.isDemo) {
+      setManualNotifications([]);
+      return;
+    }
+    try {
+      const loaded = await fetchPortalNotifications(token);
+      setManualNotifications(loaded);
+    } catch (err) {
+      console.warn('[Cases] Nao foi possivel buscar notificacoes manuais.', err);
+      setManualNotifications([]);
+    }
+  }, [portalClient, token]);
 
   useEffect(() => {
     try {
@@ -159,12 +182,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   }, [notificationsOpen]);
 
   useEffect(() => {
-    if (!notificationsOpen || unreadEditedTestimonials.length === 0) return;
+    if (!notificationsOpen || (unreadEditedTestimonials.length === 0 && unreadManualNotifications.length === 0)) return;
     const timer = window.setTimeout(() => {
       setReadNotificationIds(previousIds => {
         const nextIds = Array.from(new Set([
           ...previousIds,
           ...unreadEditedTestimonials.map(item => item.id),
+          ...unreadManualNotifications.map(item => `admin:${item.id}`),
         ]));
         try {
           localStorage.setItem(`case_notifications_read_${token}`, JSON.stringify(nextIds));
@@ -176,7 +200,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     }, 900);
 
     return () => window.clearTimeout(timer);
-  }, [notificationsOpen, token, unreadEditedTestimonials]);
+  }, [notificationsOpen, token, unreadEditedTestimonials, unreadManualNotifications]);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,10 +226,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           setSessionPwOk(true);
         }
         const patientsPromise = loadPatients(resolvedClient);
+        const notificationsPromise = loadManualNotifications(resolvedClient);
         const testimonialsPromise = prefetchReadyTestimonials(token, resolvedClient.isDemo).catch(err => {
           console.warn('[Cases] Nao foi possivel buscar resumo de depoimentos prontos.', err);
         });
         await patientsPromise;
+        void notificationsPromise;
         void testimonialsPromise;
       } catch (err) {
         if (!cancelled) {
@@ -223,6 +249,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     if (!portalClient) return;
     await loadPatients(portalClient, true);
     void refreshReadyTestimonials();
+    void loadManualNotifications(portalClient);
   };
 
   const handleSetTab = (tab: PortalTab) => {
@@ -264,6 +291,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     persistReadNotifications([
       ...readNotificationIds,
       ...editedTestimonials.map(item => item.id),
+      ...manualNotifications.map(item => `admin:${item.id}`),
     ]);
   };
 
@@ -539,9 +567,9 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                   <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Zm0 16a3 3 0 0 0 2.83-2H7.17A3 3 0 0 0 10 18Z" />
                 </svg>
-                {editedAssetCount > 0 && (
+                {unreadNotificationCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-black text-white ring-2 ring-white">
-                    {editedAssetCount}
+                    {unreadNotificationCount}
                   </span>
                 )}
               </button>
@@ -550,51 +578,105 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                 <div className="absolute right-0 top-[3.25rem] z-50 w-[min(21rem,calc(100vw-2rem))] overflow-hidden rounded-[1.35rem] border border-[#d6ebfb] bg-white/95 shadow-[0_24px_70px_rgba(22,78,129,0.18)] backdrop-blur-xl">
                   <div className="flex items-center justify-between gap-3 border-b border-[#e4f1fb] px-4 py-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Notificações</p>
-                    {unreadEditedTestimonials.length > 0 && (
+                    {unreadNotificationCount > 0 && (
                       <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                        {editedAssetCount} novas
+                        {unreadNotificationCount} novas
                       </span>
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto p-2">
-                    {editedTestimonials.length === 0 ? (
+                    {manualNotifications.length === 0 && editedTestimonials.length === 0 ? (
                       <div className="rounded-2xl bg-[#f5fbff] px-4 py-6 text-center">
                         <p className="text-sm font-black text-[#244f7f]">Nada novo por enquanto.</p>
-                        <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Quando um subelemento estiver como Editado no Monday, ele aparece aqui.</p>
+                        <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e materiais editados aparecem aqui.</p>
                       </div>
                     ) : (
-                      editedTestimonials.slice(0, 6).map(item => {
-                        const isUnread = !readNotificationIds.includes(item.id);
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleOpenEditedMaterial(item.id, item.patientName)}
-                            className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[#f1f9ff]"
-                          >
-                            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                              isUnread ? 'bg-emerald-100 text-emerald-700' : 'bg-[#edf6ff] text-[#5f82aa]'
-                            }`}>
-                              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
-                              </svg>
-                            </span>
-                            <span className="min-w-0">
-                              <span className="flex min-w-0 items-center gap-2">
-                                <span className="block truncate text-sm font-black text-[#082653]">{item.patientName}</span>
-                                {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />}
+                      <>
+                        {manualNotifications.slice(0, 4).map(item => {
+                          const notificationId = `admin:${item.id}`;
+                          const isUnread = !readNotificationIds.includes(notificationId);
+                          return (
+                            <div key={item.id} className="rounded-2xl px-3 py-3 transition-colors hover:bg-[#f1f9ff]">
+                              <div className="flex items-start gap-3">
+                                <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                  isUnread ? 'bg-sky-100 text-sky-700' : 'bg-[#edf6ff] text-[#5f82aa]'
+                                }`}>
+                                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                                    <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Z" />
+                                  </svg>
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span className="block truncate text-sm font-black text-[#082653]">{item.title}</span>
+                                    {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-label="Nova notificação" />}
+                                  </span>
+                                  {item.body && <p className="mt-1 line-clamp-3 text-xs font-semibold leading-relaxed text-[#5f82aa]">{item.body}</p>}
+                                  {item.media_url && /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(item.media_url) && (
+                                    <img src={item.media_url} alt="" className="mt-2 h-24 w-full rounded-2xl object-cover" loading="lazy" decoding="async" />
+                                  )}
+                                  {item.media_url && /\.(mp4|m4v|mov|webm|mpeg|mpg|3gp|ogv)(\?|$)/i.test(item.media_url) && (
+                                    <video src={item.media_url} controls className="mt-2 max-h-40 w-full rounded-2xl bg-black object-contain" />
+                                  )}
+                                  {item.media_url && (
+                                    <a
+                                      href={item.media_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={() => persistReadNotifications([...readNotificationIds, notificationId])}
+                                      className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-sky-700"
+                                    >
+                                      Ver mídia
+                                    </a>
+                                  )}
+                                  {item.cta_url && (
+                                    <a
+                                      href={item.cta_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={() => persistReadNotifications([...readNotificationIds, notificationId])}
+                                      className="ml-2 mt-2 inline-flex rounded-full bg-[#e8f6ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0b3768]"
+                                    >
+                                      {item.cta_label || 'Abrir'}
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {editedTestimonials.slice(0, 6).map(item => {
+                          const isUnread = !readNotificationIds.includes(item.id);
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleOpenEditedMaterial(item.id, item.patientName)}
+                              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[#f1f9ff]"
+                            >
+                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                isUnread ? 'bg-emerald-100 text-emerald-700' : 'bg-[#edf6ff] text-[#5f82aa]'
+                              }`}>
+                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+                                </svg>
                               </span>
-                              <span className="mt-0.5 block truncate text-xs font-bold text-[#5f82aa]">{item.title}</span>
-                              <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                                {isUnread ? 'Novo' : 'Lido'}
+                              <span className="min-w-0">
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span className="block truncate text-sm font-black text-[#082653]">{item.patientName}</span>
+                                  {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs font-bold text-[#5f82aa]">{item.title}</span>
+                                <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                                  {isUnread ? 'Novo material' : 'Lido'}
+                                </span>
                               </span>
-                            </span>
-                          </button>
-                        );
-                      })
+                            </button>
+                          );
+                        })}
+                      </>
                     )}
                   </div>
-                  {unreadEditedTestimonials.length > 0 && (
+                  {unreadNotificationCount > 0 && (
                     <div className="border-t border-[#e4f1fb] p-2">
                       <button
                         type="button"

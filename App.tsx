@@ -17,8 +17,12 @@ const App: React.FC = () => {
   const route = hash.split('?')[0];
   const caseRouteMatch = route.match(/^#\/casos\/([^/?]+)/);
 
+  if (route === '#/admin' || route === '#/admin/') {
+    return <AdminClients initialTab="home" />;
+  }
+
   if (route === '#/admin/clientes') {
-    return <AdminClients />;
+    return <AdminClients initialTab="clients" />;
   }
 
   if (route === '#/admin/monday') {

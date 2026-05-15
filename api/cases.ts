@@ -352,6 +352,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return match ? Number(match[0]) : null;
           };
 
+          const getStatusLabelNames = (col: { settings_str?: string | null }) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return [];
+            return Object.values(labels).map(String).filter(Boolean);
+          };
+
           const targetGroup = groups.find(group => {
             const title = normalizeKey(group.title);
             return group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
@@ -365,7 +372,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const set = (colNames: string | string[], value: unknown, preferredTypes: string[] = []) => {
             const names = Array.isArray(colNames) ? colNames : [colNames];
             const col = findCol(names, preferredTypes);
-            if (!col || value === undefined || value === null || String(value).trim() === "") return;
+            const isCliente = names.some(name => normalizeKey(name) === "cliente");
+            if (!col) {
+              if (isCliente) {
+                mondayResult.clientLabelWarning = {
+                  requestedLabel: value ? String(value).trim() : "",
+                  columnTitle: "Cliente",
+                  availableLabels: [],
+                  message: "Coluna Cliente nao encontrada no board do Monday.",
+                };
+              }
+              return;
+            }
+            if (value === undefined || value === null || String(value).trim() === "") return;
             
             // Prevent updating read-only/auto-calculated columns
             if (readOnlyTypes.includes(col.type)) {
@@ -378,6 +397,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let formattedValue: unknown;
             if (type === "status" || type === "color") {
               const labelIndex = findStatusLabelIndex(col, text);
+              if (isCliente && !Number.isFinite(labelIndex)) {
+                const availableLabels = getStatusLabelNames(col);
+                mondayResult.clientLabelWarning = {
+                  requestedLabel: text,
+                  columnTitle: col.title,
+                  availableLabels,
+                  message: `Label de Cliente "${text}" nao encontrada nas labels do Monday.`,
+                };
+                return;
+              }
               formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
             }
             else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
@@ -415,8 +444,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             throw new Error(`Grupo "${MONDAY_CASES_GROUP_TITLE}" nao encontrado no board ${mondayBoardId}.`);
           }
 
+          const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
+          const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
+
           const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!) {
-            create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName) { id }
+            create_item(
+              board_id: $boardId,
+              group_id: $groupId,
+              item_name: $itemName
+            ) { id }
           }`;
 
           const createResponse = await fetch("https://api.monday.com/v2", {
@@ -495,15 +531,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               }
             };
 
-            const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
-            const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
-
             await updateMondayColumns(clientColumnUpdates);
-            await updateMondayColumns(otherColumnUpdates);
+            const clientColumnError = columnErrors.find(error => normalizeKey(error.column) === "cliente");
+            const clientColumnFailed = Boolean(clientColumnError || mondayResult.clientLabelWarning);
+
+            if (clientColumnFailed) {
+              mondayResult.skippedColumnsAfterClientError = otherColumnUpdates.map(update => update.title);
+            } else {
+              await updateMondayColumns(otherColumnUpdates);
+            }
 
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;
               console.warn("[Cases API] Item criado no Monday, mas algumas colunas nao atualizaram.", JSON.stringify(columnErrors));
+            }
+
+            if (clientColumnFailed) {
+              const diagnostics = [
+                "⚠️ Diagnóstico automático do Portal de Casos",
+                `Campo: Cliente`,
+                `Label enviada: ${clientLabel || "(vazia)"}`,
+                mondayResult.clientLabelWarning?.message ? `Aviso: ${mondayResult.clientLabelWarning.message}` : null,
+                clientColumnError ? `Erro ao atualizar Cliente: ${clientColumnError.error}` : null,
+                mondayResult.clientLabelWarning?.availableLabels?.length
+                  ? `Labels disponíveis no Monday: ${mondayResult.clientLabelWarning.availableLabels.join(", ")}`
+                  : null,
+                otherColumnUpdates.length > 0 ? `Demais colunas puladas ate corrigir Cliente: ${otherColumnUpdates.map(update => update.title).join(", ")}` : null,
+              ].filter(Boolean).join("<br>");
+
+              const diagnosticResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }`,
+                  variables: {
+                    itemId: String(mondayItemId),
+                    body: diagnostics,
+                  },
+                }),
+              });
+              const diagnosticData = await diagnosticResponse.json().catch(() => ({}));
+              if (!diagnosticResponse.ok || diagnosticData.errors) {
+                mondayResult.diagnosticUpdateError = diagnosticData.errors || diagnosticData;
+              }
             }
 
             if (payload.notes) {
