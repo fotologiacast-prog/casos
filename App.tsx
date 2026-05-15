@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminClients from './components/admin/AdminClients';
+import MondayPlayground from './components/admin/MondayPlayground';
 import CasePortal from './components/cases/CasePortal';
 
 const getCurrentHash = () => window.location.hash || '#/';
@@ -18,6 +19,10 @@ const App: React.FC = () => {
 
   if (route === '#/admin/clientes') {
     return <AdminClients />;
+  }
+
+  if (route === '#/admin/monday') {
+    return <MondayPlayground />;
   }
 
   if (caseRouteMatch) {

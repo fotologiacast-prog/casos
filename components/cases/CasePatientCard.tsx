@@ -12,15 +12,15 @@ interface CasePatientCardProps {
 const statusConfig: Record<string, { label: string; className: string }> = {
   Completo: {
     label: 'Completo',
-    className: 'bg-teal-100 text-teal-700',
+    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
   },
   'Em andamento': {
     label: 'Em andamento',
-    className: 'bg-blue-100 text-blue-700',
+    className: 'bg-sky-50 text-[#159de9] ring-1 ring-sky-100',
   },
   'Com pendencias': {
     label: 'Pendente',
-    className: 'bg-amber-100 text-amber-700',
+    className: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100',
   },
 };
 
@@ -35,8 +35,8 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
 
   if (!currentSrc || failed) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-zinc-300">
+      <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_72%_72%,rgba(32,168,245,0.22),transparent_38%),linear-gradient(135deg,#f8fcff,#d8edff)]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-12 w-12 text-[#6d91bb]">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.226-.584-7.499-1.632Z" clipRule="evenodd" />
         </svg>
       </div>
@@ -76,39 +76,39 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
       role="button"
       tabIndex={0}
       aria-label={`Abrir etapas do paciente ${patient.name}`}
-      className="group w-full cursor-pointer overflow-hidden rounded-[1.6rem] border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-xl"
+      className="impact-soft-card group w-full cursor-pointer overflow-hidden rounded-[1.55rem] p-2 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-[0_24px_65px_rgba(22,78,129,0.17)]"
     >
       {/* Thumbnail or Fallback */}
-      <div className="relative m-2 flex h-40 w-[calc(100%-1rem)] items-center justify-center overflow-hidden rounded-[1.25rem] bg-zinc-100 sm:h-44">
+      <div className="relative flex h-40 w-full items-center justify-center overflow-hidden rounded-[1.25rem] bg-[#d8edff] sm:h-44">
         <PatientThumbnail thumbnail={thumbnail} name={patient.name} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <span className={`absolute right-3 top-3 inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold ${config.className}`}>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#082653]/20 via-transparent to-white/10" />
+        <span className={`absolute right-3 top-3 inline-flex items-center rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${config.className}`}>
           {config.label}
         </span>
       </div>
 
       {/* Content */}
-      <div className="space-y-4 px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
+      <div className="space-y-4 px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
         {/* Name */}
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">Paciente</p>
-          <h3 className="mt-2 truncate text-lg font-black leading-tight text-zinc-950">{patient.name}</h3>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
+          <h3 className="mt-1.5 truncate text-lg font-black leading-tight text-[#082653]">{patient.name}</h3>
         </div>
 
         {/* Info badges */}
         <div className="flex flex-wrap gap-2">
           {patient.procedure && (
-            <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-700">
+            <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
               {patient.procedure}
             </span>
           )}
           {patient.age && (
-            <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-700">
+            <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
               {patient.age}a
             </span>
           )}
           {patient.dentistResponsible && (
-            <span className="inline-flex items-center rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-700">
+            <span className="inline-flex max-w-full items-center truncate rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
               DR. {patient.dentistResponsible}
             </span>
           )}
@@ -117,12 +117,12 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
         {/* Progress */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-600">{progress.captured}/{progress.total} etapas</span>
-            <span className="text-xs font-bold text-slate-900">{progress.percentage}%</span>
+            <span className="text-xs font-black text-[#42668f]">{progress.captured}/{progress.total} etapas</span>
+            <span className="text-xs font-black text-[#082653]">{progress.percentage}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
+          <div className="h-2 overflow-hidden rounded-full bg-[#d7e8f4]">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-[#20a8f5] to-[#51d4ff] transition-all duration-500"
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
@@ -135,7 +135,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenTestimonials?.(patient); }}
               aria-label={`Abrir materiais prontos de ${patient.name}`}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-100"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
                 <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" clipRule="evenodd" />
@@ -145,7 +145,7 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
           ) : (
             <span />
           )}
-          <span className="text-xs font-semibold text-slate-400 transition-colors group-hover:text-slate-700 flex items-center gap-1">
+          <span className="flex items-center gap-1 text-xs font-black text-[#6d91bb] transition-colors group-hover:text-[#159de9]">
             Ver etapas
             <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3" aria-hidden="true">
               <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />

@@ -56,7 +56,7 @@ export type CaseProcedure =
 
 export type CaseStageStatus = 'Fazer' | 'Capturado';
 
-export type CaseStageMoment = 'Planejamento' | 'Procedimento' | 'Entrega' | 'Evento';
+export type CaseStageMoment = 'Planejamento' | 'Procedimento' | 'Entrega' | 'Evento' | 'Agência';
 
 export interface CaseStage {
   id: string;

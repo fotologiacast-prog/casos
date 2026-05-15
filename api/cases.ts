@@ -5,25 +5,26 @@ const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
 const MONDAY_CASE_TYPE_LABEL = "Caso";
 
 const CASE_STAGE_DEFINITIONS = [
-  { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
-  { title: "02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (ESTUDIO) Video panoramico do antes"] },
-  { title: "03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)", moment: "Planejamento" },
-  { title: "04. (ESTUDIO) Video expectativa (paciente)", moment: "Planejamento" },
-  { title: "05. (COMPUTADOR) Imagens 3D do Planejamento", moment: "Procedimento", legacyTitles: ["05. Imagens 3D - Planejamento do laboratorio (escaneamento)"] },
-  { title: "06. Videos do procedimento", moment: "Procedimento" },
-  { title: "07. Fotos DETALHES em macro das proteses fora da boca", moment: "Procedimento" },
-  { title: "08. Imagens 3D - Tomografia e RX", moment: "Procedimento" },
-  { title: "09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)", moment: "Entrega" },
-  { title: "10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)", moment: "Entrega" },
-  { title: "11. (ESTUDIO) Retratos do depois (posados)", moment: "Entrega" },
-  { title: "12. (ESTUDIO) - Fotos em close do sorriso", moment: "Entrega" },
-  { title: "13. (ESTUDIO) Fotos em close artisticas do sorriso", moment: "Entrega" },
-  { title: "14. (ESTUDIO) Video RESULTADO risada gostosa", moment: "Entrega" },
-  { title: "15. (ESTUDIO) Video DEPOIMENTO paciente", moment: "Entrega" },
-  { title: "16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega", moment: "Entrega" },
-  { title: "17. Video DEPOIMENTO produzido - videomaker", moment: "Evento" },
-  { title: "18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo", moment: "Evento" },
-  { title: "19. Foto com o Doutor (O Brinde da Vitoria)", moment: "Evento" },
+  { title: "Fotos Intraorais do Antes", moment: "Planejamento", legacyTitles: ["01. (CADEIRA) Fotos intraorais do antes (4 fotos)"] },
+  { title: "Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", "02. (ESTUDIO) Video panoramico do antes"] },
+  { title: "Retrato Extraoral do Antes", moment: "Planejamento", legacyTitles: ["03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)"] },
+  { title: "Vídeo Expectativa", moment: "Planejamento", legacyTitles: ["04. (ESTUDIO) Video expectativa (paciente)"] },
+  { title: "Imagens 3D do Planejamento", moment: "Procedimento", legacyTitles: ["05. (COMPUTADOR) Imagens 3D do Planejamento", "05. Imagens 3D - Planejamento do laboratorio (escaneamento)"] },
+  { title: "Vídeos do Procedimento", moment: "Procedimento", legacyTitles: ["06. Videos do procedimento"] },
+  { title: "Fotos Detalhes das Próteses", moment: "Procedimento", legacyTitles: ["07. Fotos DETALHES em macro das proteses fora da boca"] },
+  { title: "Imagens 3D, Tomografia e RX", moment: "Procedimento", legacyTitles: ["08. Imagens 3D - Tomografia e RX"] },
+  { title: "Fotos Intraorais do Depois", moment: "Entrega", legacyTitles: ["09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)"] },
+  { title: "Vídeo da Entrega", moment: "Entrega", legacyTitles: ["10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)"] },
+  { title: "Retratos do Depois", moment: "Entrega", legacyTitles: ["11. (ESTUDIO) Retratos do depois (posados)"] },
+  { title: "Fotos em Close do Sorriso", moment: "Entrega", legacyTitles: ["12. (ESTUDIO) - Fotos em close do sorriso"] },
+  { title: "Fotos em Close Artísticas do Sorriso", moment: "Entrega", legacyTitles: ["13. (ESTUDIO) Fotos em close artisticas do sorriso"] },
+  { title: "Vídeo Resultado", moment: "Entrega", legacyTitles: ["14. (ESTUDIO) Video RESULTADO risada gostosa"] },
+  { title: "Vídeo Depoimento", moment: "Entrega", legacyTitles: ["15. (ESTUDIO) Video DEPOIMENTO paciente"] },
+  { title: "Vídeo Feedback Emocional da Doutora", moment: "Entrega", legacyTitles: ["16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega"] },
+  { title: "Depoimento Produzido", moment: "Evento", legacyTitles: ["17. Video DEPOIMENTO produzido - videomaker"] },
+  { title: "Retratos Atualizados Lifestyle", moment: "Evento", legacyTitles: ["18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo"] },
+  { title: "O Brinde da Vitória", moment: "Evento", legacyTitles: ["19. Foto com o Doutor (O Brinde da Vitoria)"] },
+  { title: "Vídeo de Explicação Técnica", moment: "Agência", legacyTitles: ["10. Explicação do caso com dr."] },
 ] as const;
 
 const getLegacyStageTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
@@ -173,7 +174,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
         boardId: caseRow.monday_item_id || caseRow.id,
         parentItemId: caseRow.id,
         title: getCanonicalCaseStageTitle(stage.stage_name),
-        moment: stage.moment || getCaseStageMoment(stage.stage_name),
+        moment: getCaseStageMoment(stage.stage_name) || stage.moment,
         expectedItems: getCaseStageExpectedItems(stage.stage_name),
         status: stage.status === "capturado" ? "Capturado" : "Fazer",
         statusColumnId: stage.monday_subitem_id || "",
@@ -303,14 +304,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "API-Version": "2024-10",
             },
             body: JSON.stringify({
-              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type } groups { id title } } }`,
+              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type settings_str } groups { id title } } }`,
               variables: { boardIds: [String(mondayBoardId)] },
             }),
           });
           const colsData = await colsResponse.json();
           if (colsData.errors) mondayResult.colsError = colsData.errors;
           
-          const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
+          const columns: { id: string; title: string; type: string; settings_str?: string | null }[] = colsData?.data?.boards?.[0]?.columns || [];
           const groups: { id: string; title: string }[] = colsData?.data?.boards?.[0]?.groups || [];
 
           const normalizeKey = (v: string) =>
@@ -332,6 +333,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const writableMatches = matches.filter((c) => !readOnlyTypes.includes(c.type));
             const preferredMatch = writableMatches.find((c) => preferredTypes.includes(c.type));
             return preferredMatch || writableMatches[0] || matches[0];
+          };
+
+          const getColumnSettings = (col: { settings_str?: string | null }) => {
+            try {
+              return JSON.parse(col.settings_str || "{}");
+            } catch {
+              return {};
+            }
+          };
+
+          const findStatusLabelIndex = (col: { settings_str?: string | null }, label: string) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return null;
+            const target = normalizeKey(label);
+            const match = Object.entries(labels).find(([, value]) => normalizeKey(String(value)) === target);
+            return match ? Number(match[0]) : null;
           };
 
           const targetGroup = groups.find(group => {
@@ -358,7 +376,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const text = String(value).trim();
             const type = col.type;
             let formattedValue: unknown;
-            if (type === "status" || type === "color") formattedValue = { label: text };
+            if (type === "status" || type === "color") {
+              const labelIndex = findStatusLabelIndex(col, text);
+              formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
+            }
             else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
             else if (type === "date") formattedValue = { date: text };
             else if (type === "long_text" || type === "long-text") formattedValue = { text };
@@ -439,7 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 board_id: $boardId,
                 item_id: $itemId,
                 column_values: $columnValues,
-                create_labels_if_missing: true
+                create_labels_if_missing: false
               ) { id }
             }`;
 

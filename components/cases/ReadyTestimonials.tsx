@@ -1,61 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ReadyTestimonial, TestimonialAsset } from '../../types';
-import { fetchReadyTestimonials } from '../../services/testimonialService';
+import { useReadyTestimonials } from './useReadyTestimonials';
 
 interface ReadyTestimonialsProps {
   token: string;
   clientName: string;
   isDemo?: boolean;
   initialSearch?: string;
+  onBack?: () => void;
   onOpenCase?: (caseId: string) => void;
 }
 
-const demoTestimonials: ReadyTestimonial[] = [
-  {
-    id: 'demo-maria-social',
-    caseId: 'demo-maria',
-    patientName: 'Maria Eduarda',
-    mondayItemName: 'Maria Eduarda - Facetas superiores',
-    patientAge: 42,
-    patientGender: 'Feminino',
-    patientProcedure: 'Facetas',
-    caseCreatedAt: '2026-04-11T00:00:00',
-    mondayItemId: 'demo',
-    subitemId: 'demo-social',
-    title: 'Depoimento vertical - versão reels',
-    status: 'Pronto',
-    creativeType: 'Reels 9:16',
-    assets: [
-      {
-        id: 'demo-image-1',
-        name: 'maria-resultado-feed.jpg',
-        public_url: 'https://images.unsplash.com/photo-1609840114035-3c981b782dfe?auto=format&fit=crop&w=1000&q=80',
-      },
-    ],
-  },
-  {
-    id: 'demo-carlos-post',
-    caseId: 'demo-carlos',
-    patientName: 'Carlos Henrique',
-    mondayItemName: 'Carlos Henrique - Protocolo inferior',
-    patientAge: 58,
-    patientGender: 'Masculino',
-    patientProcedure: 'Protocolo',
-    caseCreatedAt: '2026-03-26T00:00:00',
-    mondayItemId: 'demo',
-    subitemId: 'demo-post',
-    title: 'Carrossel antes e depois',
-    status: 'Pronto',
-    creativeType: 'Carrossel',
-    assets: [
-      {
-        id: 'demo-image-2',
-        name: 'carlos-carrossel-01.jpg',
-        public_url: 'https://images.unsplash.com/photo-1606811971618-4486d14f3f99?auto=format&fit=crop&w=1000&q=80',
-      },
-    ],
-  },
-];
+type ReadyAssetItem = {
+  testimonial: ReadyTestimonial;
+  asset: TestimonialAsset;
+};
 
 const isImageAsset = (asset: TestimonialAsset) =>
   /\.(png|jpe?g|webp|gif|avif|bmp|heic)$/i.test(asset.name) ||
@@ -441,47 +400,298 @@ const formatCaseDate = (value?: string | null) => {
 const InfoChip: React.FC<{ value?: string | number | null }> = ({ value }) => {
   if (value === undefined || value === null || value === '') return null;
   return (
-    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[11px] font-semibold text-zinc-600">
+    <span className="rounded-full border border-[#d7ebfb] bg-white/75 px-3 py-1 text-[11px] font-black text-[#5277a2]">
       {value}
     </span>
   );
 };
 
-const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName, isDemo, initialSearch = '', onOpenCase }) => {
-  const [testimonials, setTestimonials] = useState<ReadyTestimonial[]>([]);
+const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode; tone?: string }> = ({ active, onClick, children, tone = 'bg-[#20a8f5]' }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`min-h-11 rounded-2xl px-4 text-sm font-black transition-all active:scale-95 ${
+      active ? `${tone} text-[#082653] ring-1 ring-[#9bd8f8]` : 'border border-[#d7ebfb] bg-white/70 text-[#174579] hover:bg-white'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const getAssetKind = (asset: TestimonialAsset) => {
+  if (isVideoAsset(asset)) return 'Vídeo';
+  if (isAudioAsset(asset)) return 'Áudio';
+  if (isImageAsset(asset)) return 'Imagem';
+  return 'Arquivo';
+};
+
+const getPrimaryProcedure = (value?: string | null) => splitProcedures(value)[0] || null;
+
+const getAssetFormatText = (asset: TestimonialAsset, creativeType?: string | null) =>
+  `${asset.name} ${creativeType || ''}`.toLowerCase();
+
+const getAssetFormatLabel = (asset: TestimonialAsset, creativeType?: string | null) => {
+  const text = getAssetFormatText(asset, creativeType);
+  if (/story|stories/.test(text)) return 'Stories';
+  if (/reels|9:16|vertical|depoimento/.test(text)) return 'Reels';
+  if (/post|feed|carrossel|square|1:1/.test(text)) return 'Post';
+  return getAssetKind(asset);
+};
+
+const getAssetCardHeight = (asset: TestimonialAsset, creativeType?: string | null) => {
+  const text = getAssetFormatText(asset, creativeType);
+  if (/reels|story|stories|9:16|vertical|depoimento/.test(text)) return 'h-[420px]';
+  if (/feed|post|carrossel|square|1:1/.test(text)) return 'h-[300px]';
+  if (isVideoAsset(asset)) return 'h-[380px]';
+  return 'h-[330px]';
+};
+
+const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: string }> = ({ asset, className = '' }) => {
+  const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
+
+  if (isImageAsset(asset)) {
+    return (
+      <img
+        src={asset.public_url}
+        alt={asset.name}
+        width={800}
+        height={1200}
+        className={`h-full w-full object-cover ${className}`}
+        decoding="async"
+        loading="lazy"
+      />
+    );
+  }
+
+  if (isVideoAsset(asset)) {
+    return (
+      <div className={`relative h-full w-full bg-[#082653] ${className}`}>
+        {driveThumbnailUrl ? (
+          <img
+            src={driveThumbnailUrl}
+            alt=""
+            width={800}
+            height={1200}
+            className="h-full w-full object-cover"
+            decoding="async"
+            loading="lazy"
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#082653] to-[#20a8f5]" />
+        )}
+        <span className="absolute inset-0 bg-black/16" />
+        <span className="absolute left-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white/88 px-3 text-[11px] font-black text-[#082653] backdrop-blur">
+          <PlayIcon className="h-3.5 w-3.5" />
+          Vídeo
+        </span>
+      </div>
+    );
+  }
+
+  if (isAudioAsset(asset)) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#082653] to-[#20a8f5] text-white">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-10 w-10" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+        <span className="text-xs font-black uppercase tracking-widest">Áudio</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-white/70 text-[#5277a2]">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-10 w-10" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-.988-2.386l-4.751-4.751A3.375 3.375 0 0 0 11.375 3.5H8.25A2.25 2.25 0 0 0 6 5.75v12.5a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-4Z" />
+      </svg>
+      <span className="text-xs font-black uppercase tracking-widest">Arquivo</span>
+    </div>
+  );
+};
+
+const ReadyAssetModal: React.FC<{
+  item: ReadyAssetItem;
+  recommendations: ReadyAssetItem[];
+  token: string;
+  isDemo?: boolean;
+  onClose: () => void;
+  onSelect: (item: ReadyAssetItem) => void;
+  onOpenCase?: (caseId: string) => void;
+}> = ({ item, recommendations, token, isDemo, onClose, onSelect, onOpenCase }) => {
+  const { testimonial, asset } = item;
+  const visibleRecommendations = recommendations.slice(0, 12);
+  const procedure = getPrimaryProcedure(testimonial.patientProcedure);
+  const formatLabel = getAssetFormatLabel(asset, testimonial.creativeType);
+
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 top-[73px] z-[90] overflow-y-auto bg-[#f4faff] px-3 py-4 sm:px-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Visualizar ${testimonial.title}`}
+    >
+      <div className="mx-auto max-w-[1660px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(640px,1fr)_470px] 2xl:grid-cols-[minmax(720px,1fr)_520px]">
+          <main className="min-w-0">
+            <div className="impact-glass rounded-[2rem] p-3 sm:p-5">
+              <div className="mb-4 flex flex-col gap-4 rounded-[1.55rem] border border-white/80 bg-white/55 p-4 shadow-[0_14px_36px_rgba(22,78,129,0.08)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#c7e6fb] bg-white/88 text-[#082653] transition-colors hover:bg-white active:scale-95"
+                    aria-label="Voltar para materiais"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.78 4.22a.75.75 0 0 1 0 1.06L5.06 8h10.19a.75.75 0 0 1 0 1.5H5.06l2.72 2.72a.75.75 0 1 1-1.06 1.06l-4-4a.75.75 0 0 1 0-1.06l4-4a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#d9edff] text-sm font-black text-[#1b72b6]">
+                    {testimonial.patientName.slice(0, 1)}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-black text-[#082653]">{testimonial.patientName}</h2>
+                    <p className="mt-0.5 truncate text-xs font-bold text-[#5d7ca4]">
+                      {[testimonial.patientAge ? `${testimonial.patientAge} anos` : null, procedure, formatLabel].filter(Boolean).join(' • ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.6rem] border border-[#c9e7fb] bg-gradient-to-br from-[#dff2ff] via-white to-[#e7f6ff] p-3 shadow-inner sm:p-4">
+                <div className="relative mx-auto flex h-[min(66dvh,760px)] min-h-[360px] max-w-[720px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#06182f] shadow-[0_24px_70px_rgba(8,38,83,0.22)] sm:min-h-[520px]">
+                  <AssetPreview asset={asset} />
+                  <span className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-xs font-black text-white backdrop-blur">
+                    {formatLabel}
+                  </span>
+                  <button
+                    type="button"
+                    className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur"
+                    aria-label="Mais opções"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                      <path d="M5.25 10a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm6 0a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm4.75 1.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
+                <div className="rounded-[1.35rem] border border-white/80 bg-white/70 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">{getAssetKind(asset)} pronto</p>
+                  <h3 className="mt-1 text-2xl font-black tracking-tight text-[#082653]">{testimonial.mondayItemName || testimonial.title}</h3>
+                  <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5d7ca4]">
+                    Material pronto para uso, conectado ao caso do paciente e ao histórico salvo na plataforma.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 rounded-[1.35rem] border border-white/80 bg-white/70 p-4">
+                    {onOpenCase && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenCase(testimonial.caseId)}
+                        className="impact-secondary min-h-11 w-full px-3 text-xs"
+                      >
+                        Ver caso
+                      </button>
+                    )}
+                    <a
+                      href={getDownloadUrl(token, testimonial, asset, isDemo)}
+                      download={asset.name}
+                      className="impact-primary min-h-11 w-full px-3 text-xs"
+                    >
+                      Download
+                    </a>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <div className="impact-glass rounded-[2rem] p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e4f4ff] text-[#20a8f5]">
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                      <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v1.34a5.75 5.75 0 0 0-5.16 5.16H2.75a.75.75 0 0 0 0 1.5h1.34a5.75 5.75 0 0 0 5.16 5.16v1.34a.75.75 0 0 0 1.5 0v-1.34a5.75 5.75 0 0 0 5.16-5.16h1.34a.75.75 0 0 0 0-1.5h-1.34a5.75 5.75 0 0 0-5.16-5.16V2.75Z" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Recomendados</p>
+                    <h3 className="text-lg font-black text-[#082653]">Pacientes parecidos</h3>
+                  </div>
+                </div>
+                <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black text-[#5277a2]">
+                  {visibleRecommendations.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {visibleRecommendations.map(recommended => {
+                  const recProcedure = getPrimaryProcedure(recommended.testimonial.patientProcedure);
+                  return (
+                    <button
+                      key={`${recommended.testimonial.id}-${recommended.asset.id}`}
+                      type="button"
+                      onClick={() => onSelect(recommended)}
+                      className="group overflow-hidden rounded-[1.25rem] border border-[#d7ebfb] bg-white/75 text-left shadow-[0_12px_30px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.16)]"
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-b-[1.05rem]">
+                        <GalleryAssetPreview asset={recommended.asset} />
+                        {isVideoAsset(recommended.asset) && (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-lg">
+                              <PlayIcon className="ml-0.5 h-5 w-5" />
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1 px-3 py-3">
+                        <p className="truncate text-xs font-black text-[#082653]">{recommended.testimonial.patientName}</p>
+                        <p className="truncate text-[11px] font-bold text-[#5277a2]">
+                          {[recommended.testimonial.patientAge ? `${recommended.testimonial.patientAge} anos` : null, recProcedure].filter(Boolean).join(' • ')}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {visibleRecommendations.length === 0 && (
+                <div className="rounded-[1.4rem] border border-dashed border-[#b9dff7] bg-white/55 p-8 text-center text-sm font-bold text-[#5d7ca4]">
+                  Ainda não há outros materiais para recomendar.
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName, isDemo, initialSearch = '', onBack, onOpenCase }) => {
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [filterProcedure, setFilterProcedure] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
-  const [filterCreativeType, setFilterCreativeType] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadTestimonials = async (refreshing = false) => {
-    if (refreshing) setIsRefreshing(true);
-    setError(null);
-    try {
-      if (isDemo) {
-        setTestimonials(demoTestimonials);
-        return;
-      }
-      setTestimonials(await fetchReadyTestimonials(token));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar os depoimentos.');
-    } finally {
-      setIsLoading(false);
-      if (refreshing) setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTestimonials();
-  }, [token, isDemo]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ReadyAssetItem | null>(null);
+  const { testimonials, totalAssets, isLoading, isRefreshing, error, refresh } = useReadyTestimonials(token, isDemo);
 
   useEffect(() => {
     setSearch(initialSearch);
   }, [initialSearch]);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedItem(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedItem]);
 
   const procedures = useMemo(() => {
     const set = new Set<string>();
@@ -489,14 +699,8 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     return Array.from(set).sort();
   }, [testimonials]);
 
-  const creativeTypes = useMemo(() => {
-    const set = new Set<string>();
-    testimonials.forEach(t => { if (t.creativeType) set.add(t.creativeType); });
-    return Array.from(set).sort();
-  }, [testimonials]);
-
   const filteredTestimonials = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = deferredSearch.trim().toLowerCase();
     return testimonials.filter(item => {
       if (query && !(
         item.patientName.toLowerCase().includes(query) ||
@@ -510,132 +714,207 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
       
       if (filterProcedure !== 'all' && !splitProcedures(item.patientProcedure).includes(filterProcedure)) return false;
       if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
-      if (filterCreativeType !== 'all' && item.creativeType !== filterCreativeType) return false;
       if (!matchesAgeRange(item.patientAge, filterAge)) return false;
       
       return true;
     });
-  }, [search, testimonials, filterProcedure, filterGender, filterAge, filterCreativeType]);
+  }, [deferredSearch, testimonials, filterProcedure, filterGender, filterAge]);
 
-  const totalAssets = testimonials.reduce((sum, item) => sum + item.assets.length, 0);
-
-  const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-all ${
-        active ? 'bg-zinc-900 text-white' : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50'
-      }`}
-    >
-      {children}
-    </button>
+  const galleryItems = useMemo<ReadyAssetItem[]>(
+    () => filteredTestimonials.flatMap(testimonial => testimonial.assets.map(asset => ({ testimonial, asset }))),
+    [filteredTestimonials]
   );
+
+  const allGalleryItems = useMemo<ReadyAssetItem[]>(
+    () => testimonials.flatMap(testimonial => testimonial.assets.map(asset => ({ testimonial, asset }))),
+    [testimonials]
+  );
+
+  const recommendedItems = useMemo(() => {
+    if (!selectedItem) return [];
+    const currentProcedures = splitProcedures(selectedItem.testimonial.patientProcedure);
+    const currentType = selectedItem.testimonial.creativeType || '';
+    const currentAge = selectedItem.testimonial.patientAge;
+    const currentGender = selectedItem.testimonial.patientGender || '';
+    return allGalleryItems
+      .filter(item => item.asset.id !== selectedItem.asset.id)
+      .sort((a, b) => {
+        const score = (candidate: ReadyAssetItem) => {
+          const candidateProcedures = splitProcedures(candidate.testimonial.patientProcedure);
+          const hasProcedureMatch = currentProcedures.some(proc => candidateProcedures.includes(proc));
+          const ageDiff = typeof currentAge === 'number' && typeof candidate.testimonial.patientAge === 'number'
+            ? Math.abs(currentAge - candidate.testimonial.patientAge)
+            : null;
+          let value = 0;
+          if (hasProcedureMatch) value += 80;
+          if (ageDiff !== null) {
+            if (ageDiff <= 5) value += 42;
+            else if (ageDiff <= 10) value += 28;
+            else if (ageDiff <= 15) value += 14;
+          }
+          if (currentGender && candidate.testimonial.patientGender === currentGender) value += 12;
+          if (currentType && candidate.testimonial.creativeType === currentType) value += 14;
+          if (candidate.testimonial.caseId !== selectedItem.testimonial.caseId) value += 18;
+          else value -= 45;
+          return value;
+        };
+        const aScore = score(a);
+        const bScore = score(b);
+        return bScore - aScore;
+      });
+  }, [allGalleryItems, selectedItem]);
+
+  const suggestedFilters = useMemo(() => {
+    const items = [
+      { value: 'all', label: 'Todos os casos', tone: 'bg-[#dff2ff]' },
+      ...procedures.slice(0, 5).map((procedure, index) => ({
+        value: procedure,
+        label: procedure,
+        tone: ['bg-[#c7f9e5]', 'bg-[#ffcfda]', 'bg-[#ffefba]', 'bg-[#cce8ff]', 'bg-[#e3d8ff]'][index % 5],
+      })),
+    ];
+    return items;
+  }, [procedures]);
+
+  const hasActiveFilters = filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all';
 
   return (
     <section className="animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{clientName}</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">Materiais prontos</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {totalAssets} arquivo{totalAssets === 1 ? '' : 's'} publicado{totalAssets === 1 ? '' : 's'} pelo time
-          </p>
+      <div className="mb-4 flex items-center gap-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d7ebfb] bg-white/72 text-[#082653] transition-colors hover:bg-white active:scale-95"
+            aria-label="Voltar para casos"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-6 w-6" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m6-6-6 6 6 6" />
+            </svg>
+          </button>
+        )}
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">{clientName}</p>
+          <h1 className="truncate text-2xl font-black tracking-tight text-[#082653] sm:text-3xl">Materiais prontos</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => loadTestimonials(true)}
-          disabled={isRefreshing || isLoading}
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm transition-all hover:border-zinc-400 hover:bg-zinc-50 disabled:opacity-50 active:scale-95 sm:w-auto"
-        >
-          {isRefreshing ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="h-3.5 w-3.5 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
-              Atualizando
-            </span>
-          ) : (
-            <span className="flex items-center justify-center gap-2">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+      </div>
+
+      <div className="rounded-[2rem] border border-[#d7ebfb] bg-white/52 p-3 backdrop-blur-xl sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative min-w-0 flex-1">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6d91bb]">
+              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+            </svg>
+            <input
+              name="testimonial-search"
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              autoComplete="off"
+              placeholder="Buscar por paciente, procedimento ou caso..."
+              className="h-12 w-full rounded-[1.35rem] border border-[#cfe8fb] bg-white/78 py-3 pl-12 pr-4 text-sm font-semibold text-[#123762] outline-none transition-colors placeholder:text-[#7d9bbd] focus:border-[#7bcdfb] focus:ring-2 focus:ring-[#20a8f5]/15"
+            />
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 xl:pb-0">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(open => !open)}
+              className={`flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-4 text-xs font-black transition-all ${
+                filtersOpen || hasActiveFilters ? 'border-[#082653] bg-[#082653] text-white' : 'border-[#9fd7f7] bg-[#e8f6ff] text-[#082653] hover:bg-white'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clipRule="evenodd" />
+              </svg>
+              Filtros
+            </button>
+
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={isRefreshing || isLoading}
+              className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border border-[#9fd7f7] bg-[#e8f6ff] px-4 text-xs font-black text-[#082653] transition-all hover:bg-white disabled:opacity-50"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} aria-hidden="true">
                 <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466.75.75 0 0 0-1.061 1.061 7 7 0 0 0 11.713-3.138.75.75 0 0 0-1.451-.389ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466.75.75 0 1 0 1.061-1.061A7 7 0 0 0 3.237 8.187a.75.75 0 1 0 1.451.389Z" clipRule="evenodd" />
                 <path fillRule="evenodd" d="M6.75 8.25A.75.75 0 0 1 6 9H3.25a.75.75 0 0 1-.75-.75V5.5a.75.75 0 0 1 1.5 0v1.19l1.22-1.22a.75.75 0 0 1 1.06 1.06L5.06 7.75H6a.75.75 0 0 1 .75.5Zm6.5 3.5A.75.75 0 0 1 14 11h2.75a.75.75 0 0 1 .75.75v2.75a.75.75 0 0 1-1.5 0v-1.19l-1.22 1.22a.75.75 0 1 1-1.06-1.06l1.22-1.22H14a.75.75 0 0 1-.75-.5Z" clipRule="evenodd" />
               </svg>
               Atualizar
-            </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+          {suggestedFilters.map(filter => (
+            <FilterChip
+              key={filter.value}
+              active={filterProcedure === filter.value}
+              tone={filter.tone}
+              onClick={() => setFilterProcedure(filter.value)}
+            >
+              {filter.label}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+
+      {filtersOpen && (
+        <div className="mt-5 rounded-[1.7rem] border border-[#d7ebfb] bg-white/58 p-5 backdrop-blur-xl">
+          <div className="grid gap-5 md:grid-cols-3">
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Gênero</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 'all', label: 'Todos' },
+                  { value: 'Feminino', label: 'Feminino' },
+                  { value: 'Masculino', label: 'Masculino' },
+                  { value: 'Pref. não informar', label: 'Outro' },
+                ].map(opt => (
+                  <FilterChip key={opt.value} active={filterGender === opt.value} onClick={() => setFilterGender(opt.value)} tone="bg-[#dff2ff]">
+                    {opt.label}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Faixa etária</p>
+              <div className="flex flex-wrap gap-2">
+                {ageRanges.map(opt => (
+                  <FilterChip key={opt.value} active={filterAge === opt.value} onClick={() => setFilterAge(opt.value)} tone="bg-[#c7f9e5]">
+                    {opt.label}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Procedimento</p>
+              <div className="flex flex-wrap gap-2">
+                <FilterChip active={filterProcedure === 'all'} onClick={() => setFilterProcedure('all')} tone="bg-[#dff2ff]">Todos</FilterChip>
+                {procedures.map(proc => (
+                  <FilterChip key={proc} active={filterProcedure === proc} onClick={() => setFilterProcedure(proc)} tone="bg-[#ffefba]">
+                    {proc}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterProcedure('all');
+                setFilterGender('all');
+                setFilterAge('all');
+              }}
+              className="mt-5 text-xs font-black text-[#5277a2] underline underline-offset-2 hover:text-[#082653]"
+            >
+              Limpar todos os filtros
+            </button>
           )}
-        </button>
-      </div>
-
-      <div className="mt-6 flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5">
-        <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Gênero</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: 'all', label: 'Todos' },
-              { value: 'Feminino', label: 'Feminino' },
-              { value: 'Masculino', label: 'Masculino' },
-              { value: 'Pref. não informar', label: 'Outro' },
-            ].map(opt => (
-              <FilterChip key={opt.value} active={filterGender === opt.value} onClick={() => setFilterGender(opt.value)}>
-                {opt.label}
-              </FilterChip>
-            ))}
-          </div>
         </div>
-
-        <div className="space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Faixa Etária</p>
-          <div className="flex flex-wrap gap-2">
-            {ageRanges.map(opt => (
-              <FilterChip key={opt.value} active={filterAge === opt.value} onClick={() => setFilterAge(opt.value)}>
-                {opt.label}
-              </FilterChip>
-            ))}
-          </div>
-        </div>
-
-        {procedures.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Procedimento</p>
-            <div className="flex flex-wrap gap-2">
-              <FilterChip active={filterProcedure === 'all'} onClick={() => setFilterProcedure('all')}>Todos</FilterChip>
-              {procedures.map(proc => (
-                <FilterChip key={proc} active={filterProcedure === proc} onClick={() => setFilterProcedure(proc)}>
-                  {proc}
-                </FilterChip>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {creativeTypes.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Tipo de criativo</p>
-            <div className="flex flex-wrap gap-2">
-              <FilterChip active={filterCreativeType === 'all'} onClick={() => setFilterCreativeType('all')}>Todos</FilterChip>
-              {creativeTypes.map(type => (
-                <FilterChip key={type} active={filterCreativeType === type} onClick={() => setFilterCreativeType(type)}>
-                  {type}
-                </FilterChip>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6">
-        <div className="relative">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 pointer-events-none">
-            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
-          </svg>
-          <input
-            name="testimonial-search"
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-            autoComplete="off"
-            placeholder="Buscar por paciente, depoimento ou arquivo..."
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
-          />
-        </div>
-      </div>
+      )}
 
       {error && (
         <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm font-medium text-rose-700">
@@ -650,7 +929,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
             <p className="mt-4 text-sm font-semibold text-zinc-500">Carregando depoimentos...</p>
           </div>
         </div>
-      ) : !isLoading && filteredTestimonials.length === 0 ? (
+      ) : !isLoading && galleryItems.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 text-zinc-400">
@@ -659,90 +938,87 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           </div>
           <h2 className="text-lg font-bold text-zinc-900">Nenhum material pronto</h2>
           <p className="mt-2 text-sm text-zinc-500">
-            {(search.trim() || filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all' || filterCreativeType !== 'all') ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
+            {(search.trim() || hasActiveFilters) ? 'Tente ajustar os filtros ou busca.' : 'Quando houver arquivos nos subelementos do Monday, eles aparecem aqui.'}
           </p>
         </div>
       ) : (
-        <div className="mt-7 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
-          {filteredTestimonials.map(testimonial => (
-            <article
-              key={testimonial.id}
-              className="break-inside-avoid overflow-hidden rounded-[1.6rem] border border-zinc-200 bg-white shadow-[0_18px_45px_rgba(24,24,27,0.07)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_24px_60px_rgba(24,24,27,0.1)]"
-              style={{ contentVisibility: 'auto', containIntrinsicSize: '480px' }}
-            >
-              <div className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">{testimonial.patientName}</p>
-                    <h2 className="mt-1 text-lg font-black leading-tight tracking-tight text-zinc-950">{testimonial.title}</h2>
-                  </div>
-                  {testimonial.creativeType && (
-                    <span className="shrink-0 rounded-full bg-zinc-950 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
-                      {testimonial.creativeType}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  <InfoChip value={testimonial.patientAge ? `${testimonial.patientAge} anos` : null} />
-                  <InfoChip value={testimonial.patientGender} />
-                  <InfoChip value={testimonial.patientProcedure} />
-                </div>
-              </div>
+        <div className="mt-5 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {galleryItems.map(item => {
+            const procedure = getPrimaryProcedure(item.testimonial.patientProcedure);
+            const formatLabel = getAssetFormatLabel(item.asset, item.testimonial.creativeType);
+            return (
+              <button
+                key={`${item.testimonial.id}-${item.asset.id}`}
+                type="button"
+                onClick={() => setSelectedItem(item)}
+                className={`group relative w-full overflow-hidden rounded-[1.35rem] border border-white/75 bg-[#d8edff] text-left shadow-[0_10px_28px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.14)] ${getAssetCardHeight(item.asset, item.testimonial.creativeType)}`}
+                style={{ contentVisibility: 'auto', containIntrinsicSize: '340px' }}
+                aria-label={`Abrir ${item.testimonial.title} de ${item.testimonial.patientName}`}
+              >
+                <GalleryAssetPreview asset={item.asset} />
 
-              <div className="space-y-3 px-3 pb-3">
-                {testimonial.assets.map(asset => (
-                  <div
-                    key={asset.id}
-                    className="group overflow-hidden rounded-[1.25rem] border border-zinc-200 bg-zinc-950 shadow-inner"
-                  >
-                    <div className="flex min-h-[260px] items-center justify-center overflow-hidden bg-zinc-950">
-                      <AssetPreview asset={asset} />
-                    </div>
-                    <div className="border-t border-white/10 bg-zinc-950/95 p-3">
-                      <a
-                        href={getDownloadUrl(token, testimonial, asset, isDemo)}
-                        download={asset.name}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-black text-zinc-950 transition-colors hover:bg-zinc-200"
-                      >
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                          <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-                          <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-[#06182f]/65 to-transparent p-3 pb-12">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/78 text-[#2b75bd] backdrop-blur">
+                      {isVideoAsset(item.asset) ? (
+                        <PlayIcon className="ml-0.5 h-3.5 w-3.5" />
+                      ) : (
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                          <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm.28 10.72 2.47-2.47a1.5 1.5 0 0 1 2.12 0l.88.88 2.13-2.13a1.5 1.5 0 0 1 2.12 0l1.25 1.25v3.5a.25.25 0 0 1-.25.25H4.25a.25.25 0 0 1-.25-.25v-.5l.53-.53Z" clipRule="evenodd" />
                         </svg>
-                        Download
-                      </a>
+                      )}
+                    </span>
+                    <div className="min-w-0 text-white">
+                      <p className="truncate text-[11px] font-black">{item.testimonial.patientName}</p>
+                      <p className="mt-0.5 truncate text-[10px] font-bold text-white/78">
+                        {[item.testimonial.patientAge ? `${item.testimonial.patientAge} anos` : null, procedure].filter(Boolean).join(' • ')}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Caso</p>
-                    <p className="mt-0.5 truncate text-xs font-bold text-zinc-700">{formatCaseDate(testimonial.caseCreatedAt) || 'Sem data'}</p>
-                  </div>
-                  {testimonial.status && (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-100">
-                      {testimonial.status}
-                    </span>
-                  )}
-                  {onOpenCase && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenCase(testimonial.caseId)}
-                      className="ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-zinc-500 transition-colors hover:bg-white hover:text-zinc-950"
-                    >
-                      Ver caso
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-                        <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 0 0 1.06 0l7.22-7.22v3.69a.75.75 0 0 0 1.5 0v-5.5A.75.75 0 0 0 14.25 5h-5.5a.75.75 0 0 0 0 1.5h3.69l-7.22 7.22a.75.75 0 0 0 0 1.06Z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  )}
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/24 text-white backdrop-blur">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m10 3.2 1.86 3.77 4.16.61-3.01 2.93.71 4.14L10 12.7l-3.72 1.95.71-4.14-3.01-2.93 4.16-.61L10 3.2Z" />
+                    </svg>
+                  </span>
                 </div>
-              </div>
-            </article>
-          ))}
+
+                {isVideoAsset(item.asset) && (
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-[0_18px_40px_rgba(8,38,83,0.28)] backdrop-blur transition-transform group-hover:scale-105">
+                      <PlayIcon className="ml-1 h-7 w-7" />
+                    </span>
+                  </span>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 via-white/70 to-transparent p-4 pt-24">
+                  <p className="line-clamp-2 text-lg font-serif leading-tight text-[#42699a]">
+                    {item.testimonial.title || item.testimonial.mondayItemName}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[10px] font-black text-[#2b75bd]">
+                      {formatLabel}
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">
+                      Abrir
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
+      )}
+
+      {selectedItem && (
+        <ReadyAssetModal
+          item={selectedItem}
+          recommendations={recommendedItems}
+          token={token}
+          isDemo={isDemo}
+          onClose={() => setSelectedItem(null)}
+          onSelect={setSelectedItem}
+          onOpenCase={onOpenCase}
+        />
       )}
     </section>
   );

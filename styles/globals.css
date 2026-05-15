@@ -46,6 +46,49 @@
 }
 
 @layer components {
+  .impact-page {
+    @apply min-h-screen text-[#082653];
+    background:
+      radial-gradient(circle at 5% 10%, rgba(255,255,255,0.92) 0 12%, transparent 34%),
+      radial-gradient(circle at 94% 8%, rgba(51,166,243,0.16) 0 15%, transparent 34%),
+      linear-gradient(135deg, #f8fcff 0%, #edf8ff 45%, #e8f6ff 100%);
+  }
+
+  .impact-page::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(115deg, rgba(255,255,255,0.72), transparent 42%),
+      radial-gradient(circle at 14% 88%, rgba(94,190,255,0.12), transparent 30%);
+    opacity: 0.85;
+  }
+
+  .impact-shell {
+    @apply relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+  }
+
+  .impact-glass {
+    @apply border border-white/75 bg-white/70 shadow-[0_20px_55px_rgba(22,78,129,0.13)] backdrop-blur-xl;
+  }
+
+  .impact-soft-card {
+    @apply border border-white/75 bg-white/70 shadow-[0_16px_45px_rgba(22,78,129,0.12)] backdrop-blur-xl;
+  }
+
+  .impact-pill {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/70 px-4 text-xs font-black text-[#174579] shadow-[0_8px_22px_rgba(22,78,129,0.1)] backdrop-blur;
+  }
+
+  .impact-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#20a8f5] px-5 text-sm font-black text-white shadow-[0_14px_30px_rgba(32,168,245,0.28)] transition-all hover:bg-[#1298e6] active:scale-95 disabled:opacity-50;
+  }
+
+  .impact-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/75 bg-white/80 px-5 text-sm font-black text-[#0a315f] shadow-[0_12px_28px_rgba(22,78,129,0.12)] transition-all hover:bg-white active:scale-95 disabled:opacity-50;
+  }
+
   /* Cards - Rounded & Elevated */
   .card {
     @apply rounded-3xl border border-slate-200 bg-white shadow-soft hover:shadow-medium transition-all duration-200;
