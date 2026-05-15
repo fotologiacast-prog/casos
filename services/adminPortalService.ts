@@ -85,12 +85,12 @@ const requestAdmin = async (
 };
 
 export const fetchAdminDashboard = async (password: string): Promise<AdminDashboardSummary> => {
-  const data = await requestAdmin('/api/admin-dashboard', password, { method: 'GET' });
+  const data = await requestAdmin('/api/admin?module=dashboard', password, { method: 'GET' });
   return data.dashboard;
 };
 
 export const listAdminNotifications = async (password: string): Promise<AdminNotification[]> => {
-  const data = await requestAdmin('/api/admin-notifications', password, { method: 'GET' });
+  const data = await requestAdmin('/api/admin?module=notifications', password, { method: 'GET' });
   return data.notifications || [];
 };
 
@@ -98,7 +98,7 @@ export const createAdminNotification = async (
   password: string,
   payload: AdminNotificationPayload
 ): Promise<AdminNotification> => {
-  const data = await requestAdmin('/api/admin-notifications', password, {
+  const data = await requestAdmin('/api/admin?module=notifications', password, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -110,7 +110,7 @@ export const updateAdminNotification = async (
   id: string,
   payload: AdminNotificationPayload
 ): Promise<AdminNotification> => {
-  const data = await requestAdmin(`/api/admin-notifications?id=${encodeURIComponent(id)}`, password, {
+  const data = await requestAdmin(`/api/admin?module=notifications&id=${encodeURIComponent(id)}`, password, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
@@ -118,7 +118,7 @@ export const updateAdminNotification = async (
 };
 
 export const deleteAdminNotification = async (password: string, id: string): Promise<void> => {
-  await requestAdmin(`/api/admin-notifications?id=${encodeURIComponent(id)}`, password, { method: 'DELETE' });
+  await requestAdmin(`/api/admin?module=notifications&id=${encodeURIComponent(id)}`, password, { method: 'DELETE' });
 };
 
 export const resolveNotificationClientName = (notification: AdminNotification, clients: Client[]) => {

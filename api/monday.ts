@@ -1,50 +1,85 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const isAuthorized = (req: VercelRequest) => {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  if (!configuredPassword) return false;
+  return req.headers["x-admin-password"] === configuredPassword;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Configuração básica de CORS para o backend
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, API-Version');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, API-Version, X-Admin-Password');
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Apenas método POST é permitido." });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Apenas método POST é permitido." });
 
   const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
-  if (!MONDAY_TOKEN) {
-    console.error("[MONDAY PROXY] Erro: Variável MONDAY_TOKEN não encontrada no ambiente.");
-    return res.status(500).json({ error: "Configuração ausente: MONDAY_TOKEN não definido na Vercel." });
+  if (!MONDAY_TOKEN) return res.status(500).json({ error: "MONDAY_TOKEN não definido." });
+
+  const contentType = req.headers["content-type"] || "";
+  
+  // 1. UPLOAD CASE (multipart/form-data)
+  if (contentType.includes("multipart/form-data")) {
+    try {
+      const response = await fetch("https://api.monday.com/v2/file", {
+        method: "POST",
+        headers: {
+          Authorization: MONDAY_TOKEN.trim(),
+          "API-Version": "2024-10",
+          "Content-Type": contentType,
+        },
+        body: req as any,
+        duplex: "half" as any,
+      } as RequestInit);
+
+      const responseText = await response.text();
+      try {
+        const data = JSON.parse(responseText);
+        return res.status(response.status).json(data);
+      } catch {
+        return res.status(response.status).send(responseText);
+      }
+    } catch (error) {
+      return res.status(500).json({ error: "Falha no upload para Monday.", details: String(error) });
+    }
   }
 
+  // 2. QUERY / PLAYGROUND (application/json)
   try {
-    console.log("[MONDAY PROXY] Enviando query para Monday.com...");
+    // If it's a playground request (has admin password), we can do extra checks if needed
+    const isAdmin = isAuthorized(req);
+    
+    // For standard proxy, we just pass the body
+    // We need to parse the body manually if we set bodyParser: false
+    // But wait, if bodyParser is false, we need to read the stream for JSON too.
+    
+    const chunks: any[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const bodyStr = Buffer.concat(chunks).toString();
+    const body = bodyStr ? JSON.parse(bodyStr) : {};
+
     const response = await fetch("https://api.monday.com/v2", {
       method: "POST",
       headers: {
-        "Authorization": MONDAY_TOKEN.trim(),
+        Authorization: MONDAY_TOKEN.trim(),
         "Content-Type": "application/json",
         "API-Version": "2024-10",
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    console.log(`[MONDAY PROXY] Monday respondeu com Status: ${response.status}`);
-
-    if (data.errors) {
-      console.error("[MONDAY PROXY] Erros retornados pelo Monday:", JSON.stringify(data.errors));
-    }
-
+    const data = await response.json().catch(() => ({}));
     return res.status(response.status).json(data);
   } catch (error) {
-    console.error("[MONDAY PROXY] ERRO CRÍTICO:", error);
-    return res.status(500).json({ 
-      error: "Falha interna no Proxy do Backend", 
-      details: error instanceof Error ? error.message : String(error) 
-    });
+    return res.status(500).json({ error: "Falha ao consultar Monday.", details: String(error) });
   }
 }

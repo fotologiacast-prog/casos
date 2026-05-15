@@ -22,7 +22,7 @@ type DriveUploadCompleteResponse = {
 };
 
 const requestDriveUploadStart = async (stageId: string, file: File): Promise<DriveUploadStartResponse> => {
-  const response = await fetch('/api/drive-upload', {
+  const response = await fetch('/api/drive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -39,7 +39,7 @@ const requestDriveUploadStart = async (stageId: string, file: File): Promise<Dri
 };
 
 const requestDriveUploadComplete = async (stageId: string, driveFileId: string): Promise<DriveUploadCompleteResponse> => {
-  const response = await fetch('/api/drive-upload', {
+  const response = await fetch('/api/drive', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

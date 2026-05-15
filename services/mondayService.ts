@@ -2,7 +2,7 @@
 import { MondayApiResponse, Item } from '../types';
 
 const BACKEND_PROXY_URL = "/api/monday";
-const BACKEND_UPLOAD_URL = "/api/monday-upload";
+const BACKEND_UPLOAD_URL = "/api/monday";
 const CACHE_TTL = 30 * 1000; 
 const memoryCache = new Map<string, { data: MondayApiResponse; timestamp: number }>();
 
@@ -207,7 +207,7 @@ export async function uploadFileToItem(itemId: string, columnId: string, file: F
   formData.append('map', map);
   formData.append('0', file, file.name);
 
-  const response = await fetch(BACKEND_UPLOAD_URL, {
+  const response = await fetch('/api/monday', {
     method: 'POST',
     body: formData,
   });

@@ -455,7 +455,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     if (!window.confirm(`Remover "${file.name}" permanentemente do Drive e do sistema?`)) return;
     setDeletingFileId(file.id);
     try {
-      const response = await fetch('/api/drive-delete', {
+      const response = await fetch('/api/drive', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

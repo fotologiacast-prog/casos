@@ -30,7 +30,7 @@ export const runMondayPlaygroundQuery = async <T = any>(
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<MondayPlaygroundResponse<T>> => {
-  const response = await fetch('/api/monday-playground', {
+  const response = await fetch('/api/monday', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
