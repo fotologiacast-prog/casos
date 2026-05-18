@@ -104,6 +104,8 @@ const logCaseError = (requestId: string, step: string, error: unknown, data: Rec
   }));
 };
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const makeStageKey = (title: string) =>
   title
     .toLowerCase()
@@ -696,7 +698,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Update client column first (with create_labels_if_missing: true as safety net)
             await updateMondayColumns(clientColumnUpdates, true);
 
-            if (clientColumnUpdates.length > 0) {
+            const verifyClientColumn = async (step: string) => {
+              if (clientColumnUpdates.length === 0) {
+                logCaseError(caseRequestId, `${step}_missing`, "Nenhuma atualização preparada para Cliente.", {
+                  clientLabel,
+                });
+                return null;
+              }
               const clientUpdate = clientColumnUpdates[0];
               const verifyResponse = await fetch("https://api.monday.com/v2", {
                 method: "POST",
@@ -723,18 +731,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }),
               });
               const verifyData = await verifyResponse.json().catch(() => ({}));
-              mondayResult.clientColumnVerification = verifyData?.data?.items?.[0]?.column_values?.[0] || null;
+              const verification = verifyData?.data?.items?.[0]?.column_values?.[0] || null;
               if (!verifyResponse.ok || verifyData.errors) {
-                logCaseError(caseRequestId, "verify_client_column_error", verifyData, {
+                logCaseError(caseRequestId, `${step}_error`, verifyData, {
                   status: verifyResponse.status,
                   clientColumnId: clientUpdate.id,
                 });
               } else {
-                logCaseInfo(caseRequestId, "verify_client_column_success", {
+                logCaseInfo(caseRequestId, `${step}_success`, {
                   clientColumnId: clientUpdate.id,
-                  verification: mondayResult.clientColumnVerification,
+                  verification,
                 });
               }
+              return verification;
+            };
+
+            if (clientColumnUpdates.length > 0) {
+              mondayResult.clientColumnVerification = await verifyClientColumn("verify_client_column_after_client_update");
             } else {
               logCaseError(caseRequestId, "client_column_update_missing", "Nenhuma atualização preparada para Cliente.", {
                 clientLabel,
@@ -743,6 +756,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Always update remaining columns regardless of client column result
             await updateMondayColumns(otherColumnUpdates, false);
+            mondayResult.clientColumnFinalVerification = await verifyClientColumn("verify_client_column_after_other_updates");
+
+            if (clientColumnUpdates.length > 0) {
+              await wait(2500);
+              const delayedVerification = await verifyClientColumn("verify_client_column_after_delay");
+              mondayResult.clientColumnDelayedVerification = delayedVerification;
+              const delayedText = String(delayedVerification?.text || "").trim();
+
+              if (normalizeKey(delayedText) !== normalizeKey(clientLabel)) {
+                logCaseError(caseRequestId, "client_column_overwritten_detected", "Cliente mudou depois do update inicial.", {
+                  expected: clientLabel,
+                  received: delayedText,
+                  verification: delayedVerification,
+                });
+                await updateMondayColumns(clientColumnUpdates, true);
+                await wait(700);
+                mondayResult.clientColumnRepairVerification = await verifyClientColumn("verify_client_column_after_repair");
+              } else {
+                logCaseInfo(caseRequestId, "client_column_stable_after_delay", {
+                  expected: clientLabel,
+                  received: delayedText,
+                });
+              }
+            }
 
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;
