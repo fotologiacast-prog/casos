@@ -438,6 +438,17 @@ const getAssetFormatLabel = (asset: TestimonialAsset, creativeType?: string | nu
   return getAssetKind(asset);
 };
 
+const getAssetFrameClass = (asset: TestimonialAsset, creativeType?: string | null) => {
+  const text = getAssetFormatText(asset, creativeType);
+  if (/reels|story|stories|9:16|vertical/.test(text)) {
+    return 'aspect-[9/16] h-auto max-h-[72dvh] w-full max-w-[430px]';
+  }
+  if (/post|feed|carrossel|square|1:1/.test(text)) {
+    return 'aspect-square h-auto max-h-[70dvh] w-full max-w-[660px]';
+  }
+  return 'aspect-video h-auto max-h-[70dvh] w-full max-w-[980px]';
+};
+
 const getAssetCardHeight = (asset: TestimonialAsset, creativeType?: string | null) => {
   const text = getAssetFormatText(asset, creativeType);
   if (/reels|story|stories|9:16|vertical|depoimento/.test(text)) return 'h-[420px]';
@@ -446,9 +457,69 @@ const getAssetCardHeight = (asset: TestimonialAsset, creativeType?: string | nul
   return 'h-[330px]';
 };
 
-const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: string }> = ({ asset, className = '' }) => {
+const VideoThumbnail: React.FC<{ asset: TestimonialAsset; className?: string }> = ({ asset, className = '' }) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
 
+  useEffect(() => {
+    setIsReady(false);
+    setHasError(false);
+  }, [asset.public_url]);
+
+  if (driveThumbnailUrl) {
+    return (
+      <img
+        src={driveThumbnailUrl}
+        alt=""
+        width={800}
+        height={1200}
+        className={`h-full w-full object-cover ${className}`}
+        decoding="async"
+        loading="lazy"
+      />
+    );
+  }
+
+  const handleLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    if (duration > 0.4) {
+      try {
+        video.currentTime = Math.min(0.35, duration * 0.12);
+      } catch {
+        setIsReady(true);
+      }
+    } else {
+      setIsReady(true);
+    }
+  };
+
+  return (
+    <div className={`relative h-full w-full overflow-hidden bg-gradient-to-br from-[#082653] via-[#1f78ba] to-[#bdefff] ${className}`}>
+      {!hasError && (
+        <video
+          ref={videoRef}
+          src={asset.public_url}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+          muted
+          playsInline
+          preload="metadata"
+          onLoadedMetadata={handleLoadedMetadata}
+          onLoadedData={() => setIsReady(true)}
+          onSeeked={() => setIsReady(true)}
+          onError={() => setHasError(true)}
+          aria-hidden="true"
+        />
+      )}
+      <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(255,255,255,0.16),transparent_34%),linear-gradient(to_top,rgba(8,38,83,0.42),rgba(8,38,83,0.04))]" />
+    </div>
+  );
+};
+
+const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: string }> = ({ asset, className = '' }) => {
   if (isImageAsset(asset)) {
     return (
       <img
@@ -466,19 +537,7 @@ const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: strin
   if (isVideoAsset(asset)) {
     return (
       <div className={`relative h-full w-full bg-[#082653] ${className}`}>
-        {driveThumbnailUrl ? (
-          <img
-            src={driveThumbnailUrl}
-            alt=""
-            width={800}
-            height={1200}
-            className="h-full w-full object-cover"
-            decoding="async"
-            loading="lazy"
-          />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-[#082653] to-[#20a8f5]" />
-        )}
+        <VideoThumbnail asset={asset} />
         <span className="absolute inset-0 bg-black/16" />
         <span className="absolute left-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white/88 px-3 text-[11px] font-black text-[#082653] backdrop-blur">
           <PlayIcon className="h-3.5 w-3.5" />
@@ -561,7 +620,9 @@ const ReadyAssetModal: React.FC<{
               </div>
 
               <div className="rounded-[1.6rem] border border-[#c9e7fb] bg-gradient-to-br from-[#dff2ff] via-white to-[#e7f6ff] p-3 shadow-inner sm:p-4">
-                <div className="relative mx-auto flex h-[min(66dvh,760px)] min-h-[360px] max-w-[720px] items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#06182f] shadow-[0_24px_70px_rgba(8,38,83,0.22)] sm:min-h-[520px]">
+                <div
+                  className={`relative mx-auto flex items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#06182f] shadow-[0_24px_70px_rgba(8,38,83,0.22)] ${getAssetFrameClass(asset, testimonial.creativeType)}`}
+                >
                   <AssetPreview asset={asset} />
                   <span className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-xs font-black text-white backdrop-blur">
                     {formatLabel}
