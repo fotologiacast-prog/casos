@@ -153,6 +153,35 @@ const findStatusLabelIndex = (column: { settings_str?: string | null }, label: s
   return match ? Number(match[0]) : null;
 };
 
+const isSupportedMaterialColumnType = (type: string) =>
+  ["link", "long_text", "long-text", "text"].includes(type);
+
+const createMaterialUpdate = async (
+  subitemId: string,
+  materialUrl: string,
+  context: EditingLogContext,
+  reason: string
+) => {
+  const body = [
+    "Material para edição:",
+    materialUrl,
+    "",
+    `Fallback automático: ${reason}`,
+  ].join("\n");
+
+  await mondayRequest(
+    `mutation ($itemId: ID!, $body: String!) {
+      create_update(item_id: $itemId, body: $body) { id }
+    }`,
+    {
+      itemId: String(subitemId),
+      body,
+    },
+    context,
+    "create_material_update_fallback"
+  );
+};
+
 const updateEditingSubitemColumns = async (
   subitemId: string,
   boardId: string | null | undefined,
@@ -235,7 +264,7 @@ const updateEditingSubitemColumns = async (
     });
   }
 
-  if (materialColumn && materialUrl) {
+  if (materialColumn && materialUrl && isSupportedMaterialColumnType(materialColumn.type)) {
     let value: unknown;
     if (materialColumn.type === "link") {
       value = { url: materialUrl, text: "Material para edição" };
@@ -250,6 +279,32 @@ const updateEditingSubitemColumns = async (
       title: materialColumn.title,
       type: materialColumn.type,
       value,
+      createLabels: false,
+    });
+  } else if (materialColumn && materialUrl) {
+    logInfo(context, "material_column_unsupported_type", {
+      columnId: materialColumn.id,
+      columnTitle: materialColumn.title,
+      columnType: materialColumn.type,
+    });
+    updates.push({
+      role: "material",
+      id: materialColumn.id,
+      title: materialColumn.title,
+      type: materialColumn.type,
+      value: materialUrl,
+      createLabels: false,
+    });
+  } else if (!materialColumn && materialUrl) {
+    logInfo(context, "material_column_not_found_using_update_fallback", {
+      materialUrl,
+    });
+    updates.push({
+      role: "material",
+      id: "monday_update",
+      title: "Update do subitem",
+      type: "update",
+      value: materialUrl,
       createLabels: false,
     });
   }
@@ -284,29 +339,65 @@ const updateEditingSubitemColumns = async (
   const results = [];
   for (const update of updates) {
     try {
-      await mondayRequest(
-        mutation,
-        {
-          boardId: String(boardId),
-          itemId: String(subitemId),
-          columnValues: JSON.stringify({ [update.id]: update.value }),
-          createLabels: update.createLabels,
-        },
-        context,
-        `update_column:${update.role}:${update.title}`
-      );
+      if (update.role === "material" && update.type === "update" && typeof update.value === "string") {
+        await createMaterialUpdate(subitemId, update.value, context, "coluna Material para Edição não encontrada");
+      } else if (update.role === "material" && !isSupportedMaterialColumnType(update.type) && typeof update.value === "string") {
+        await createMaterialUpdate(
+          subitemId,
+          update.value,
+          context,
+          `coluna "${update.title}" tem tipo incompatível: ${update.type}`
+        );
+      } else {
+        await mondayRequest(
+          mutation,
+          {
+            boardId: String(boardId),
+            itemId: String(subitemId),
+            columnValues: JSON.stringify({ [update.id]: update.value }),
+            createLabels: update.createLabels,
+          },
+          context,
+          `update_column:${update.role}:${update.title}`
+        );
+      }
       results.push({
         role: update.role,
         id: update.id,
         title: update.title,
         type: update.type,
         ok: true,
+        fallback: update.role === "material" && !isSupportedMaterialColumnType(update.type) ? "update" : null,
       });
     } catch (error) {
       logError(context, `update_column_failed:${update.role}:${update.title}`, error, {
         columnId: update.id,
         columnType: update.type,
       });
+      if (update.role === "material" && typeof update.value === "object" && update.value && "url" in update.value) {
+        try {
+          await createMaterialUpdate(
+            subitemId,
+            String((update.value as { url: string }).url),
+            context,
+            `erro ao preencher coluna "${update.title}": ${serializeEditingRequestError(error)}`
+          );
+          results.push({
+            role: update.role,
+            id: update.id,
+            title: update.title,
+            type: update.type,
+            ok: true,
+            fallback: "update",
+            warning: serializeEditingRequestError(error),
+          });
+          continue;
+        } catch (fallbackError) {
+          logError(context, "material_update_fallback_failed", fallbackError, {
+            originalError: serializeEditingRequestError(error),
+          });
+        }
+      }
       results.push({
         role: update.role,
         id: update.id,
