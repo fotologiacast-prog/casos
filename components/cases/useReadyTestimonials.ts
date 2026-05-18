@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReadyTestimonial } from '../../types';
 import { fetchReadyTestimonials } from '../../services/testimonialService';
 
@@ -55,6 +55,7 @@ type ReadyTestimonialsCacheEntry = {
 };
 
 const readyTestimonialsCache = new Map<string, ReadyTestimonialsCacheEntry>();
+const READY_TESTIMONIALS_POLL_INTERVAL_MS = 20_000;
 
 const getReadyTestimonialsCounts = (items: ReadyTestimonial[]) =>
   items.reduce<Record<string, number>>((counts, item) => {
@@ -91,8 +92,14 @@ export const useReadyTestimonials = (token: string, isDemo?: boolean, enabled = 
   const [isLoading, setIsLoading] = useState(enabled && !isDemo);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRequestRef = useRef<Promise<ReadyTestimonial[]> | null>(null);
+  const testimonialsRef = useRef(testimonials);
 
-  const loadTestimonials = useCallback(async (refreshing = false) => {
+  useEffect(() => {
+    testimonialsRef.current = testimonials;
+  }, [testimonials]);
+
+  const loadTestimonials = useCallback(async (refreshing = false, silent = false) => {
     if (!enabled) {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -107,20 +114,35 @@ export const useReadyTestimonials = (token: string, isDemo?: boolean, enabled = 
       return demoReadyTestimonials;
     }
 
-    if (refreshing) setIsRefreshing(true);
-    else setIsLoading(true);
-    setError(null);
+    if (inFlightRequestRef.current) return inFlightRequestRef.current;
 
-    try {
+    if (!silent) {
+      if (refreshing) setIsRefreshing(true);
+      else setIsLoading(true);
+    }
+    if (!silent) setError(null);
+
+    const request = (async () => {
       const loaded = await requestReadyTestimonials(token, refreshing);
       setTestimonials(loaded);
       return loaded;
+    })();
+
+    inFlightRequestRef.current = request;
+
+    try {
+      return await request;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível carregar os depoimentos.');
-      throw err;
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Não foi possível carregar os depoimentos.');
+      }
+      return testimonialsRef.current;
     } finally {
-      setIsLoading(false);
-      if (refreshing) setIsRefreshing(false);
+      inFlightRequestRef.current = null;
+      if (!silent) {
+        setIsLoading(false);
+        if (refreshing) setIsRefreshing(false);
+      }
     }
   }, [enabled, isDemo, token]);
 
@@ -140,6 +162,18 @@ export const useReadyTestimonials = (token: string, isDemo?: boolean, enabled = 
     else setIsLoading(false);
     return () => { cancelled = true; };
   }, [enabled, loadTestimonials]);
+
+  useEffect(() => {
+    if (!enabled || isDemo) return undefined;
+
+    const poll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      void loadTestimonials(true, true);
+    };
+
+    const interval = window.setInterval(poll, READY_TESTIMONIALS_POLL_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [enabled, isDemo, loadTestimonials]);
 
   const countsByCaseId = useMemo(() => getReadyTestimonialsCounts(testimonials), [testimonials]);
   const totalAssets = useMemo(
