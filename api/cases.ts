@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { requestStageEditing } from "../server/editingRequestCore";
 
 const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
 const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
@@ -248,6 +249,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      if (String(req.body?.action || "") === "request_editing") {
+        const result = await requestStageEditing(req.body);
+        return res.status(result.status).json(result.body);
+      }
+
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
 
