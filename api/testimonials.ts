@@ -229,21 +229,34 @@ const markEditingSubitemsAsEdited = async (
   return updatedStatuses;
 };
 
-const syncEditedRequests = async (supabase: any, mondaySubitemIds: string[]) => {
-  const ids = Array.from(new Set(mondaySubitemIds.map(String).filter(Boolean)));
-  if (ids.length === 0) return;
+const syncEditedRequests = async (
+  supabase: any,
+  requests: { mondaySubitemId: string; creativeType?: string | null; assetCount: number }[]
+) => {
+  const uniqueRequests = Array.from(
+    new Map(requests.map(request => [String(request.mondaySubitemId), request])).values()
+  ).filter(request => request.mondaySubitemId);
 
-  const { error } = await supabase
-    .from("case_editing_requests")
-    .update({
-      status: "edited",
-      edited_at: new Date().toISOString(),
-    })
-    .in("monday_subitem_id", ids);
+  if (uniqueRequests.length === 0) return;
 
-  if (error) {
-    console.warn("[Testimonials] Nao foi possivel sincronizar pedidos editados no Supabase.", error);
-  }
+  await Promise.allSettled(uniqueRequests.map(async request => {
+    const { error } = await supabase
+      .from("case_editing_requests")
+      .update({
+        status: "edited",
+        edited_at: new Date().toISOString(),
+        creative_type: request.creativeType || null,
+        edited_material_count: request.assetCount,
+      })
+      .eq("monday_subitem_id", String(request.mondaySubitemId));
+
+    if (error) throw error;
+  })).then(results => {
+    const failed = results.filter(result => result.status === "rejected");
+    if (failed.length > 0) {
+      console.warn("[Testimonials] Nao foi possivel sincronizar alguns pedidos editados no Supabase.", failed);
+    }
+  });
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -312,7 +325,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })))
     );
 
-    const editedRequestSubitemIds: string[] = [];
+    const editedRequestsToSync: { mondaySubitemId: string; creativeType?: string | null; assetCount: number }[] = [];
     const testimonials = items.flatMap(item => {
       const caseRow = casesByMondayItemId.get(String(item.id));
       if (!caseRow) return [];
@@ -321,8 +334,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const assets = normalizeAssets(subitem.assets || []);
         if (assets.length === 0) return [];
         const status = subitemStatusUpdates.get(String(subitem.id)) || pickStatus(subitem.column_values || []);
+        const creativeType = pickCreativeType(subitem.column_values || []);
         if (normalizeKey(subitem.name).startsWith("edicao") && normalizeKey(status || "") === "editado") {
-          editedRequestSubitemIds.push(String(subitem.id));
+          editedRequestsToSync.push({
+            mondaySubitemId: String(subitem.id),
+            creativeType,
+            assetCount: assets.length,
+          });
         }
 
         return [{
@@ -339,13 +357,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           subitemId: String(subitem.id),
           title: subitem.name,
           status,
-          creativeType: pickCreativeType(subitem.column_values || []),
+          creativeType,
           assets,
         }];
       });
     });
 
-    await syncEditedRequests(supabase, editedRequestSubitemIds);
+    await syncEditedRequests(supabase, editedRequestsToSync);
 
     return res.status(200).json({ testimonials });
   } catch (error) {

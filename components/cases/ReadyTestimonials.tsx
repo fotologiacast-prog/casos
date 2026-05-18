@@ -473,6 +473,9 @@ const getAssetFormatText = (asset: TestimonialAsset, creativeType?: string | nul
   `${asset.name} ${creativeType || ''}`.toLowerCase();
 
 const getAssetFormatLabel = (asset: TestimonialAsset, creativeType?: string | null) => {
+  const mondayCreativeType = String(creativeType || '').trim();
+  if (mondayCreativeType) return mondayCreativeType;
+
   const text = getAssetFormatText(asset, creativeType);
   if (/story|stories/.test(text)) return 'Stories';
   if (/reels|9:16|vertical|depoimento/.test(text)) return 'Reels';
