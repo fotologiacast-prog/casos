@@ -2,6 +2,13 @@ const ALLOWED_EDITING_MOMENTS = new Set(["Entrega", "Evento", "Agência", "Agenc
 const EDITING_RESPONSIBLE_USER_ID = 68685168;
 const EDITING_PRIORITY_LABEL = "Critical ⚠️";
 
+type EditingLogContext = {
+  requestId: string;
+  caseId?: string;
+  stageId?: string;
+  subitemId?: string;
+};
+
 export const serializeEditingRequestError = (error: unknown) => {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object") {
@@ -19,6 +26,34 @@ export const serializeEditingRequestError = (error: unknown) => {
     }
   }
   return String(error);
+};
+
+const createRequestId = () =>
+  `edit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const logInfo = (context: EditingLogContext, step: string, data: Record<string, unknown> = {}) => {
+  console.log("[Editing Request]", JSON.stringify({
+    level: "info",
+    requestId: context.requestId,
+    caseId: context.caseId,
+    stageId: context.stageId,
+    subitemId: context.subitemId,
+    step,
+    ...data,
+  }));
+};
+
+const logError = (context: EditingLogContext, step: string, error: unknown, data: Record<string, unknown> = {}) => {
+  console.error("[Editing Request]", JSON.stringify({
+    level: "error",
+    requestId: context.requestId,
+    caseId: context.caseId,
+    stageId: context.stageId,
+    subitemId: context.subitemId,
+    step,
+    error: serializeEditingRequestError(error),
+    ...data,
+  }));
 };
 
 const normalizeKey = (value: string) =>
@@ -55,9 +90,18 @@ const getClientByToken = async (supabase: any, token: string) => {
   return data;
 };
 
-const mondayRequest = async (query: string, variables: Record<string, unknown>) => {
+const mondayRequest = async (
+  query: string,
+  variables: Record<string, unknown>,
+  context: EditingLogContext,
+  step: string
+) => {
   const mondayToken = process.env.MONDAY_TOKEN;
   if (!mondayToken) throw new Error("MONDAY_TOKEN ausente.");
+
+  logInfo(context, `${step}:request`, {
+    variableKeys: Object.keys(variables),
+  });
 
   const response = await fetch("https://api.monday.com/v2", {
     method: "POST",
@@ -71,12 +115,22 @@ const mondayRequest = async (query: string, variables: Record<string, unknown>) 
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.errors) {
+    logError(context, `${step}:response_error`, data, {
+      status: response.status,
+      mondayErrors: data.errors || null,
+    });
     const errorMessage =
-      data.errors?.map((error: any) => error.message).join(" ") ||
+      data.errors?.map((error: any) => {
+        const path = Array.isArray(error.path) ? ` path=${error.path.join(".")}` : "";
+        return `${error.message || "Erro sem mensagem"}${path}`;
+      }).join(" | ") ||
       data.error ||
       `Falha no Monday. HTTP ${response.status}`;
     throw new Error(errorMessage);
   }
+  logInfo(context, `${step}:success`, {
+    status: response.status,
+  });
   return data;
 };
 
@@ -99,7 +153,12 @@ const findStatusLabelIndex = (column: { settings_str?: string | null }, label: s
   return match ? Number(match[0]) : null;
 };
 
-const updateEditingSubitemColumns = async (subitemId: string, boardId?: string | null, materialUrl?: string | null) => {
+const updateEditingSubitemColumns = async (
+  subitemId: string,
+  boardId: string | null | undefined,
+  materialUrl: string | null | undefined,
+  context: EditingLogContext
+) => {
   if (!boardId) return { skipped: true, reason: "subitem_board_id_ausente" };
 
   const columnsData = await mondayRequest(
@@ -108,10 +167,21 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
         columns { id title type settings_str }
       }
     }`,
-    { boardIds: [String(boardId)] }
+    { boardIds: [String(boardId)] },
+    context,
+    "fetch_subitem_board_columns"
   );
   const columns: { id: string; title: string; type: string; settings_str?: string | null }[] =
     columnsData?.data?.boards?.[0]?.columns || [];
+
+  logInfo(context, "subitem_board_columns_loaded", {
+    boardId: String(boardId),
+    columns: columns.map(column => ({
+      id: column.id,
+      title: column.title,
+      type: column.type,
+    })),
+  });
 
   const findColumn = (names: string[], types: string[] = []) => {
     const matches = columns.filter(column => names.some(name => normalizeKey(column.title) === normalizeKey(name)));
@@ -127,58 +197,139 @@ const updateEditingSubitemColumns = async (subitemId: string, boardId?: string |
     ["link", "long_text", "long-text", "text"]
   );
 
-  const columnValues: Record<string, unknown> = {};
+  const updates: { role: string; id: string; title: string; type: string; value: unknown; createLabels: boolean }[] = [];
 
   if (priorityColumn) {
     const priorityIndex = findStatusLabelIndex(priorityColumn, EDITING_PRIORITY_LABEL);
-    columnValues[priorityColumn.id] = Number.isFinite(priorityIndex)
-      ? { index: priorityIndex }
-      : { label: EDITING_PRIORITY_LABEL };
+    updates.push({
+      role: "priority",
+      id: priorityColumn.id,
+      title: priorityColumn.title,
+      type: priorityColumn.type,
+      value: Number.isFinite(priorityIndex) ? { index: priorityIndex } : { label: EDITING_PRIORITY_LABEL },
+      createLabels: priorityColumn.type === "status" || priorityColumn.type === "color",
+    });
   }
 
   if (responsibleColumn) {
-    columnValues[responsibleColumn.id] = {
-      personsAndTeams: [{ id: EDITING_RESPONSIBLE_USER_ID, kind: "person" }],
-    };
+    updates.push({
+      role: "responsible",
+      id: responsibleColumn.id,
+      title: responsibleColumn.title,
+      type: responsibleColumn.type,
+      value: {
+        personsAndTeams: [{ id: EDITING_RESPONSIBLE_USER_ID, kind: "person" }],
+      },
+      createLabels: false,
+    });
   }
 
   if (deadlineColumn) {
-    columnValues[deadlineColumn.id] = { date: getTodayDate() };
+    updates.push({
+      role: "deadline",
+      id: deadlineColumn.id,
+      title: deadlineColumn.title,
+      type: deadlineColumn.type,
+      value: { date: getTodayDate() },
+      createLabels: false,
+    });
   }
 
   if (materialColumn && materialUrl) {
+    let value: unknown;
     if (materialColumn.type === "link") {
-      columnValues[materialColumn.id] = { url: materialUrl, text: "Material para edição" };
+      value = { url: materialUrl, text: "Material para edição" };
     } else if (materialColumn.type === "long_text" || materialColumn.type === "long-text") {
-      columnValues[materialColumn.id] = { text: materialUrl };
+      value = { text: materialUrl };
     } else {
-      columnValues[materialColumn.id] = materialUrl;
+      value = materialUrl;
     }
+    updates.push({
+      role: "material",
+      id: materialColumn.id,
+      title: materialColumn.title,
+      type: materialColumn.type,
+      value,
+      createLabels: false,
+    });
   }
 
-  if (Object.keys(columnValues).length === 0) {
+  if (updates.length === 0) {
+    logInfo(context, "no_columns_found", {
+      expectedColumns: ["Priority", "Responsável", "Prazo do criativo", "Material para Edição"],
+    });
     return { skipped: true, reason: "colunas_nao_encontradas" };
   }
 
-  await mondayRequest(
-    `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+  logInfo(context, "editing_columns_prepared", {
+    updates: updates.map(update => ({
+      role: update.role,
+      id: update.id,
+      title: update.title,
+      type: update.type,
+      createLabels: update.createLabels,
+      valueShape: typeof update.value === "object" && update.value !== null ? Object.keys(update.value as Record<string, unknown>) : typeof update.value,
+    })),
+  });
+
+  const mutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!, $createLabels: Boolean) {
       change_multiple_column_values(
         board_id: $boardId,
         item_id: $itemId,
         column_values: $columnValues,
-        create_labels_if_missing: true
+        create_labels_if_missing: $createLabels
       ) { id }
-    }`,
-    {
-      boardId: String(boardId),
-      itemId: String(subitemId),
-      columnValues: JSON.stringify(columnValues),
+    }`;
+
+  const results = [];
+  for (const update of updates) {
+    try {
+      await mondayRequest(
+        mutation,
+        {
+          boardId: String(boardId),
+          itemId: String(subitemId),
+          columnValues: JSON.stringify({ [update.id]: update.value }),
+          createLabels: update.createLabels,
+        },
+        context,
+        `update_column:${update.role}:${update.title}`
+      );
+      results.push({
+        role: update.role,
+        id: update.id,
+        title: update.title,
+        type: update.type,
+        ok: true,
+      });
+    } catch (error) {
+      logError(context, `update_column_failed:${update.role}:${update.title}`, error, {
+        columnId: update.id,
+        columnType: update.type,
+      });
+      results.push({
+        role: update.role,
+        id: update.id,
+        title: update.title,
+        type: update.type,
+        ok: false,
+        error: serializeEditingRequestError(error),
+      });
     }
-  );
+  }
+
+  const failed = results.filter(result => !result.ok);
+  logInfo(context, "editing_columns_finished", {
+    successCount: results.length - failed.length,
+    failedCount: failed.length,
+    results,
+  });
 
   return {
     skipped: false,
-    updatedColumns: Object.keys(columnValues),
+    updatedColumns: results.filter(result => result.ok).map(result => result.id),
+    results,
+    failed,
   };
 };
 
@@ -228,13 +379,27 @@ export const requestStageEditing = async (body: any) => {
   const token = String(body?.token || "").trim();
   const caseId = String(body?.caseId || "").trim();
   const stageId = String(body?.stageId || "").trim();
+  const context: EditingLogContext = {
+    requestId: createRequestId(),
+    caseId,
+    stageId,
+  };
+
+  logInfo(context, "start", {
+    hasToken: Boolean(token),
+  });
 
   if (!token) return { status: 400, body: { error: "Token ausente." } };
   if (!caseId) return { status: 400, body: { error: "caseId ausente." } };
   if (!stageId) return { status: 400, body: { error: "stageId ausente." } };
 
   const supabase = await getSupabaseAdmin();
+  logInfo(context, "supabase_ready");
   const client = await getClientByToken(supabase, token);
+  logInfo(context, "client_loaded", {
+    clientId: client.id,
+    clientName: client.name,
+  });
 
   const { data: caseRow, error: caseError } = await supabase
     .from("cases")
@@ -245,6 +410,10 @@ export const requestStageEditing = async (body: any) => {
   if (caseError) throw caseError;
   if (!caseRow) return { status: 404, body: { error: "Caso nao encontrado." } };
   if (!caseRow.monday_item_id) return { status: 400, body: { error: "Este paciente ainda nao tem item no Monday." } };
+  logInfo(context, "case_loaded", {
+    mondayItemId: caseRow.monday_item_id,
+    patientName: caseRow.patient_name,
+  });
 
   const { data: stageRow, error: stageError } = await supabase
     .from("case_stages")
@@ -257,6 +426,11 @@ export const requestStageEditing = async (body: any) => {
   if (!ALLOWED_EDITING_MOMENTS.has(String(stageRow.moment || ""))) {
     return { status: 400, body: { error: "A edição só pode ser solicitada a partir da fase Entrega." } };
   }
+  logInfo(context, "stage_loaded", {
+    stageName: stageRow.stage_name,
+    moment: stageRow.moment,
+    driveFolderId: stageRow.drive_folder_id || null,
+  });
 
   const { data: fileRows, error: filesError } = await supabase
     .from("case_files")
@@ -266,11 +440,19 @@ export const requestStageEditing = async (body: any) => {
   if (!fileRows || fileRows.length === 0) {
     return { status: 400, body: { error: "Envie ao menos um arquivo nesta etapa antes de mandar para edição." } };
   }
+  logInfo(context, "files_loaded", {
+    filesCount: fileRows.length,
+    fileNames: fileRows.map((file: any) => file.file_name).slice(0, 10),
+  });
 
   const materialUrl =
     getDriveFolderUrl(stageRow.drive_folder_id) ||
     fileRows.map(getDriveFileUrl).find(Boolean) ||
     null;
+  logInfo(context, "material_url_resolved", {
+    hasMaterialUrl: Boolean(materialUrl),
+    materialUrlType: stageRow.drive_folder_id ? "folder" : "file",
+  });
 
   const existingData = await mondayRequest(
     `query ($itemIds: [ID!]) {
@@ -278,7 +460,9 @@ export const requestStageEditing = async (body: any) => {
         subitems { id name board { id } }
       }
     }`,
-    { itemIds: [String(caseRow.monday_item_id)] }
+    { itemIds: [String(caseRow.monday_item_id)] },
+    context,
+    "fetch_existing_subitems"
   );
   const taskName = `Edição - ${stageRow.stage_name}`;
   const subitems = existingData?.data?.items?.[0]?.subitems || [];
@@ -291,13 +475,22 @@ export const requestStageEditing = async (body: any) => {
     {
       parentItemId: String(caseRow.monday_item_id),
       itemName: taskName,
-    }
+    },
+    context,
+    "create_editing_subitem"
   ))?.data?.create_subitem;
 
   const subitemId = subitem?.id;
   if (!subitemId) throw new Error("Monday nao retornou o ID do subelemento de edicao.");
+  context.subitemId = String(subitemId);
+  logInfo(context, "subitem_ready", {
+    existing: Boolean(existingSubitem),
+    subitemId,
+    subitemBoardId: subitem?.board?.id || null,
+    taskName,
+  });
 
-  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl);
+  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl, context);
   const persistWarning = await persistEditingRequest(supabase, {
     clientId: Number(client.id),
     caseId: String(caseRow.id),
@@ -307,6 +500,11 @@ export const requestStageEditing = async (body: any) => {
     stageName: String(stageRow.stage_name),
     materialUrl,
   });
+  if (persistWarning) {
+    logError(context, "persist_editing_request_warning", persistWarning);
+  } else {
+    logInfo(context, "persist_editing_request_success");
+  }
 
   return {
     status: existingSubitem ? 200 : 201,
@@ -316,6 +514,7 @@ export const requestStageEditing = async (body: any) => {
       subitemId,
       columnUpdate,
       persistWarning,
+      requestId: context.requestId,
     },
   };
 };
