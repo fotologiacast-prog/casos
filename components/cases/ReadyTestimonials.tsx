@@ -673,7 +673,7 @@ const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: strin
       <div className={`relative h-full w-full bg-[#082653] ${className}`}>
         <VideoThumbnail asset={asset} />
         <span className="absolute inset-0 bg-black/16" />
-        <span className="absolute left-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white/88 px-3 text-[11px] font-black text-[#082653] backdrop-blur">
+        <span className="absolute left-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/28 px-3 text-[11px] font-black text-white backdrop-blur">
           <PlayIcon className="h-3.5 w-3.5" />
           Vídeo
         </span>
@@ -864,7 +864,7 @@ const ReadyAssetModal: React.FC<{
                         <GalleryAssetPreview asset={recommended.primaryAsset} />
                         {isVideoAsset(recommended.primaryAsset) && (
                           <span className="absolute inset-0 flex items-center justify-center">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-lg">
+                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/24 text-white shadow-lg backdrop-blur-md ring-1 ring-white/45">
                               <PlayIcon className="ml-0.5 h-5 w-5" />
                             </span>
                           </span>
