@@ -54,3 +54,20 @@ export const deleteSupabaseCasePatient = async (token: string, caseId: string): 
   });
   await readApiResponse(response, 'Falha ao limpar caso.');
 };
+
+export const requestCaseStageEditing = async (token: string, caseId: string, stageId: string): Promise<any> => {
+  const response = await fetch('/api/cases', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'request_editing', token, caseId, stageId }),
+  });
+  const data = await readApiResponse(response, 'Falha ao mandar para edição.');
+  const failedColumns = Array.isArray(data?.columnUpdate?.failed) ? data.columnUpdate.failed : [];
+  if (failedColumns.length > 0) {
+    const fields = failedColumns
+      .map((item: any) => `${item.title || item.role || item.id}: ${item.error || 'erro desconhecido'}`)
+      .join(' | ');
+    throw new Error(`Tarefa criada no Monday, mas falhou ao preencher campos. requestId=${data.requestId || 'sem-id'} ${fields}`);
+  }
+  return data;
+};

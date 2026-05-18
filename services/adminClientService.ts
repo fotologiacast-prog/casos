@@ -29,7 +29,7 @@ const requestAdminClients = async (
 ) => {
   let response: Response;
   try {
-    response = await fetch(`/api/admin-clients${options.query || ''}`, {
+    response = await fetch(`/api/admin?module=clients&${(options.query || '').replace(/^\?/, '')}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',

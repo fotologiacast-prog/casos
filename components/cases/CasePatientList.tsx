@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { CasePatient } from '../../types';
 import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 import CasePatientCard from './CasePatientCard';
@@ -63,6 +63,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   isRefreshing,
 }) => {
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [month, setMonth] = useState('all');
   const [status, setStatus] = useState('Todos');
   const [gender, setGender] = useState('Todos');
@@ -99,7 +100,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   }, [patients]);
 
   const filteredPatients = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = deferredSearch.trim().toLowerCase();
     return patients.filter(patient => {
       const patientMonth = patient.createdAt?.toISOString().slice(0, 7) || '';
       const patientStatus = getPatientStatus(patient);
@@ -112,18 +113,18 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         matchesAgeRange(patient.age, ageRange)
       );
     });
-  }, [ageRange, gender, month, patients, procedure, search, status]);
+  }, [ageRange, deferredSearch, gender, month, patients, procedure, status]);
 
   const hasActiveFilters = month !== 'all' || status !== 'Todos' || gender !== 'Todos' || procedure !== 'Todos' || ageRange !== 'all';
 
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Casos de pacientes</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900">{clientName}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Casos de pacientes</p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-[#082653] sm:text-4xl">{clientName}</h1>
+          <p className="mt-1 text-sm font-semibold text-[#5d7ca4]">
             {patients.length} caso{patients.length === 1 ? '' : 's'} cadastrado{patients.length === 1 ? '' : 's'}
           </p>
         </div>
@@ -132,7 +133,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 disabled:opacity-50 transition-all active:scale-95"
+            className="impact-secondary"
           >
             {isRefreshing ? (
               <span className="flex items-center gap-2">
@@ -152,7 +153,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
           <button
             type="button"
             onClick={onCreate}
-            className="rounded-xl bg-black px-5 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors active:scale-95"
+            className="impact-primary"
           >
             + Novo paciente
           </button>
@@ -160,9 +161,9 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
       </div>
 
       {/* Search + filter toggle */}
-      <div className="mt-6 flex gap-2">
+      <div className="mt-7 flex gap-3">
         <div className="relative flex-1">
-          <svg viewBox="0 0 20 20" fill="currentColor" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6d91bb]">
             <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
           </svg>
           <input
@@ -171,16 +172,16 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             onChange={e => setSearch(e.target.value)}
             autoComplete="off"
             placeholder="Buscar paciente..."
-            className="w-full rounded-xl border border-zinc-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-colors"
+            className="h-14 w-full rounded-2xl border border-white/75 bg-white/70 py-3 pl-12 pr-4 text-sm font-semibold text-[#123762] shadow-[0_14px_34px_rgba(22,78,129,0.1)] outline-none backdrop-blur-xl transition-colors placeholder:text-[#7d9bbd] focus:border-[#7bcdfb] focus:ring-2 focus:ring-[#20a8f5]/15"
           />
         </div>
         <button
           type="button"
           onClick={() => setFiltersOpen(o => !o)}
-          className={`rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all ${
+          className={`min-h-14 rounded-2xl border px-5 text-sm font-black shadow-[0_14px_34px_rgba(22,78,129,0.1)] transition-all ${
             hasActiveFilters
-              ? 'border-zinc-900 bg-zinc-900 text-white'
-              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'
+              ? 'border-[#20a8f5] bg-[#20a8f5] text-white'
+              : 'border-white/75 bg-white/70 text-[#0d3767] hover:bg-white'
           }`}
         >
           <span className="flex items-center gap-2">
@@ -194,7 +195,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
 
       {/* Expandable filters */}
       {filtersOpen && (
-        <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm animate-fade-in">
+        <div className="impact-glass mt-4 rounded-[1.6rem] p-5 animate-fade-in">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <SelectChip
               label="Mês"
@@ -233,7 +234,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             <button
               type="button"
               onClick={() => { setMonth('all'); setStatus('Todos'); setGender('Todos'); setProcedure('Todos'); setAgeRange('all'); }}
-              className="mt-4 text-xs font-semibold text-zinc-500 hover:text-zinc-900 transition-colors underline underline-offset-2"
+              className="mt-4 text-xs font-black text-[#5d7ca4] underline underline-offset-2 transition-colors hover:text-[#082653]"
             >
               Limpar filtros
             </button>
@@ -243,21 +244,21 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
 
       {/* Patient grid */}
       {filteredPatients.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-300 bg-white p-12 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 mx-auto mb-4">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 text-zinc-400">
+        <div className="impact-glass mt-8 rounded-[1.8rem] border-dashed p-12 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eaf7ff] text-[#20a8f5]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 16.318A4.486 4.486 0 0 0 12.016 15a4.486 4.486 0 0 0-3.198 1.318M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
             </svg>
           </div>
-          <h2 className="text-lg font-bold text-zinc-900">Nenhum caso encontrado</h2>
-          <p className="mt-2 text-sm text-zinc-500">
+          <h2 className="text-lg font-black text-[#082653]">Nenhum caso encontrado</h2>
+          <p className="mt-2 text-sm font-semibold text-[#5d7ca4]">
             {hasActiveFilters ? 'Tente ajustar os filtros.' : 'Cadastre o primeiro paciente.'}
           </p>
           {!hasActiveFilters && (
             <button
               type="button"
               onClick={onCreate}
-              className="mt-5 rounded-xl bg-black px-6 py-2.5 text-sm font-bold text-white hover:bg-zinc-800 transition-colors"
+              className="impact-primary mt-5"
             >
               + Novo paciente
             </button>
@@ -265,7 +266,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         </div>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredPatients.slice(0, visibleCount).map(patient => (
               <CasePatientCard
                 key={patient.id}
@@ -278,14 +279,14 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
           </div>
           {visibleCount < filteredPatients.length && (
             <div ref={sentinelRef} className="mt-8 flex items-center justify-center py-6">
-              <div className="flex items-center gap-3 text-sm text-zinc-500">
-                <span className="h-5 w-5 rounded-full border-2 border-zinc-300 border-t-zinc-700 animate-spin" />
+              <div className="flex items-center gap-3 text-sm font-semibold text-[#5d7ca4]">
+                <span className="h-5 w-5 rounded-full border-2 border-[#bfe5fb] border-t-[#20a8f5] animate-spin" />
                 Carregando mais casos...
               </div>
             </div>
           )}
           {visibleCount >= filteredPatients.length && filteredPatients.length > 12 && (
-            <p className="mt-6 text-center text-xs font-semibold text-zinc-400">
+            <p className="mt-6 text-center text-xs font-black text-[#7d9bbd]">
               {filteredPatients.length} casos carregados
             </p>
           )}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminClients from './components/admin/AdminClients';
+import MondayPlayground from './components/admin/MondayPlayground';
 import CasePortal from './components/cases/CasePortal';
 
 const getCurrentHash = () => window.location.hash || '#/';
@@ -16,8 +17,16 @@ const App: React.FC = () => {
   const route = hash.split('?')[0];
   const caseRouteMatch = route.match(/^#\/casos\/([^/?]+)/);
 
+  if (route === '#/admin' || route === '#/admin/') {
+    return <AdminClients initialTab="home" />;
+  }
+
   if (route === '#/admin/clientes') {
-    return <AdminClients />;
+    return <AdminClients initialTab="clients" />;
+  }
+
+  if (route === '#/admin/monday') {
+    return <MondayPlayground />;
   }
 
   if (caseRouteMatch) {

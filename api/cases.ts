@@ -5,25 +5,26 @@ const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
 const MONDAY_CASE_TYPE_LABEL = "Caso";
 
 const CASE_STAGE_DEFINITIONS = [
-  { title: "01. (CADEIRA) Fotos intraorais do antes (4 fotos)", moment: "Planejamento" },
-  { title: "02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (ESTUDIO) Video panoramico do antes"] },
-  { title: "03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)", moment: "Planejamento" },
-  { title: "04. (ESTUDIO) Video expectativa (paciente)", moment: "Planejamento" },
-  { title: "05. (COMPUTADOR) Imagens 3D do Planejamento", moment: "Procedimento", legacyTitles: ["05. Imagens 3D - Planejamento do laboratorio (escaneamento)"] },
-  { title: "06. Videos do procedimento", moment: "Procedimento" },
-  { title: "07. Fotos DETALHES em macro das proteses fora da boca", moment: "Procedimento" },
-  { title: "08. Imagens 3D - Tomografia e RX", moment: "Procedimento" },
-  { title: "09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)", moment: "Entrega" },
-  { title: "10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)", moment: "Entrega" },
-  { title: "11. (ESTUDIO) Retratos do depois (posados)", moment: "Entrega" },
-  { title: "12. (ESTUDIO) - Fotos em close do sorriso", moment: "Entrega" },
-  { title: "13. (ESTUDIO) Fotos em close artisticas do sorriso", moment: "Entrega" },
-  { title: "14. (ESTUDIO) Video RESULTADO risada gostosa", moment: "Entrega" },
-  { title: "15. (ESTUDIO) Video DEPOIMENTO paciente", moment: "Entrega" },
-  { title: "16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega", moment: "Entrega" },
-  { title: "17. Video DEPOIMENTO produzido - videomaker", moment: "Evento" },
-  { title: "18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo", moment: "Evento" },
-  { title: "19. Foto com o Doutor (O Brinde da Vitoria)", moment: "Evento" },
+  { title: "Fotos Intraorais do Antes", moment: "Planejamento", legacyTitles: ["01. (CADEIRA) Fotos intraorais do antes (4 fotos)"] },
+  { title: "Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", "02. (ESTUDIO) Video panoramico do antes"] },
+  { title: "Retrato Extraoral do Antes", moment: "Planejamento", legacyTitles: ["03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)"] },
+  { title: "Vídeo Expectativa", moment: "Planejamento", legacyTitles: ["04. (ESTUDIO) Video expectativa (paciente)"] },
+  { title: "Imagens 3D do Planejamento", moment: "Procedimento", legacyTitles: ["05. (COMPUTADOR) Imagens 3D do Planejamento", "05. Imagens 3D - Planejamento do laboratorio (escaneamento)"] },
+  { title: "Vídeos do Procedimento", moment: "Procedimento", legacyTitles: ["06. Videos do procedimento"] },
+  { title: "Fotos Detalhes das Próteses", moment: "Procedimento", legacyTitles: ["07. Fotos DETALHES em macro das proteses fora da boca"] },
+  { title: "Imagens 3D, Tomografia e RX", moment: "Procedimento", legacyTitles: ["08. Imagens 3D - Tomografia e RX"] },
+  { title: "Fotos Intraorais do Depois", moment: "Entrega", legacyTitles: ["09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)"] },
+  { title: "Vídeo da Entrega", moment: "Entrega", legacyTitles: ["10. (CONSULTORIO) Video da entrega (reacao da paciente no espelho)"] },
+  { title: "Retratos do Depois", moment: "Entrega", legacyTitles: ["11. (ESTUDIO) Retratos do depois (posados)"] },
+  { title: "Fotos em Close do Sorriso", moment: "Entrega", legacyTitles: ["12. (ESTUDIO) - Fotos em close do sorriso"] },
+  { title: "Fotos em Close Artísticas do Sorriso", moment: "Entrega", legacyTitles: ["13. (ESTUDIO) Fotos em close artisticas do sorriso"] },
+  { title: "Vídeo Resultado", moment: "Entrega", legacyTitles: ["14. (ESTUDIO) Video RESULTADO risada gostosa"] },
+  { title: "Vídeo Depoimento", moment: "Entrega", legacyTitles: ["15. (ESTUDIO) Video DEPOIMENTO paciente"] },
+  { title: "Vídeo Feedback Emocional da Doutora", moment: "Entrega", legacyTitles: ["16. (ESTUDIO) Video FEEDBACK EMOCIONAL da dra. pos entrega"] },
+  { title: "Depoimento Produzido", moment: "Evento", legacyTitles: ["17. Video DEPOIMENTO produzido - videomaker"] },
+  { title: "Retratos Atualizados Lifestyle", moment: "Evento", legacyTitles: ["18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo"] },
+  { title: "O Brinde da Vitória", moment: "Evento", legacyTitles: ["19. Foto com o Doutor (O Brinde da Vitoria)"] },
+  { title: "Vídeo de Explicação Técnica", moment: "Agência", legacyTitles: ["10. Explicação do caso com dr."] },
 ] as const;
 
 const getLegacyStageTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
@@ -80,6 +81,30 @@ const serializeApiError = (error: unknown) => {
   }
   return String(error);
 };
+
+const createCaseRequestId = () =>
+  `case_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const logCaseInfo = (requestId: string, step: string, data: Record<string, unknown> = {}) => {
+  console.log("[Cases Monday]", JSON.stringify({
+    level: "info",
+    requestId,
+    step,
+    ...data,
+  }));
+};
+
+const logCaseError = (requestId: string, step: string, error: unknown, data: Record<string, unknown> = {}) => {
+  console.error("[Cases Monday]", JSON.stringify({
+    level: "error",
+    requestId,
+    step,
+    error: serializeApiError(error),
+    ...data,
+  }));
+};
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const makeStageKey = (title: string) =>
   title
@@ -173,7 +198,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
         boardId: caseRow.monday_item_id || caseRow.id,
         parentItemId: caseRow.id,
         title: getCanonicalCaseStageTitle(stage.stage_name),
-        moment: stage.moment || getCaseStageMoment(stage.stage_name),
+        moment: getCaseStageMoment(stage.stage_name) || stage.moment,
         expectedItems: getCaseStageExpectedItems(stage.stage_name),
         status: stage.status === "capturado" ? "Capturado" : "Fazer",
         statusColumnId: stage.monday_subitem_id || "",
@@ -247,6 +272,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      if (String(req.body?.action || "") === "request_editing") {
+        const { requestStageEditing } = await import("./_editingRequestCore.js");
+        const result = await requestStageEditing(req.body);
+        return res.status(result.status).json(result.body);
+      }
+
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
 
@@ -292,8 +323,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const mondayToken = process.env.MONDAY_TOKEN;
       const mondayBoardId = DEFAULT_MONDAY_CASE_BOARD_ID;
       if (mondayToken && mondayBoardId) {
+        const caseRequestId = createCaseRequestId();
+        mondayResult.requestId = caseRequestId;
         mondayResult.skipped = false;
         try {
+          logCaseInfo(caseRequestId, "start", {
+            caseId: createdCase.id,
+            patientName: payload.patient_name,
+            clientId: client.id,
+            clientName: client.name,
+            boardId: mondayBoardId,
+          });
           // Fetch board columns and groups to build column values
           const colsResponse = await fetch("https://api.monday.com/v2", {
             method: "POST",
@@ -303,15 +343,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               "API-Version": "2024-10",
             },
             body: JSON.stringify({
-              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type } groups { id title } } }`,
+              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type settings_str } groups { id title } } }`,
               variables: { boardIds: [String(mondayBoardId)] },
             }),
           });
           const colsData = await colsResponse.json();
-          if (colsData.errors) mondayResult.colsError = colsData.errors;
+          if (colsData.errors) {
+            mondayResult.colsError = colsData.errors;
+            logCaseError(caseRequestId, "fetch_board_columns_error", colsData.errors);
+          }
           
-          const columns: { id: string; title: string; type: string }[] = colsData?.data?.boards?.[0]?.columns || [];
+          const columns: { id: string; title: string; type: string; settings_str?: string | null }[] = colsData?.data?.boards?.[0]?.columns || [];
           const groups: { id: string; title: string }[] = colsData?.data?.boards?.[0]?.groups || [];
+          logCaseInfo(caseRequestId, "board_metadata_loaded", {
+            columns: columns.map(column => ({
+              id: column.id,
+              title: column.title,
+              type: column.type,
+            })),
+            groups: groups.map(group => ({
+              id: group.id,
+              title: group.title,
+            })),
+          });
 
           const normalizeKey = (v: string) =>
             v
@@ -334,6 +388,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return preferredMatch || writableMatches[0] || matches[0];
           };
 
+          const getColumnSettings = (col: { settings_str?: string | null }) => {
+            try {
+              return JSON.parse(col.settings_str || "{}");
+            } catch {
+              return {};
+            }
+          };
+
+          const findStatusLabelIndex = (col: { settings_str?: string | null }, label: string) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return null;
+            const target = normalizeKey(label);
+            const match = Object.entries(labels).find(([, value]) => normalizeKey(String(value)) === target);
+            return match ? Number(match[0]) : null;
+          };
+
+          const getStatusLabelNames = (col: { settings_str?: string | null }) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return [];
+            return Object.values(labels).map(String).filter(Boolean);
+          };
+
+          const getStatusLabelsWithIndex = (col: { settings_str?: string | null }) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return [];
+            return Object.entries(labels).map(([index, label]) => ({
+              index,
+              label: String(label),
+              normalized: normalizeKey(String(label)),
+            }));
+          };
+
           const targetGroup = groups.find(group => {
             const title = normalizeKey(group.title);
             return group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
@@ -342,34 +431,107 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               (title.includes("casos acompanhados") && title.includes("clinicas"));
           });
 
-          const columnUpdates: { id: string; title: string; value: unknown }[] = [];
+          const columnUpdates: { id: string; title: string; value: unknown; role?: string; type?: string; sourceText?: string }[] = [];
 
           const set = (colNames: string | string[], value: unknown, preferredTypes: string[] = []) => {
             const names = Array.isArray(colNames) ? colNames : [colNames];
             const col = findCol(names, preferredTypes);
-            if (!col || value === undefined || value === null || String(value).trim() === "") return;
+            const isCliente = names.some(name => normalizeKey(name) === "cliente");
+            if (!col) {
+              if (isCliente) {
+                mondayResult.clientLabelWarning = {
+                  requestedLabel: value ? String(value).trim() : "",
+                  columnTitle: "Cliente",
+                  availableLabels: [],
+                  message: "Coluna Cliente nao encontrada no board do Monday.",
+                };
+                logCaseError(caseRequestId, "client_column_not_found", "Coluna Cliente nao encontrada.", {
+                  requestedLabel: value ? String(value).trim() : "",
+                  aliases: names,
+                  availableColumnTitles: columns.map(column => column.title),
+                });
+              }
+              return;
+            }
+            if (value === undefined || value === null || String(value).trim() === "") {
+              if (isCliente) {
+                logCaseError(caseRequestId, "client_label_empty", "Valor do Cliente está vazio.", {
+                  rawValue: value,
+                  clientName: client.name,
+                  caseClientLabel: client.case_client_label || null,
+                  mondayClientLabel: client.monday_client_label || null,
+                });
+              }
+              return;
+            }
             
             // Prevent updating read-only/auto-calculated columns
             if (readOnlyTypes.includes(col.type)) {
               console.log(`[Cases API] Ignorando coluna "${names.join(", ")}" porque o tipo "${col.type}" é somente leitura.`);
+              if (isCliente) {
+                logCaseError(caseRequestId, "client_column_readonly", "Coluna Cliente é somente leitura.", {
+                  columnId: col.id,
+                  columnTitle: col.title,
+                  columnType: col.type,
+                });
+              }
               return;
             }
 
             const text = String(value).trim();
             const type = col.type;
             let formattedValue: unknown;
-            if (type === "status" || type === "color") formattedValue = { label: text };
+            if (type === "status" || type === "color") {
+              const labelIndex = findStatusLabelIndex(col, text);
+              if (isCliente && !Number.isFinite(labelIndex)) {
+                // Label not found by index — log warning but still try by text label
+                console.warn(`[Cases API] Label de Cliente "${text}" nao encontrada por indice. Tentando por label direta.`);
+                mondayResult.clientLabelWarning = {
+                  requestedLabel: text,
+                  columnTitle: col.title,
+                  availableLabels: getStatusLabelNames(col),
+                  message: `Label de Cliente "${text}" nao encontrada por indice. Enviando label direta.`,
+                };
+              }
+              if (isCliente) {
+                const labels = getStatusLabelsWithIndex(col);
+                logCaseInfo(caseRequestId, "client_column_match", {
+                  requestedLabel: text,
+                  normalizedRequestedLabel: normalizeKey(text),
+                  columnId: col.id,
+                  columnTitle: col.title,
+                  columnType: col.type,
+                  matchedLabelIndex: Number.isFinite(labelIndex) ? labelIndex : null,
+                  availableLabels: labels,
+                });
+              }
+              // Always try to set — by index if found, by label text as fallback
+              formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
+            }
             else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
             else if (type === "date") formattedValue = { date: text };
             else if (type === "long_text" || type === "long-text") formattedValue = { text };
             else if (type === "numbers" || type === "numeric") formattedValue = text;
             else formattedValue = text;
 
-            columnUpdates.push({ id: col.id, title: col.title, value: formattedValue });
+            columnUpdates.push({
+              id: col.id,
+              title: col.title,
+              value: formattedValue,
+              role: isCliente ? "client" : normalizeKey(names[0] || col.title),
+              type: col.type,
+              sourceText: text,
+            });
           };
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           const dentistResponsible = String(payload.dentist_responsible || "").trim();
+          logCaseInfo(caseRequestId, "client_label_resolved", {
+            clientLabel,
+            clientName: client.name,
+            caseClientLabel: client.case_client_label || null,
+            mondayClientLabel: client.monday_client_label || null,
+          });
           set(["Cliente", "#Cliente"], clientLabel, ["status", "color", "dropdown", "text"]);
           set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL, ["status", "color", "dropdown", "text"]);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
@@ -386,6 +548,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: driveCol.id,
                 title: driveCol.title,
                 value: driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl,
+                role: "drive",
+                type: driveCol.type,
+                sourceText: driveUrl,
               });
             }
           }
@@ -394,8 +559,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             throw new Error(`Grupo "${MONDAY_CASES_GROUP_TITLE}" nao encontrado no board ${mondayBoardId}.`);
           }
 
+          const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
+          const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
+          logCaseInfo(caseRequestId, "column_updates_prepared", {
+            clientColumnUpdates: clientColumnUpdates.map(update => ({
+              id: update.id,
+              title: update.title,
+              type: update.type,
+              sourceText: update.sourceText,
+              valueShape: typeof update.value === "object" && update.value !== null ? Object.keys(update.value as Record<string, unknown>) : typeof update.value,
+            })),
+            otherColumnCount: otherColumnUpdates.length,
+          });
+
           const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!) {
-            create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName) { id }
+            create_item(
+              board_id: $boardId,
+              group_id: $groupId,
+              item_name: $itemName
+            ) { id }
           }`;
 
           const createResponse = await fetch("https://api.monday.com/v2", {
@@ -417,6 +599,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const createData = await createResponse.json();
           if (!createResponse.ok || createData.errors) {
+            logCaseError(caseRequestId, "create_item_error", createData, {
+              status: createResponse.status,
+            });
             throw new Error(createData.errors?.map((error: any) => error.message).join(" ") || `Falha ao criar item no Monday. HTTP ${createResponse.status}`);
           }
           const mondayItemId = createData?.data?.create_item?.id;
@@ -425,6 +610,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             mondayResult.success = true;
             mondayResult.itemId = mondayItemId;
             mondayResult.groupId = targetGroup.id;
+            logCaseInfo(caseRequestId, "item_created", {
+              mondayItemId,
+              groupId: targetGroup.id,
+            });
             // Save monday_item_id back to the case row (best-effort)
             await supabase
               .from("cases")
@@ -433,22 +622,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
 
-            const columnErrors: { column: string; error: string }[] = [];
-            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+            const columnErrors: { column: string; error: string; role?: string; id?: string; type?: string }[] = [];
+            const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!, $createLabels: Boolean) {
               change_multiple_column_values(
                 board_id: $boardId,
                 item_id: $itemId,
                 column_values: $columnValues,
-                create_labels_if_missing: true
+                create_labels_if_missing: $createLabels
               ) { id }
             }`;
 
-            const updateMondayColumns = async (updates: typeof columnUpdates) => {
+            const updateMondayColumns = async (updates: typeof columnUpdates, createLabels = false) => {
               if (updates.length === 0) return;
               const columnValues = updates.reduce<Record<string, unknown>>((acc, update) => {
                 acc[update.id] = update.value;
                 return acc;
               }, {});
+              const isClientUpdate = updates.some(update => update.role === "client");
+              logCaseInfo(caseRequestId, isClientUpdate ? "update_client_column_request" : "update_other_columns_request", {
+                createLabels,
+                updates: updates.map(update => ({
+                  role: update.role,
+                  id: update.id,
+                  title: update.title,
+                  type: update.type,
+                  sourceText: update.sourceText,
+                  value: update.value,
+                })),
+                columnValues,
+              });
               const updateResponse = await fetch("https://api.monday.com/v2", {
                 method: "POST",
                 headers: {
@@ -462,23 +664,122 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boardId: String(mondayBoardId),
                     itemId: String(mondayItemId),
                     columnValues: JSON.stringify(columnValues),
+                    createLabels,
                   },
                 }),
               });
               const updateData = await updateResponse.json().catch(() => ({}));
               if (!updateResponse.ok || updateData.errors) {
+                logCaseError(caseRequestId, isClientUpdate ? "update_client_column_error" : "update_other_columns_error", updateData, {
+                  status: updateResponse.status,
+                  createLabels,
+                  updates: updates.map(update => ({
+                    role: update.role,
+                    id: update.id,
+                    title: update.title,
+                    type: update.type,
+                    sourceText: update.sourceText,
+                  })),
+                });
                 updates.forEach((update) => columnErrors.push({
                   column: update.title,
+                  role: update.role,
+                  id: update.id,
+                  type: update.type,
                   error: updateData.errors?.map((error: any) => error.message).join(" ") || `HTTP ${updateResponse.status}`,
                 }));
+              } else {
+                logCaseInfo(caseRequestId, isClientUpdate ? "update_client_column_success" : "update_other_columns_success", {
+                  response: updateData,
+                });
               }
             };
 
-            const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
-            const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
+            // Update client column first (with create_labels_if_missing: true as safety net)
+            await updateMondayColumns(clientColumnUpdates, true);
 
-            await updateMondayColumns(clientColumnUpdates);
-            await updateMondayColumns(otherColumnUpdates);
+            const verifyClientColumn = async (step: string) => {
+              if (clientColumnUpdates.length === 0) {
+                logCaseError(caseRequestId, `${step}_missing`, "Nenhuma atualização preparada para Cliente.", {
+                  clientLabel,
+                });
+                return null;
+              }
+              const clientUpdate = clientColumnUpdates[0];
+              const verifyResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: `query ($itemIds: [ID!]) {
+                    items(ids: $itemIds) {
+                      id
+                      column_values(ids: ["${clientUpdate.id}"]) {
+                        id
+                        text
+                        value
+                        column { title type }
+                      }
+                    }
+                  }`,
+                  variables: {
+                    itemIds: [String(mondayItemId)],
+                  },
+                }),
+              });
+              const verifyData = await verifyResponse.json().catch(() => ({}));
+              const verification = verifyData?.data?.items?.[0]?.column_values?.[0] || null;
+              if (!verifyResponse.ok || verifyData.errors) {
+                logCaseError(caseRequestId, `${step}_error`, verifyData, {
+                  status: verifyResponse.status,
+                  clientColumnId: clientUpdate.id,
+                });
+              } else {
+                logCaseInfo(caseRequestId, `${step}_success`, {
+                  clientColumnId: clientUpdate.id,
+                  verification,
+                });
+              }
+              return verification;
+            };
+
+            if (clientColumnUpdates.length > 0) {
+              mondayResult.clientColumnVerification = await verifyClientColumn("verify_client_column_after_client_update");
+            } else {
+              logCaseError(caseRequestId, "client_column_update_missing", "Nenhuma atualização preparada para Cliente.", {
+                clientLabel,
+              });
+            }
+
+            // Always update remaining columns regardless of client column result
+            await updateMondayColumns(otherColumnUpdates, false);
+            mondayResult.clientColumnFinalVerification = await verifyClientColumn("verify_client_column_after_other_updates");
+
+            if (clientColumnUpdates.length > 0) {
+              await wait(2500);
+              const delayedVerification = await verifyClientColumn("verify_client_column_after_delay");
+              mondayResult.clientColumnDelayedVerification = delayedVerification;
+              const delayedText = String(delayedVerification?.text || "").trim();
+
+              if (normalizeKey(delayedText) !== normalizeKey(clientLabel)) {
+                logCaseError(caseRequestId, "client_column_overwritten_detected", "Cliente mudou depois do update inicial.", {
+                  expected: clientLabel,
+                  received: delayedText,
+                  verification: delayedVerification,
+                });
+                await updateMondayColumns(clientColumnUpdates, true);
+                await wait(700);
+                mondayResult.clientColumnRepairVerification = await verifyClientColumn("verify_client_column_after_repair");
+              } else {
+                logCaseInfo(caseRequestId, "client_column_stable_after_delay", {
+                  expected: clientLabel,
+                  received: delayedText,
+                });
+              }
+            }
 
             if (columnErrors.length > 0) {
               mondayResult.columnErrors = columnErrors;

@@ -13,6 +13,7 @@ interface CasePatientDetailProps {
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   readyTestimonialCount?: number;
   onOpenTestimonials?: (patient: CasePatient) => void;
+  onRequestStageEditing?: (stage: CaseStage) => Promise<void>;
 }
 
 const momentVisuals: Record<string, { bar: string; badge: string; panel: string; label: string }> = {
@@ -40,6 +41,51 @@ const momentVisuals: Record<string, { bar: string; badge: string; panel: string;
     panel: 'border-sky-200 bg-sky-50/30',
     label: 'Conteúdo produzido',
   },
+  Agência: {
+    bar: 'bg-violet-500',
+    badge: 'bg-violet-100 text-violet-900 ring-1 ring-violet-200',
+    panel: 'border-violet-200 bg-violet-50/30',
+    label: 'Edição e técnica',
+  },
+};
+
+const phaseHeaderThemes: Record<string, { gradient: string; accent: string; muted: string }> = {
+  Planejamento: {
+    gradient: 'from-[#f6fffb] via-[#d8fbec] to-[#81e6bd]',
+    accent: '#10b981',
+    muted: '#287860',
+  },
+  Procedimento: {
+    gradient: 'from-[#fffaf0] via-[#ffe9b8] to-[#ffc857]',
+    accent: '#f59e0b',
+    muted: '#8a5a06',
+  },
+  Entrega: {
+    gradient: 'from-[#fff2f7] via-[#ffc9df] to-[#ff73a6]',
+    accent: '#ec4899',
+    muted: '#9b1d59',
+  },
+  Evento: {
+    gradient: 'from-[#f2fbff] via-[#d5f1ff] to-[#8ecfff]',
+    accent: '#0ea5e9',
+    muted: '#176389',
+  },
+  Agência: {
+    gradient: 'from-[#fbf7ff] via-[#eadfff] to-[#bba2ff]',
+    accent: '#8b5cf6',
+    muted: '#5b3f96',
+  },
+};
+
+const EDITING_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const EDITING_MOMENTS = new Set(['Entrega', 'Evento', 'Agência']);
+
+const formatCooldown = (ms: number) => {
+  const safeMs = Math.max(0, ms);
+  const hours = Math.floor(safeMs / (60 * 60 * 1000));
+  const minutes = Math.ceil((safeMs % (60 * 60 * 1000)) / (60 * 1000));
+  if (hours <= 0) return `${minutes} min`;
+  return `${hours}h ${minutes.toString().padStart(2, '0')}min`;
 };
 
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
@@ -50,6 +96,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   onUploadStageFiles,
   readyTestimonialCount = 0,
   onOpenTestimonials,
+  onRequestStageEditing,
 }) => {
   const progress = getPatientProgress(patient);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -57,6 +104,15 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<'all' | 'captured' | 'todo'>('all');
+  const [isRequestingEditing, setIsRequestingEditing] = React.useState(false);
+  const [editingError, setEditingError] = React.useState<string | null>(null);
+  const [editingSuccessVisible, setEditingSuccessVisible] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+  const editingStorageKey = `case_patient_editing_requested_at_${patient.id}`;
+  const [lastEditingRequestAt, setLastEditingRequestAt] = React.useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return Number(window.localStorage.getItem(editingStorageKey) || 0);
+  });
 
   const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
     return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
@@ -82,6 +138,15 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     }
     await onRefreshPatient(patient.id);
   };
+
+  React.useEffect(() => {
+    setLastEditingRequestAt(typeof window === 'undefined' ? 0 : Number(window.localStorage.getItem(editingStorageKey) || 0));
+  }, [editingStorageKey]);
+
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleFileDeleted = (stageId: string, fileId: string) => {
     // Optimistically remove from UI; parent will refresh on next open
@@ -121,14 +186,57 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     };
   };
 
+  const editableStages = orderedStages.filter(stage =>
+    !stage.id.startsWith('missing-') &&
+    EDITING_MOMENTS.has(String(stage.moment || '')) &&
+    stage.files.length > 0
+  );
+  const selectedEditingStage = editableStages[0] || null;
+  const editingCooldownRemaining = lastEditingRequestAt
+    ? Math.max(0, EDITING_COOLDOWN_MS - (now - lastEditingRequestAt))
+    : 0;
+  const isEditingBlockedByCooldown = editingCooldownRemaining > 0;
+  const canSendToEditing = Boolean(onRequestStageEditing && selectedEditingStage && !isEditingBlockedByCooldown && !isRequestingEditing);
+
+  const handleRequestCaseEditing = async () => {
+    if (!onRequestStageEditing || !selectedEditingStage || isEditingBlockedByCooldown || isRequestingEditing) return;
+    setEditingError(null);
+    setIsRequestingEditing(true);
+    try {
+      await onRequestStageEditing(selectedEditingStage);
+      const sentAt = Date.now();
+      setLastEditingRequestAt(sentAt);
+      window.localStorage.setItem(editingStorageKey, String(sentAt));
+      setNow(sentAt);
+      setEditingSuccessVisible(true);
+      window.setTimeout(() => setEditingSuccessVisible(false), 3200);
+    } catch (error) {
+      setEditingError(error instanceof Error ? error.message : 'Falha ao mandar para edição.');
+    } finally {
+      setIsRequestingEditing(false);
+    }
+  };
+
   return (
-    <div className="animate-fade-in bg-zinc-50 min-h-screen pb-14 sm:pb-20">
+    <div className="animate-fade-in pb-14 sm:pb-20">
+      {editingSuccessVisible && (
+        <div className="pointer-events-none fixed left-1/2 top-24 z-[70] -translate-x-1/2 animate-fade-in rounded-full border border-emerald-200 bg-white/95 px-5 py-3 text-sm font-black text-emerald-700 shadow-[0_18px_50px_rgba(16,185,129,0.22)] backdrop-blur-xl">
+          <span className="inline-flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+              </svg>
+            </span>
+            Enviado para edição com sucesso!
+          </span>
+        </div>
+      )}
       {/* Compact detail toolbar */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-zinc-100">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 lg:px-8">
+      <div className="sticky top-0 z-40 px-4 pt-4 lg:px-8">
+        <div className="mx-auto flex max-w-5xl items-center justify-between rounded-[1.75rem] border border-white/75 bg-white/60 px-4 py-3 shadow-[0_16px_44px_rgba(22,78,129,0.1)] backdrop-blur-2xl">
           <button
             onClick={onBack}
-            className="inline-flex h-10 items-center gap-2 rounded-full bg-zinc-100 px-3 text-xs font-black uppercase tracking-wider text-zinc-700 transition-colors hover:bg-zinc-200"
+            className="impact-pill"
             type="button"
           >
             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -152,16 +260,16 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 pt-5 space-y-6 sm:pt-6 sm:space-y-8 lg:px-8 lg:pt-8 lg:space-y-10">
+      <div className="mx-auto max-w-5xl px-4 pt-6 space-y-6 sm:pt-8 sm:space-y-8 lg:px-8 lg:pt-10 lg:space-y-10">
         {/* Patient Minimal Info */}
-        <div className="flex items-start justify-between gap-4 lg:rounded-[2rem] lg:border lg:border-zinc-200 lg:bg-white lg:p-7 lg:shadow-sm">
+        <div className="impact-glass flex items-start justify-between gap-4 rounded-[1.8rem] p-6 sm:p-8 lg:rounded-[2.4rem]">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400">Paciente</p>
-            <h1 className="mt-0.5 text-[1.35rem] font-black leading-[1.05] tracking-tight text-zinc-950 sm:text-2xl lg:text-3xl">{patient.name}</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
+            <h1 className="mt-1 text-[1.55rem] font-black leading-[1.05] tracking-tight text-[#082653] sm:text-3xl lg:text-4xl">{patient.name}</h1>
             {chips.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {chips.slice(0, 4).map(chip => (
-                  <span key={chip as string} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-zinc-500 ring-1 ring-zinc-100 lg:bg-zinc-50 lg:px-3 lg:py-1.5 lg:text-xs">
+                  <span key={chip as string} className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#5277a2] shadow-sm ring-1 ring-[#d7ebfb]">
                     {chip}
                   </span>
                 ))}
@@ -171,7 +279,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
           <button
             type="button"
             onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-zinc-400 shadow-sm ring-1 ring-zinc-200 transition-all hover:text-red-500 hover:ring-red-100 lg:h-11 lg:w-11"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-red-500 hover:ring-red-100"
             aria-label="Excluir caso"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -181,7 +289,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         </div>
 
         {/* Filter Bar */}
-        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-200/60 p-1 lg:rounded-[1.75rem] lg:p-1.5">
+        <div className="impact-glass grid grid-cols-3 gap-1 rounded-[1.7rem] p-1.5">
           {[
             { id: 'all', label: 'Todas' },
             { id: 'todo', label: 'Pendentes' },
@@ -190,8 +298,8 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             <button
               key={item.id}
               onClick={() => setFilter(item.id as any)}
-              className={`min-h-10 rounded-xl px-2 text-[10px] font-black uppercase tracking-wider transition-all sm:text-[11px] lg:min-h-12 lg:rounded-[1.25rem] lg:text-xs ${
-                filter === item.id ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+              className={`min-h-11 rounded-[1.2rem] px-2 text-[10px] font-black uppercase tracking-wider transition-all sm:text-[11px] lg:min-h-12 lg:text-xs ${
+                filter === item.id ? 'bg-white text-[#20a8f5] shadow-[0_8px_22px_rgba(22,78,129,0.1)]' : 'text-[#7d9bbd] hover:text-[#174579]'
               }`}
             >
               {item.label}
@@ -252,56 +360,56 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             if (stages.length === 0) return null;
             const momentProgress = getMomentProgress(moment);
             
-            const gradients = [
-              'from-[#73EBC4] via-[#61D7B1] to-[#4EC4A0]', // Planejamento
-              'from-[#FFD97D] via-[#FFC857] to-[#FFAE3C]', // Procedimento
-              'from-[#FF9AA2] via-[#FF8087] to-[#FF6B6B]', // Entrega
-              'from-[#A2D2FF] via-[#91C1F2] to-[#7EB0E5]', // Evento
-            ];
-            const currentGradient = gradients[mIdx] || gradients[0];
+            const phaseTheme = phaseHeaderThemes[moment] || phaseHeaderThemes.Planejamento;
 
             return (
               <section key={moment} className="space-y-4 sm:space-y-6 lg:space-y-7">
                 {/* Phase Header Card */}
-                <div className={`relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${currentGradient} p-5 text-white shadow-xl shadow-zinc-200/50 transition-all sm:rounded-[2.5rem] sm:p-8 lg:min-h-[11.5rem] lg:rounded-[3rem] lg:p-10 lg:shadow-2xl`}>
+                <div className={`relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${phaseTheme.gradient} p-5 text-white shadow-[0_22px_60px_rgba(22,78,129,0.14)] transition-all sm:rounded-[2.5rem] sm:p-8 lg:min-h-[10.6rem] lg:rounded-[2.6rem] lg:p-10`}>
+                  <div className="absolute inset-0 bg-white/22" />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white/20 to-transparent" />
                   <div className="relative z-10 flex h-full items-center gap-4">
                     <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-6 lg:gap-8">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-xl font-black text-zinc-900 shadow-lg ring-8 ring-white/20 sm:h-16 sm:w-16 sm:text-2xl lg:h-20 lg:w-20 lg:text-3xl lg:ring-[12px]">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-xl font-black text-[#0a315f] shadow-[0_12px_32px_rgba(22,78,129,0.18)] ring-8 ring-white/28 sm:h-16 sm:w-16 sm:text-2xl lg:h-20 lg:w-20 lg:text-3xl lg:ring-[12px]">
                         {mIdx + 1}
                       </div>
                       <div className="min-w-0">
-                        <div className="inline-flex rounded-full bg-white/20 px-3 py-0.5 text-[9px] font-black uppercase tracking-widest text-white backdrop-blur-sm">
+                        <div
+                          className="inline-flex rounded-full bg-white/38 px-3 py-0.5 text-[9px] font-black uppercase tracking-widest backdrop-blur-sm"
+                          style={{ color: phaseTheme.accent }}
+                        >
                           Fase
                         </div>
-                        <h2 className="mt-1.5 text-[1.65rem] font-black leading-none tracking-tight sm:text-3xl lg:text-4xl">{moment}</h2>
-                        <p className="mt-1 text-xs font-bold text-white/85 sm:text-sm lg:mt-2 lg:text-base">{momentVisuals[moment]?.label}</p>
+                        <h2 className="mt-1.5 text-[1.65rem] font-black leading-none tracking-tight text-[#082653] sm:text-3xl lg:text-4xl">{moment}</h2>
+                        <p className="mt-1 text-xs font-black sm:text-sm lg:mt-2 lg:text-base" style={{ color: phaseTheme.muted }}>{momentVisuals[moment]?.label}</p>
                       </div>
                     </div>
 
                     {/* Circular Progress Indicator */}
                     <div className="relative hidden h-20 w-20 shrink-0 sm:block lg:h-24 lg:w-24">
                       <svg className="h-full w-full" viewBox="0 0 36 36">
-                        <circle cx="18" cy="18" r="16" fill="none" className="stroke-white/20" strokeWidth="3" />
+                        <circle cx="18" cy="18" r="16" fill="none" className="stroke-white/55" strokeWidth="3" />
                         <circle
                           cx="18"
                           cy="18"
                           r="16"
                           fill="none"
-                          className="stroke-white transition-all duration-1000 ease-out"
+                          className="transition-all duration-1000 ease-out"
+                          style={{ stroke: phaseTheme.accent }}
                           strokeWidth="3"
                           strokeDasharray={`${momentProgress.percentage}, 100`}
                           strokeLinecap="round"
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-xs font-black">{momentProgress.captured}/{momentProgress.total}</span>
-                        <span className="text-[8px] font-bold uppercase opacity-80">etapas</span>
+                        <span className="text-xs font-black" style={{ color: phaseTheme.accent }}>{momentProgress.captured}/{momentProgress.total}</span>
+                        <span className="text-[8px] font-bold uppercase" style={{ color: phaseTheme.muted }}>etapas</span>
                       </div>
                     </div>
                   </div>
                   
                   {/* Decorative background circle */}
-                  <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+                  <div className="absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-white/30 blur-3xl" />
                 </div>
 
                 <div className="space-y-4 lg:space-y-5">
@@ -320,6 +428,55 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             );
           })}
         </div>
+
+        <section className="impact-glass rounded-[2rem] p-5 sm:p-6 lg:p-7">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-500">Edição</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#082653]">Mandar materiais para edição</h2>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-[#6d8db1]">
+                {selectedEditingStage
+                  ? `Disponível porque já existe material em ${selectedEditingStage.moment}.`
+                  : 'Libera quando houver ao menos um arquivo nas fases Entrega, Evento ou Agência.'}
+              </p>
+              {isEditingBlockedByCooldown && (
+                <p className="mt-2 text-xs font-black text-amber-700">
+                  Novo envio liberado em {formatCooldown(editingCooldownRemaining)}.
+                </p>
+              )}
+              {editingError && (
+                <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700" role="status" aria-live="polite">
+                  {editingError}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestCaseEditing}
+              disabled={!canSendToEditing}
+              className={`inline-flex min-h-14 w-full shrink-0 items-center justify-center gap-2 rounded-[1.35rem] px-6 text-sm font-black shadow-[0_18px_42px_rgba(244,63,94,0.24)] transition-all active:scale-95 disabled:cursor-not-allowed disabled:shadow-none lg:w-auto ${
+                canSendToEditing
+                  ? 'bg-rose-500 text-white hover:bg-rose-600'
+                  : 'bg-zinc-200 text-zinc-500'
+              }`}
+            >
+              {isRequestingEditing ? (
+                <span className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />
+              ) : (
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                  <path d="M3.105 3.105a1.5 1.5 0 0 1 1.62-.326l12 4.8a1.5 1.5 0 0 1 0 2.842l-12 4.8a1.5 1.5 0 0 1-2.036-1.77L3.75 10 2.69 6.55a1.5 1.5 0 0 1 .416-1.445ZM5.065 6.05 5.823 8.5H11a1.5 1.5 0 0 1 0 3H5.823l-.758 2.45L15.08 10 5.065 6.05Z" />
+                </svg>
+              )}
+              {isRequestingEditing
+                ? 'Enviando...'
+                : isEditingBlockedByCooldown
+                  ? 'Enviado para edição'
+                  : selectedEditingStage
+                    ? 'Mandar para edição'
+                    : 'Aguardando entrega'}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );

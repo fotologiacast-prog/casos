@@ -1,16 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CaseStage, CaseStageMoment } from '../../types';
 import { UploadProgressInfo } from '../../services/driveUploadService';
-import { getCaseStageFaqTypes } from '../../utils/caseConstants';
-
-interface StageFaq {
-  id: string;
-  stage_type: string;
-  title: string;
-  content: string;
-  image_url?: string | null;
-  order: number;
-}
+import { useStageFaqs } from './useStageFaqs';
 
 interface CaseStageCardProps {
   index: number;
@@ -130,8 +121,8 @@ const momentCapturedTheme: Record<CaseStageMoment, {
     border: 'border-emerald-300',
     hoverBorder: 'hover:border-emerald-400',
     ring: 'ring-emerald-100',
-    shadow: 'shadow-[0_14px_40px_rgba(16,185,129,0.16)]',
-    icon: 'bg-emerald-100 text-emerald-600',
+    shadow: 'shadow-[0_16px_44px_rgba(16,185,129,0.16)]',
+    icon: 'bg-emerald-50 text-emerald-600',
     text: 'text-emerald-600',
     buttonText: 'text-emerald-600 hover:text-emerald-700',
     uploadButton: 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20',
@@ -165,6 +156,16 @@ const momentCapturedTheme: Record<CaseStageMoment, {
     text: 'text-sky-600',
     buttonText: 'text-sky-600 hover:text-sky-700',
     uploadButton: 'bg-sky-500 hover:bg-sky-600 shadow-sky-500/20',
+  },
+  Agência: {
+    border: 'border-violet-300',
+    hoverBorder: 'hover:border-violet-400',
+    ring: 'ring-violet-100',
+    shadow: 'shadow-[0_14px_40px_rgba(139,92,246,0.15)]',
+    icon: 'bg-violet-100 text-violet-600',
+    text: 'text-violet-600',
+    buttonText: 'text-violet-600 hover:text-violet-700',
+    uploadButton: 'bg-violet-500 hover:bg-violet-600 shadow-violet-500/20',
   },
 };
 
@@ -367,10 +368,10 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [error, setError] = useState<string | null>(null);
   const [lightboxFile, setLightboxFile] = useState<CaseStage['files'][number] | null>(null);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
-  const [faqs, setFaqs] = useState<StageFaq[]>([]);
   const [faqOpen, setFaqOpen] = useState(false);
-  const [faqLoading, setFaqLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const stageType = stage.title;
+  const { faqs, isLoading: faqLoading, loadFaqs } = useStageFaqs(stageType);
 
   useEffect(() => {
     if (!isUploading) return;
@@ -393,26 +394,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [faqOpen, lightboxFile]);
 
-  const stageType = stage.title;
-
-  const loadFaqs = async () => {
-    if (faqs.length > 0) return faqs;
-    setFaqLoading(true);
-    try {
-      const stageTypes = getCaseStageFaqTypes(stageType).join('|');
-      const res = await fetch(`/api/faq?stage_type=${encodeURIComponent(stageTypes)}`);
-      if (res.ok) {
-        const data = await res.json();
-        const loadedFaqs = data.faqs || [];
-        setFaqs(loadedFaqs);
-        return loadedFaqs;
-      }
-    } catch {/* silent */} finally {
-      setFaqLoading(false);
-    }
-    return [];
-  };
-
   const handleToggleExpand = async () => {
     setIsExpanded(prev => !prev);
   };
@@ -426,7 +407,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
-
   const handleFiles = async (files: File[]) => {
     if (files.length === 0 || isPlaceholder) return;
     setError(null);
@@ -460,7 +440,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     if (!window.confirm(`Remover "${file.name}" permanentemente do Drive e do sistema?`)) return;
     setDeletingFileId(file.id);
     try {
-      const response = await fetch('/api/drive-delete', {
+      const response = await fetch('/api/drive', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -484,14 +464,15 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   return (
     <div
       id={`stage-${stage.id}`}
-      className={`relative rounded-[1.55rem] sm:rounded-[2rem] lg:rounded-[2.4rem] transition-all duration-300 overflow-hidden ${
+      className={`relative overflow-hidden rounded-[1.35rem] transition-all duration-300 sm:rounded-[1.55rem] lg:rounded-[1.75rem] ${
         isCaptured
-          ? `bg-white border-2 ${capturedTheme.border} ${capturedTheme.shadow} ring-1 ${capturedTheme.ring}`
-          : 'bg-white shadow-sm lg:border lg:border-zinc-200 lg:shadow-[0_10px_32px_rgba(24,24,27,0.05)]'
-      } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'border border-zinc-100 hover:border-zinc-200'}`}
+          ? `bg-white/80 border-2 ${capturedTheme.border} ${capturedTheme.shadow} ring-1 ${capturedTheme.ring}`
+          : 'border border-white/75 bg-white/70 shadow-[0_12px_34px_rgba(22,78,129,0.1)] backdrop-blur-xl'
+      } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'hover:border-[#cde8fb]'}`}
     >
+      <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
       <div 
-        className="cursor-pointer px-5 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 flex items-center gap-3.5 sm:gap-4 lg:gap-5 transition-colors hover:bg-zinc-50/50"
+        className="flex cursor-pointer items-center gap-3.5 px-5 py-4 transition-colors hover:bg-white/50 sm:gap-4 sm:px-6 sm:py-5 lg:gap-5 lg:px-7 lg:py-6"
         onClick={handleToggleExpand}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -504,8 +485,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         aria-expanded={isExpanded}
         aria-controls={`stage-panel-${stage.id}`}
       >
-        <div className={`flex h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 shrink-0 items-center justify-center rounded-2xl lg:rounded-[1.25rem] text-lg transition-all ${
-          isCaptured ? capturedTheme.icon : 'bg-zinc-100 text-zinc-400'
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.9),0_8px_22px_rgba(22,78,129,0.1)] transition-all sm:h-14 sm:w-14 lg:rounded-[1.25rem] ${
+          isCaptured ? capturedTheme.icon : 'bg-white/70 text-[#7d9bbd]'
         }`}>
           {isCaptured ? (
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
@@ -519,18 +500,18 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-[0.95rem] sm:text-base lg:text-lg font-black text-zinc-900 truncate tracking-tight">{stage.title}</h3>
+          <h3 className="truncate text-[0.95rem] font-black tracking-tight text-[#082653] sm:text-base lg:text-lg">{stage.title}</h3>
           {isCaptured ? (
             <p className={`text-[10px] lg:text-[11px] font-black uppercase tracking-widest ${capturedTheme.text} mt-0.5`}>Capturado · {stage.files.length} arquivos</p>
           ) : (
-            <p className="text-[10px] lg:text-[11px] font-black uppercase tracking-widest text-zinc-400 mt-0.5">Pendente de envio</p>
+            <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[#8aa5c4] lg:text-[11px]">Pendente de envio</p>
           )}
         </div>
 
         <button
           type="button"
           onClick={handleOpenFaq}
-          className={`hidden shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-colors sm:inline-flex ${capturedTheme.icon}`}
+          className={`hidden min-h-10 shrink-0 items-center gap-2 rounded-2xl px-4 text-xs font-black shadow-[0_8px_22px_rgba(22,78,129,0.1)] transition-colors sm:inline-flex ${capturedTheme.icon}`}
           aria-label={`Ver FAQ da etapa ${stage.title}`}
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
@@ -542,7 +523,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         <button
           type="button"
           onClick={handleOpenFaq}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:hidden ${capturedTheme.icon}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-[0_8px_22px_rgba(22,78,129,0.1)] sm:hidden ${capturedTheme.icon}`}
           aria-label={`Ver FAQ da etapa ${stage.title}`}
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
@@ -550,7 +531,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           </svg>
         </button>
 
-        <div className={`h-8 w-8 lg:h-10 lg:w-10 shrink-0 flex items-center justify-center rounded-full bg-zinc-50 text-zinc-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-[#42668f] shadow-[0_8px_22px_rgba(22,78,129,0.1)] transition-transform duration-300 lg:h-11 lg:w-11 ${isExpanded ? 'rotate-180' : ''}`}>
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
           </svg>
@@ -558,7 +539,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
       </div>
 
       <div id={`stage-panel-${stage.id}`} className={`overflow-hidden transition-[max-height,opacity] duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-5 pb-6 space-y-6 sm:px-6 sm:pb-8 sm:space-y-8 lg:px-8 lg:pb-9">
+        <div className="space-y-6 px-5 pb-6 sm:px-6 sm:pb-8 sm:space-y-8 lg:px-7 lg:pb-8">
           {/* Upload Area */}
           {!isCaptured ? (
             <div 
@@ -566,18 +547,18 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               className={`group relative rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all sm:rounded-3xl sm:p-10 lg:rounded-[2rem] lg:p-12 ${
-                isDragging ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-100 bg-zinc-50/50 hover:border-zinc-300 hover:bg-zinc-50'
+                isDragging ? `${capturedTheme.border} bg-white/70` : 'border-[#d7ebfb] bg-white/50 hover:border-[#7bcdfb] hover:bg-white/60'
               }`}
             >
               <div className="flex flex-col items-center gap-3 sm:gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50 sm:h-16 sm:w-16">
+                <div className={`flex h-14 w-14 items-center justify-center rounded-full ring-8 sm:h-16 sm:w-16 ${capturedTheme.icon} ring-white/60`}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-7 w-7 sm:h-8 sm:w-8">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-black text-zinc-900 tracking-tight sm:text-base">Arraste fotos, vídeos, áudios ou</p>
-                  <p className="mt-1 text-xs font-bold text-zinc-400">Toque para buscar na galeria ou câmera</p>
+                  <p className="text-sm font-black tracking-tight text-[#082653] sm:text-base">Arraste fotos, vídeos, áudios ou</p>
+                  <p className="mt-1 text-xs font-bold text-[#7d9bbd]">Toque para buscar na galeria ou câmera</p>
                 </div>
                 <button
                   type="button"
@@ -595,23 +576,24 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   )}
                 </button>
               </div>
-              <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400">Arquivos enviados</h4>
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
-                >
-                  + Adicionar mais
-                </button>
+                <h4 className="text-xs font-black uppercase tracking-widest text-[#7d9bbd]">Arquivos enviados</h4>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => inputRef.current?.click()}
+                    className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
+                  >
+                    + Adicionar mais
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
                 {stage.files.map(file => (
-                  <div key={file.id} className="group relative aspect-square rounded-2xl lg:rounded-[1.5rem] bg-zinc-100 overflow-hidden border border-zinc-100">
+                  <div key={file.id} className="group relative aspect-square overflow-hidden rounded-2xl border border-white/80 bg-[#eaf7ff] shadow-[0_10px_26px_rgba(22,78,129,0.1)] lg:rounded-[1.5rem]">
                     {isImageFile(file) ? (
                       <button type="button" onClick={() => setLightboxFile(file)} className="h-full w-full" aria-label={`Abrir imagem ${file.name}`}>
                         <DriveImage file={file} className="h-full w-full object-cover" preferThumbnail thumbnailOnly />
@@ -641,26 +623,11 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                   </div>
                 ))}
               </div>
-              <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
             </div>
           )}
 
         </div>
       </div>
-
-        {/* Add more files when already captured */}
-        {isCaptured && stage.files.length > 0 && !isPlaceholder && (
-          <div className="mt-3">
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept={UPLOAD_ACCEPT}
-              onChange={handleInputChange}
-              className="hidden"
-            />
-          </div>
-        )}
 
         {error && (
           <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3" role="status" aria-live="polite">
