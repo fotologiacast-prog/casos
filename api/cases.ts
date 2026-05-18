@@ -82,6 +82,28 @@ const serializeApiError = (error: unknown) => {
   return String(error);
 };
 
+const createCaseRequestId = () =>
+  `case_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const logCaseInfo = (requestId: string, step: string, data: Record<string, unknown> = {}) => {
+  console.log("[Cases Monday]", JSON.stringify({
+    level: "info",
+    requestId,
+    step,
+    ...data,
+  }));
+};
+
+const logCaseError = (requestId: string, step: string, error: unknown, data: Record<string, unknown> = {}) => {
+  console.error("[Cases Monday]", JSON.stringify({
+    level: "error",
+    requestId,
+    step,
+    error: serializeApiError(error),
+    ...data,
+  }));
+};
+
 const makeStageKey = (title: string) =>
   title
     .toLowerCase()
@@ -299,8 +321,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const mondayToken = process.env.MONDAY_TOKEN;
       const mondayBoardId = DEFAULT_MONDAY_CASE_BOARD_ID;
       if (mondayToken && mondayBoardId) {
+        const caseRequestId = createCaseRequestId();
+        mondayResult.requestId = caseRequestId;
         mondayResult.skipped = false;
         try {
+          logCaseInfo(caseRequestId, "start", {
+            caseId: createdCase.id,
+            patientName: payload.patient_name,
+            clientId: client.id,
+            clientName: client.name,
+            boardId: mondayBoardId,
+          });
           // Fetch board columns and groups to build column values
           const colsResponse = await fetch("https://api.monday.com/v2", {
             method: "POST",
@@ -315,10 +346,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }),
           });
           const colsData = await colsResponse.json();
-          if (colsData.errors) mondayResult.colsError = colsData.errors;
+          if (colsData.errors) {
+            mondayResult.colsError = colsData.errors;
+            logCaseError(caseRequestId, "fetch_board_columns_error", colsData.errors);
+          }
           
           const columns: { id: string; title: string; type: string; settings_str?: string | null }[] = colsData?.data?.boards?.[0]?.columns || [];
           const groups: { id: string; title: string }[] = colsData?.data?.boards?.[0]?.groups || [];
+          logCaseInfo(caseRequestId, "board_metadata_loaded", {
+            columns: columns.map(column => ({
+              id: column.id,
+              title: column.title,
+              type: column.type,
+            })),
+            groups: groups.map(group => ({
+              id: group.id,
+              title: group.title,
+            })),
+          });
 
           const normalizeKey = (v: string) =>
             v
@@ -365,6 +410,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return Object.values(labels).map(String).filter(Boolean);
           };
 
+          const getStatusLabelsWithIndex = (col: { settings_str?: string | null }) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return [];
+            return Object.entries(labels).map(([index, label]) => ({
+              index,
+              label: String(label),
+              normalized: normalizeKey(String(label)),
+            }));
+          };
+
           const targetGroup = groups.find(group => {
             const title = normalizeKey(group.title);
             return group.title.trim() === MONDAY_CASES_GROUP_TITLE ||
@@ -373,7 +429,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               (title.includes("casos acompanhados") && title.includes("clinicas"));
           });
 
-          const columnUpdates: { id: string; title: string; value: unknown }[] = [];
+          const columnUpdates: { id: string; title: string; value: unknown; role?: string; type?: string; sourceText?: string }[] = [];
 
           const set = (colNames: string | string[], value: unknown, preferredTypes: string[] = []) => {
             const names = Array.isArray(colNames) ? colNames : [colNames];
@@ -387,14 +443,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   availableLabels: [],
                   message: "Coluna Cliente nao encontrada no board do Monday.",
                 };
+                logCaseError(caseRequestId, "client_column_not_found", "Coluna Cliente nao encontrada.", {
+                  requestedLabel: value ? String(value).trim() : "",
+                  aliases: names,
+                  availableColumnTitles: columns.map(column => column.title),
+                });
               }
               return;
             }
-            if (value === undefined || value === null || String(value).trim() === "") return;
+            if (value === undefined || value === null || String(value).trim() === "") {
+              if (isCliente) {
+                logCaseError(caseRequestId, "client_label_empty", "Valor do Cliente está vazio.", {
+                  rawValue: value,
+                  clientName: client.name,
+                  caseClientLabel: client.case_client_label || null,
+                  mondayClientLabel: client.monday_client_label || null,
+                });
+              }
+              return;
+            }
             
             // Prevent updating read-only/auto-calculated columns
             if (readOnlyTypes.includes(col.type)) {
               console.log(`[Cases API] Ignorando coluna "${names.join(", ")}" porque o tipo "${col.type}" é somente leitura.`);
+              if (isCliente) {
+                logCaseError(caseRequestId, "client_column_readonly", "Coluna Cliente é somente leitura.", {
+                  columnId: col.id,
+                  columnTitle: col.title,
+                  columnType: col.type,
+                });
+              }
               return;
             }
 
@@ -413,6 +491,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   message: `Label de Cliente "${text}" nao encontrada por indice. Enviando label direta.`,
                 };
               }
+              if (isCliente) {
+                const labels = getStatusLabelsWithIndex(col);
+                logCaseInfo(caseRequestId, "client_column_match", {
+                  requestedLabel: text,
+                  normalizedRequestedLabel: normalizeKey(text),
+                  columnId: col.id,
+                  columnTitle: col.title,
+                  columnType: col.type,
+                  matchedLabelIndex: Number.isFinite(labelIndex) ? labelIndex : null,
+                  availableLabels: labels,
+                });
+              }
               // Always try to set — by index if found, by label text as fallback
               formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
             }
@@ -422,11 +512,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             else if (type === "numbers" || type === "numeric") formattedValue = text;
             else formattedValue = text;
 
-            columnUpdates.push({ id: col.id, title: col.title, value: formattedValue });
+            columnUpdates.push({
+              id: col.id,
+              title: col.title,
+              value: formattedValue,
+              role: isCliente ? "client" : normalizeKey(names[0] || col.title),
+              type: col.type,
+              sourceText: text,
+            });
           };
 
           const clientLabel = client.monday_client_label || client.case_client_label || client.name || "";
           const dentistResponsible = String(payload.dentist_responsible || "").trim();
+          logCaseInfo(caseRequestId, "client_label_resolved", {
+            clientLabel,
+            clientName: client.name,
+            caseClientLabel: client.case_client_label || null,
+            mondayClientLabel: client.monday_client_label || null,
+          });
           set(["Cliente", "#Cliente"], clientLabel, ["status", "color", "dropdown", "text"]);
           set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL, ["status", "color", "dropdown", "text"]);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
@@ -443,6 +546,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: driveCol.id,
                 title: driveCol.title,
                 value: driveCol.type === "link" ? { url: driveUrl, text: "Abrir Drive" } : driveUrl,
+                role: "drive",
+                type: driveCol.type,
+                sourceText: driveUrl,
               });
             }
           }
@@ -453,6 +559,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const clientColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) === "cliente");
           const otherColumnUpdates = columnUpdates.filter(update => normalizeKey(update.title) !== "cliente");
+          logCaseInfo(caseRequestId, "column_updates_prepared", {
+            clientColumnUpdates: clientColumnUpdates.map(update => ({
+              id: update.id,
+              title: update.title,
+              type: update.type,
+              sourceText: update.sourceText,
+              valueShape: typeof update.value === "object" && update.value !== null ? Object.keys(update.value as Record<string, unknown>) : typeof update.value,
+            })),
+            otherColumnCount: otherColumnUpdates.length,
+          });
 
           const createMutation = `mutation ($boardId: ID!, $groupId: String!, $itemName: String!) {
             create_item(
@@ -481,6 +597,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const createData = await createResponse.json();
           if (!createResponse.ok || createData.errors) {
+            logCaseError(caseRequestId, "create_item_error", createData, {
+              status: createResponse.status,
+            });
             throw new Error(createData.errors?.map((error: any) => error.message).join(" ") || `Falha ao criar item no Monday. HTTP ${createResponse.status}`);
           }
           const mondayItemId = createData?.data?.create_item?.id;
@@ -489,6 +608,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             mondayResult.success = true;
             mondayResult.itemId = mondayItemId;
             mondayResult.groupId = targetGroup.id;
+            logCaseInfo(caseRequestId, "item_created", {
+              mondayItemId,
+              groupId: targetGroup.id,
+            });
             // Save monday_item_id back to the case row (best-effort)
             await supabase
               .from("cases")
@@ -497,7 +620,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             console.log(`[Cases API] Monday item criado: ${mondayItemId} para caso ${createdCase.id}`);
 
-            const columnErrors: { column: string; error: string }[] = [];
+            const columnErrors: { column: string; error: string; role?: string; id?: string; type?: string }[] = [];
             const changeColumnMutation = `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!, $createLabels: Boolean) {
               change_multiple_column_values(
                 board_id: $boardId,
@@ -513,6 +636,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 acc[update.id] = update.value;
                 return acc;
               }, {});
+              const isClientUpdate = updates.some(update => update.role === "client");
+              logCaseInfo(caseRequestId, isClientUpdate ? "update_client_column_request" : "update_other_columns_request", {
+                createLabels,
+                updates: updates.map(update => ({
+                  role: update.role,
+                  id: update.id,
+                  title: update.title,
+                  type: update.type,
+                  sourceText: update.sourceText,
+                  value: update.value,
+                })),
+                columnValues,
+              });
               const updateResponse = await fetch("https://api.monday.com/v2", {
                 method: "POST",
                 headers: {
@@ -532,15 +668,79 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               });
               const updateData = await updateResponse.json().catch(() => ({}));
               if (!updateResponse.ok || updateData.errors) {
+                logCaseError(caseRequestId, isClientUpdate ? "update_client_column_error" : "update_other_columns_error", updateData, {
+                  status: updateResponse.status,
+                  createLabels,
+                  updates: updates.map(update => ({
+                    role: update.role,
+                    id: update.id,
+                    title: update.title,
+                    type: update.type,
+                    sourceText: update.sourceText,
+                  })),
+                });
                 updates.forEach((update) => columnErrors.push({
                   column: update.title,
+                  role: update.role,
+                  id: update.id,
+                  type: update.type,
                   error: updateData.errors?.map((error: any) => error.message).join(" ") || `HTTP ${updateResponse.status}`,
                 }));
+              } else {
+                logCaseInfo(caseRequestId, isClientUpdate ? "update_client_column_success" : "update_other_columns_success", {
+                  response: updateData,
+                });
               }
             };
 
             // Update client column first (with create_labels_if_missing: true as safety net)
             await updateMondayColumns(clientColumnUpdates, true);
+
+            if (clientColumnUpdates.length > 0) {
+              const clientUpdate = clientColumnUpdates[0];
+              const verifyResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: {
+                  Authorization: mondayToken.trim(),
+                  "Content-Type": "application/json",
+                  "API-Version": "2024-10",
+                },
+                body: JSON.stringify({
+                  query: `query ($itemIds: [ID!]) {
+                    items(ids: $itemIds) {
+                      id
+                      column_values(ids: ["${clientUpdate.id}"]) {
+                        id
+                        text
+                        value
+                        column { title type }
+                      }
+                    }
+                  }`,
+                  variables: {
+                    itemIds: [String(mondayItemId)],
+                  },
+                }),
+              });
+              const verifyData = await verifyResponse.json().catch(() => ({}));
+              mondayResult.clientColumnVerification = verifyData?.data?.items?.[0]?.column_values?.[0] || null;
+              if (!verifyResponse.ok || verifyData.errors) {
+                logCaseError(caseRequestId, "verify_client_column_error", verifyData, {
+                  status: verifyResponse.status,
+                  clientColumnId: clientUpdate.id,
+                });
+              } else {
+                logCaseInfo(caseRequestId, "verify_client_column_success", {
+                  clientColumnId: clientUpdate.id,
+                  verification: mondayResult.clientColumnVerification,
+                });
+              }
+            } else {
+              logCaseError(caseRequestId, "client_column_update_missing", "Nenhuma atualização preparada para Cliente.", {
+                clientLabel,
+              });
+            }
+
             // Always update remaining columns regardless of client column result
             await updateMondayColumns(otherColumnUpdates, false);
 

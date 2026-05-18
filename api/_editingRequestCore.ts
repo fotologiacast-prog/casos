@@ -165,9 +165,9 @@ const createMaterialUpdate = async (
   const body = [
     "Material para edição:",
     materialUrl,
-    "",
-    `Fallback automático: ${reason}`,
   ].join("\n");
+
+  logInfo(context, "material_update_body_prepared", { reason });
 
   await mondayRequest(
     `mutation ($itemId: ID!, $body: String!) {
