@@ -20,6 +20,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Apenas método POST é permitido." });
 
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ error: "Senha admin invalida." });
+  }
+
   const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
   if (!MONDAY_TOKEN) return res.status(500).json({ error: "MONDAY_TOKEN não definido." });
 
@@ -53,13 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 2. QUERY / PLAYGROUND (application/json)
   try {
-    // If it's a playground request (has admin password), we can do extra checks if needed
-    const isAdmin = isAuthorized(req);
-    
-    // For standard proxy, we just pass the body
-    // We need to parse the body manually if we set bodyParser: false
-    // But wait, if bodyParser is false, we need to read the stream for JSON too.
-    
     const chunks: any[] = [];
     for await (const chunk of req) {
       chunks.push(chunk);

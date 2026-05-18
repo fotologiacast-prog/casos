@@ -84,7 +84,7 @@ Essa tela cadastra o mapa de cada cliente:
 
 ## Variaveis de ambiente
 
-Os proxies em `api/monday.ts` e `api/monday-upload.ts` precisam de:
+Os endpoints em `api/monday.ts`, `api/drive.ts`, `api/cases.ts` e `api/admin.ts` precisam de:
 
 ```bash
 VITE_SUPABASE_URL=sua_url_do_supabase
@@ -104,10 +104,10 @@ O navegador nao envia arquivos para a nossa API nem para o Monday. O backend so 
 
 Fluxo usado:
 
-1. O frontend pede para `/api/drive-upload` iniciar o upload da etapa.
+1. O frontend pede para `/api/drive` iniciar o upload da etapa.
 2. O backend autentica com a service account, cria/acha a pasta da etapa e retorna uma URL resumable do Google Drive.
 3. O navegador envia o arquivo direto para essa URL do Google.
-4. O frontend confirma em `/api/drive-upload`.
+4. O frontend confirma em `/api/drive`.
 5. O backend abre somente aquele arquivo individual como "qualquer pessoa com o link pode visualizar".
 6. O backend salva o link direto do Google Drive em `case_files` e marca a etapa como `capturado`.
 

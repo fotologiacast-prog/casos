@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'local-monday-playground-api',
         configureServer(server) {
-          server.middlewares.use('/api/monday-playground', async (req, res) => {
+          server.middlewares.use('/api/monday', async (req, res) => {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password');
