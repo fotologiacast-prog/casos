@@ -28,3 +28,21 @@ export const fetchReadyTestimonials = async (token: string): Promise<ReadyTestim
   const data = await readApiResponse(response, 'Falha ao buscar depoimentos.');
   return data.testimonials || [];
 };
+
+export const updateReadyTestimonialRating = async (
+  token: string,
+  testimonial: Pick<ReadyTestimonial, 'mondayItemId' | 'subitemId'>,
+  rating: number
+) => {
+  const response = await fetch('/api/testimonial-rating', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      itemId: testimonial.mondayItemId,
+      subitemId: testimonial.subitemId,
+      rating,
+    }),
+  });
+  return readApiResponse(response, 'Falha ao avaliar criativo.');
+};

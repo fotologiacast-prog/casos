@@ -76,13 +76,16 @@ const getGoogleDriveThumbnailUrl = (fileId: string) =>
   `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800`;
 
 const THUMBNAIL_PRIORITY_STAGES = [
-  '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',
+  'Retratos do Depois',
+  'Retrato Extraoral do Antes',
   '11. (ESTUDIO) Retratos do depois (posados)',
+  '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
+  'Retratos Atualizados Lifestyle',
   '19. Foto com o Doutor (O Brinde da Vitoria)',
   '13. (ESTUDIO) Fotos em close artisticas do sorriso',
   '12. (ESTUDIO) - Fotos em close do sorriso',
   '09. (NA CADEIRA) - Fotos intraorais do depois (4 fotos)',
-  '03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)',
+  '18. (ESTUDIO) Retratos atualizados do paciente com sorriso novo',
   '01. (CADEIRA) Fotos intraorais do antes (4 fotos)',
 ];
 

@@ -1,5 +1,12 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ReadyTestimonial, TestimonialAsset } from '../../types';
+import { updateReadyTestimonialRating } from '../../services/testimonialService';
+import {
+  ReadyGalleryItem,
+  buildReadyGalleryItems,
+  sortReadyRecommendations,
+  splitReadyProcedures,
+} from './readyMaterialsLogic';
 import { useReadyTestimonials } from './useReadyTestimonials';
 
 interface ReadyTestimonialsProps {
@@ -10,11 +17,6 @@ interface ReadyTestimonialsProps {
   onBack?: () => void;
   onOpenCase?: (caseId: string) => void;
 }
-
-type ReadyAssetItem = {
-  testimonial: ReadyTestimonial;
-  asset: TestimonialAsset;
-};
 
 type MediaNaturalSize = {
   width: number;
@@ -74,10 +76,7 @@ const matchesAgeRange = (age: number | null, range: string) => {
 };
 
 const splitProcedures = (value?: string | null) =>
-  String(value || '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
+  splitReadyProcedures(value);
 
 const formatDuration = (value: number) => {
   if (!Number.isFinite(value) || value <= 0) return '0:00';
@@ -460,6 +459,44 @@ const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: Rea
   </button>
 );
 
+const StarRating: React.FC<{
+  value?: number | null;
+  onChange?: (value: number) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}> = ({ value, onChange, disabled, compact }) => {
+  const roundedValue = Math.max(0, Math.min(5, Number(value || 0)));
+  return (
+    <div className={`flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`} aria-label={`Avaliação ${roundedValue || 0} de 5`}>
+      {[1, 2, 3, 4, 5].map(star => {
+        const filled = star <= roundedValue;
+        const className = `${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} ${filled ? 'text-[#ffbf2f]' : 'text-[#b9d0e7]'} transition-colors`;
+        if (!onChange) {
+          return (
+            <svg key={star} viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+              <path d="m10 1.9 2.35 4.76 5.25.76-3.8 3.7.9 5.23L10 13.88l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L10 1.9Z" />
+            </svg>
+          );
+        }
+        return (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            disabled={disabled}
+            className="rounded-full p-0.5 transition-transform hover:scale-110 disabled:cursor-wait disabled:opacity-70"
+            aria-label={`Avaliar com ${star} estrela${star === 1 ? '' : 's'}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+              <path d="m10 1.9 2.35 4.76 5.25.76-3.8 3.7.9 5.23L10 13.88l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L10 1.9Z" />
+            </svg>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 const getAssetKind = (asset: TestimonialAsset) => {
   if (isVideoAsset(asset)) return 'Vídeo';
   if (isAudioAsset(asset)) return 'Áudio';
@@ -668,23 +705,50 @@ const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: strin
 };
 
 const ReadyAssetModal: React.FC<{
-  item: ReadyAssetItem;
-  recommendations: ReadyAssetItem[];
+  item: ReadyGalleryItem;
+  recommendations: ReadyGalleryItem[];
   token: string;
   isDemo?: boolean;
   onClose: () => void;
-  onSelect: (item: ReadyAssetItem) => void;
+  onSelect: (item: ReadyGalleryItem) => void;
   onOpenCase?: (caseId: string) => void;
-}> = ({ item, recommendations, token, isDemo, onClose, onSelect, onOpenCase }) => {
-  const { testimonial, asset } = item;
+  onRated: (subitemId: string, rating: number) => void;
+}> = ({ item, recommendations, token, isDemo, onClose, onSelect, onOpenCase, onRated }) => {
+  const { testimonial } = item;
+  const [selectedAssetIndex, setSelectedAssetIndex] = useState(0);
+  const [ratingDraft, setRatingDraft] = useState(testimonial.rating || 0);
+  const [isRatingSaving, setIsRatingSaving] = useState(false);
+  const asset = item.assets[selectedAssetIndex] || item.primaryAsset;
   const [naturalSize, setNaturalSize] = useState<MediaNaturalSize | null>(() => mediaSizeCache.get(asset.id) || null);
   const visibleRecommendations = recommendations.slice(0, 12);
   const procedure = getPrimaryProcedure(testimonial.patientProcedure);
   const formatLabel = getAssetFormatLabel(asset, testimonial.creativeType);
 
   useEffect(() => {
+    setSelectedAssetIndex(0);
+  }, [item.id]);
+
+  useEffect(() => {
+    setRatingDraft(testimonial.rating || 0);
+  }, [testimonial.rating, testimonial.subitemId]);
+
+  useEffect(() => {
     setNaturalSize(mediaSizeCache.get(asset.id) || null);
   }, [asset.id]);
+
+  const handleRatingChange = async (nextRating: number) => {
+    setRatingDraft(nextRating);
+    if (isDemo) return;
+    setIsRatingSaving(true);
+    try {
+      await updateReadyTestimonialRating(token, testimonial, nextRating);
+      onRated(testimonial.subitemId, nextRating);
+    } catch (error) {
+      console.error('[ReadyTestimonials] Falha ao avaliar criativo.', error);
+    } finally {
+      setIsRatingSaving(false);
+    }
+  };
 
   return (
     <div
@@ -717,6 +781,9 @@ const ReadyAssetModal: React.FC<{
                     <p className="mt-0.5 truncate text-xs font-bold text-[#5d7ca4]">
                       {[testimonial.patientAge ? `${testimonial.patientAge} anos` : null, procedure, formatLabel].filter(Boolean).join(' • ')}
                     </p>
+                    <div className="mt-1.5">
+                      <StarRating value={ratingDraft} onChange={handleRatingChange} disabled={isRatingSaving} />
+                    </div>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2 sm:justify-end">
@@ -746,7 +813,7 @@ const ReadyAssetModal: React.FC<{
                 >
                   <AssetPreview asset={asset} onNaturalSize={setNaturalSize} />
                   <span className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-xs font-black text-white backdrop-blur">
-                    {formatLabel}
+                    {item.isPhotoCatalog ? `${item.assets.length} fotos` : formatLabel}
                   </span>
                   <button
                     type="button"
@@ -760,6 +827,24 @@ const ReadyAssetModal: React.FC<{
                 </div>
               </div>
 
+              {item.isPhotoCatalog && item.assets.length > 1 && (
+                <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {item.assets.map((photo, index) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setSelectedAssetIndex(index)}
+                      className={`h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 bg-white transition-all ${
+                        selectedAssetIndex === index ? 'border-[#20a8f5] shadow-[0_10px_28px_rgba(32,168,245,0.22)]' : 'border-white/80 opacity-70 hover:opacity-100'
+                      }`}
+                      aria-label={`Ver foto ${index + 1}`}
+                    >
+                      <GalleryAssetPreview asset={photo} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
             </div>
           </main>
 
@@ -770,18 +855,23 @@ const ReadyAssetModal: React.FC<{
                   const recProcedure = getPrimaryProcedure(recommended.testimonial.patientProcedure);
                   return (
                     <button
-                      key={`${recommended.testimonial.id}-${recommended.asset.id}`}
+                      key={recommended.id}
                       type="button"
                       onClick={() => onSelect(recommended)}
                       className="group overflow-hidden rounded-[1.25rem] border border-[#d7ebfb] bg-white/75 text-left shadow-[0_12px_30px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.16)]"
                     >
                       <div className="relative aspect-[4/3] overflow-hidden rounded-b-[1.05rem]">
-                        <GalleryAssetPreview asset={recommended.asset} />
-                        {isVideoAsset(recommended.asset) && (
+                        <GalleryAssetPreview asset={recommended.primaryAsset} />
+                        {isVideoAsset(recommended.primaryAsset) && (
                           <span className="absolute inset-0 flex items-center justify-center">
                             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-lg">
                               <PlayIcon className="ml-0.5 h-5 w-5" />
                             </span>
+                          </span>
+                        )}
+                        {recommended.isPhotoCatalog && (
+                          <span className="absolute right-2 top-2 rounded-full bg-white/88 px-2.5 py-1 text-[10px] font-black text-[#082653] backdrop-blur">
+                            {recommended.assets.length} fotos
                           </span>
                         )}
                       </div>
@@ -814,9 +904,19 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
   const [filterProcedure, setFilterProcedure] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
+  const [filterCreativeType, setFilterCreativeType] = useState('all');
+  const [ratingOverrides, setRatingOverrides] = useState<Record<string, number>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ReadyAssetItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ReadyGalleryItem | null>(null);
   const { testimonials, totalAssets, isLoading, isRefreshing, error, refresh } = useReadyTestimonials(token, isDemo);
+
+  const ratedTestimonials = useMemo(
+    () => testimonials.map(item => ({
+      ...item,
+      rating: ratingOverrides[item.subitemId] ?? item.rating ?? null,
+    })),
+    [ratingOverrides, testimonials]
+  );
 
   useEffect(() => {
     setSearch(initialSearch);
@@ -833,13 +933,22 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
 
   const procedures = useMemo(() => {
     const set = new Set<string>();
-    testimonials.forEach(t => splitProcedures(t.patientProcedure).forEach(proc => set.add(proc)));
+    ratedTestimonials.forEach(t => splitProcedures(t.patientProcedure).forEach(proc => set.add(proc)));
     return Array.from(set).sort();
-  }, [testimonials]);
+  }, [ratedTestimonials]);
+
+  const creativeTypes = useMemo(() => {
+    const set = new Set<string>();
+    ratedTestimonials.forEach(item => {
+      const creativeType = String(item.creativeType || '').trim();
+      if (creativeType) set.add(creativeType);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [ratedTestimonials]);
 
   const filteredTestimonials = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
-    return testimonials.filter(item => {
+    return ratedTestimonials.filter(item => {
       if (query && !(
         item.patientName.toLowerCase().includes(query) ||
         (item.mondayItemName || '').toLowerCase().includes(query) ||
@@ -852,54 +961,26 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
       
       if (filterProcedure !== 'all' && !splitProcedures(item.patientProcedure).includes(filterProcedure)) return false;
       if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
+      if (filterCreativeType !== 'all' && item.creativeType !== filterCreativeType) return false;
       if (!matchesAgeRange(item.patientAge, filterAge)) return false;
       
       return true;
     });
-  }, [deferredSearch, testimonials, filterProcedure, filterGender, filterAge]);
+  }, [deferredSearch, ratedTestimonials, filterProcedure, filterGender, filterCreativeType, filterAge]);
 
-  const galleryItems = useMemo<ReadyAssetItem[]>(
-    () => filteredTestimonials.flatMap(testimonial => testimonial.assets.map(asset => ({ testimonial, asset }))),
+  const galleryItems = useMemo<ReadyGalleryItem[]>(
+    () => buildReadyGalleryItems(filteredTestimonials),
     [filteredTestimonials]
   );
 
-  const allGalleryItems = useMemo<ReadyAssetItem[]>(
-    () => testimonials.flatMap(testimonial => testimonial.assets.map(asset => ({ testimonial, asset }))),
-    [testimonials]
+  const allGalleryItems = useMemo<ReadyGalleryItem[]>(
+    () => buildReadyGalleryItems(ratedTestimonials),
+    [ratedTestimonials]
   );
 
   const recommendedItems = useMemo(() => {
     if (!selectedItem) return [];
-    const currentProcedures = splitProcedures(selectedItem.testimonial.patientProcedure);
-    const currentType = selectedItem.testimonial.creativeType || '';
-    const currentAge = selectedItem.testimonial.patientAge;
-    const currentGender = selectedItem.testimonial.patientGender || '';
-    return allGalleryItems
-      .filter(item => item.asset.id !== selectedItem.asset.id)
-      .sort((a, b) => {
-        const score = (candidate: ReadyAssetItem) => {
-          const candidateProcedures = splitProcedures(candidate.testimonial.patientProcedure);
-          const hasProcedureMatch = currentProcedures.some(proc => candidateProcedures.includes(proc));
-          const ageDiff = typeof currentAge === 'number' && typeof candidate.testimonial.patientAge === 'number'
-            ? Math.abs(currentAge - candidate.testimonial.patientAge)
-            : null;
-          let value = 0;
-          if (hasProcedureMatch) value += 80;
-          if (ageDiff !== null) {
-            if (ageDiff <= 5) value += 42;
-            else if (ageDiff <= 10) value += 28;
-            else if (ageDiff <= 15) value += 14;
-          }
-          if (currentGender && candidate.testimonial.patientGender === currentGender) value += 12;
-          if (currentType && candidate.testimonial.creativeType === currentType) value += 14;
-          if (candidate.testimonial.caseId !== selectedItem.testimonial.caseId) value += 18;
-          else value -= 45;
-          return value;
-        };
-        const aScore = score(a);
-        const bScore = score(b);
-        return bScore - aScore;
-      });
+    return sortReadyRecommendations(allGalleryItems, selectedItem);
   }, [allGalleryItems, selectedItem]);
 
   const suggestedFilters = useMemo(() => {
@@ -914,7 +995,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     return items;
   }, [procedures]);
 
-  const hasActiveFilters = filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all';
+  const hasActiveFilters = filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all' || filterCreativeType !== 'all';
 
   return (
     <section className="animate-fade-in">
@@ -998,7 +1079,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
 
       {filtersOpen && (
         <div className="mt-5 rounded-[1.7rem] border border-[#d7ebfb] bg-white/58 p-5 backdrop-blur-xl">
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Gênero</p>
               <div className="flex flex-wrap gap-2">
@@ -1037,6 +1118,18 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 ))}
               </div>
             </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Tipo de criativo</p>
+              <div className="flex flex-wrap gap-2">
+                <FilterChip active={filterCreativeType === 'all'} onClick={() => setFilterCreativeType('all')} tone="bg-[#dff2ff]">Todos</FilterChip>
+                {creativeTypes.map(type => (
+                  <FilterChip key={type} active={filterCreativeType === type} onClick={() => setFilterCreativeType(type)} tone="bg-[#e3d8ff]">
+                    {type}
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
           </div>
           {hasActiveFilters && (
             <button
@@ -1045,6 +1138,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 setFilterProcedure('all');
                 setFilterGender('all');
                 setFilterAge('all');
+                setFilterCreativeType('all');
               }}
               className="mt-5 text-xs font-black text-[#5277a2] underline underline-offset-2 hover:text-[#082653]"
             >
@@ -1083,22 +1177,22 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
         <div className="mt-5 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {galleryItems.map(item => {
             const procedure = getPrimaryProcedure(item.testimonial.patientProcedure);
-            const formatLabel = getAssetFormatLabel(item.asset, item.testimonial.creativeType);
+            const formatLabel = getAssetFormatLabel(item.primaryAsset, item.testimonial.creativeType);
             return (
               <button
-                key={`${item.testimonial.id}-${item.asset.id}`}
+                key={item.id}
                 type="button"
                 onClick={() => setSelectedItem(item)}
-                className={`group relative w-full overflow-hidden rounded-[1.35rem] border border-white/75 bg-[#d8edff] text-left shadow-[0_10px_28px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.14)] ${getAssetCardHeight(item.asset, item.testimonial.creativeType)}`}
+                className={`group relative w-full overflow-hidden rounded-[1.35rem] border border-white/75 bg-[#d8edff] text-left shadow-[0_10px_28px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.14)] ${getAssetCardHeight(item.primaryAsset, item.testimonial.creativeType)}`}
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '340px' }}
                 aria-label={`Abrir ${item.testimonial.title} de ${item.testimonial.patientName}`}
               >
-                <GalleryAssetPreview asset={item.asset} />
+                <GalleryAssetPreview asset={item.primaryAsset} />
 
                 <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-[#06182f]/65 to-transparent p-3 pb-12">
                   <div className="flex min-w-0 items-start gap-2">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/78 text-[#2b75bd] backdrop-blur">
-                      {isVideoAsset(item.asset) ? (
+                      {isVideoAsset(item.primaryAsset) ? (
                         <PlayIcon className="ml-0.5 h-3.5 w-3.5" />
                       ) : (
                         <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
@@ -1120,7 +1214,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                   </span>
                 </div>
 
-                {isVideoAsset(item.asset) && (
+                {isVideoAsset(item.primaryAsset) && (
                   <span className="absolute inset-0 flex items-center justify-center">
                     <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-[0_18px_40px_rgba(8,38,83,0.28)] backdrop-blur transition-transform group-hover:scale-105">
                       <PlayIcon className="ml-1 h-7 w-7" />
@@ -1134,8 +1228,9 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                   </p>
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[10px] font-black text-[#2b75bd]">
-                      {formatLabel}
+                      {item.isPhotoCatalog ? `${item.assets.length} fotos` : formatLabel}
                     </span>
+                    <StarRating value={item.testimonial.rating} compact />
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">
                       Abrir
                     </span>
@@ -1156,6 +1251,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
           onClose={() => setSelectedItem(null)}
           onSelect={setSelectedItem}
           onOpenCase={onOpenCase}
+          onRated={(subitemId, rating) => setRatingOverrides(prev => ({ ...prev, [subitemId]: rating }))}
         />
       )}
     </section>

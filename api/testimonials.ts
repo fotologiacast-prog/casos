@@ -9,6 +9,7 @@ type MondayAsset = {
 type MondayColumnValue = {
   id: string;
   text?: string | null;
+  value?: string | null;
   column?: { title?: string | null } | null;
 };
 
@@ -128,6 +129,24 @@ const pickCreativeType = (columns: MondayColumnValue[] = []) =>
     "#Tipo do criativo",
   ]);
 
+const pickRating = (columns: MondayColumnValue[] = []) => {
+  const column = columns.find(item => {
+    const title = normalizeColumnTitle(item.column?.title || item.id || "");
+    return ["avaliacao", "avaliacao do criativo"].includes(title);
+  });
+  if (!column) return null;
+  const textRating = Number(String(column.text || "").match(/\d+/)?.[0] || "");
+  if (Number.isFinite(textRating) && textRating > 0) return Math.min(5, Math.max(1, textRating));
+  try {
+    const parsed = JSON.parse(column.value || "{}");
+    const raw = parsed.rating ?? parsed.value ?? parsed.index;
+    const valueRating = Number(raw);
+    return Number.isFinite(valueRating) && valueRating > 0 ? Math.min(5, Math.max(1, valueRating)) : null;
+  } catch {
+    return null;
+  }
+};
+
 const calculateAge = (birthDate: string | null) => {
   if (!birthDate) return null;
   const birth = new Date(`${birthDate}T00:00:00`);
@@ -223,6 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           column_values {
             id
             text
+            value
             column { title }
           }
         }
@@ -245,6 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (normalizeKey(status || "") !== "editado") return [];
 
         const creativeType = pickCreativeType(subitem.column_values || []);
+        const rating = pickRating(subitem.column_values || []);
         if (normalizeKey(subitem.name).startsWith("edicao") && normalizeKey(status || "") === "editado") {
           editedRequestsToSync.push({
             mondaySubitemId: String(subitem.id),
@@ -268,6 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           title: subitem.name,
           status,
           creativeType,
+          rating,
           assets,
         }];
       });
