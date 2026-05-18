@@ -255,6 +255,10 @@ alter table public.case_editing_requests add column if not exists material_url t
 alter table public.case_editing_requests add column if not exists status text not null default 'sent';
 alter table public.case_editing_requests add column if not exists sent_at timestamptz not null default now();
 alter table public.case_editing_requests add column if not exists edited_at timestamptz;
+alter table public.case_editing_requests add column if not exists creative_type text;
+alter table public.case_editing_requests add column if not exists edited_material_count integer not null default 0;
+alter table public.case_editing_requests add column if not exists monday_webhook_event_id uuid;
+alter table public.case_editing_requests add column if not exists last_webhook_at timestamptz;
 
 create index if not exists case_editing_requests_client_id_idx
   on public.case_editing_requests (client_id);
@@ -279,6 +283,55 @@ alter table public.case_editing_requests enable row level security;
 drop policy if exists "No public direct access to case_editing_requests" on public.case_editing_requests;
 create policy "No public direct access to case_editing_requests"
   on public.case_editing_requests
+  for all
+  using (false)
+  with check (false);
+
+create table if not exists public.monday_webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  event_type text,
+  board_id text,
+  item_id text,
+  parent_item_id text,
+  column_id text,
+  column_title text,
+  pulse_name text,
+  status_text text,
+  processed boolean not null default false,
+  processing_error text,
+  raw_payload jsonb not null default '{}'::jsonb
+);
+
+alter table public.monday_webhook_events add column if not exists event_type text;
+alter table public.monday_webhook_events add column if not exists board_id text;
+alter table public.monday_webhook_events add column if not exists item_id text;
+alter table public.monday_webhook_events add column if not exists parent_item_id text;
+alter table public.monday_webhook_events add column if not exists column_id text;
+alter table public.monday_webhook_events add column if not exists column_title text;
+alter table public.monday_webhook_events add column if not exists pulse_name text;
+alter table public.monday_webhook_events add column if not exists status_text text;
+alter table public.monday_webhook_events add column if not exists processed boolean not null default false;
+alter table public.monday_webhook_events add column if not exists processing_error text;
+alter table public.monday_webhook_events add column if not exists raw_payload jsonb not null default '{}'::jsonb;
+
+create index if not exists monday_webhook_events_created_at_idx
+  on public.monday_webhook_events (created_at desc);
+
+create index if not exists monday_webhook_events_item_id_idx
+  on public.monday_webhook_events (item_id);
+
+create index if not exists monday_webhook_events_parent_item_id_idx
+  on public.monday_webhook_events (parent_item_id);
+
+create index if not exists monday_webhook_events_event_type_idx
+  on public.monday_webhook_events (event_type);
+
+alter table public.monday_webhook_events enable row level security;
+
+drop policy if exists "No public direct access to monday_webhook_events" on public.monday_webhook_events;
+create policy "No public direct access to monday_webhook_events"
+  on public.monday_webhook_events
   for all
   using (false)
   with check (false);

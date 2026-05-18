@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
+const DEFAULT_MONDAY_WEBHOOK_EVENT = "change_subitem_column_value";
 
 const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -29,6 +30,56 @@ const serializeApiError = (error: unknown) => {
     return [record.code, record.message, record.details, record.hint].filter(Boolean).map(String).join(" ");
   }
   return String(error);
+};
+
+const mondayAdminFetch = async (query: string, variables: Record<string, unknown>) => {
+  const mondayToken = process.env.MONDAY_TOKEN;
+  if (!mondayToken) throw new Error("MONDAY_TOKEN ausente.");
+
+  const response = await fetch("https://api.monday.com/v2", {
+    method: "POST",
+    headers: {
+      Authorization: mondayToken.trim(),
+      "Content-Type": "application/json",
+      "API-Version": "2024-10",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.errors) {
+    const message = data.errors?.map((error: any) => {
+      const path = Array.isArray(error.path) ? ` path=${error.path.join(".")}` : "";
+      return `${error.message || "Erro sem mensagem"}${path}`;
+    }).join(" | ");
+    throw new Error(message || `Falha no Monday. HTTP ${response.status}`);
+  }
+
+  return data;
+};
+
+const withProtocol = (value: string) => {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+
+const buildMondayWebhookUrl = (req: VercelRequest, body: any) => {
+  const configuredUrl = String(body?.webhook_url || process.env.MONDAY_WEBHOOK_URL || "").trim();
+  const baseUrl =
+    configuredUrl ||
+    process.env.PUBLIC_APP_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL ||
+    (req.headers.host ? `https://${req.headers.host}` : "");
+
+  const secret = process.env.MONDAY_WEBHOOK_SECRET;
+  if (!secret) throw new Error("MONDAY_WEBHOOK_SECRET ausente.");
+  if (!baseUrl) throw new Error("URL publica do Vercel ausente. Configure MONDAY_WEBHOOK_URL ou VERCEL_PROJECT_PRODUCTION_URL.");
+
+  const url = new URL("/api/monday-webhook", withProtocol(baseUrl));
+  url.searchParams.set("secret", secret);
+  return url.toString();
 };
 
 // Client specific helpers
@@ -287,6 +338,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { error } = await supabase.from("admin_notifications").delete().eq("id", id);
         if (error) throw error;
         return res.status(200).json({ ok: true });
+      }
+    }
+
+    // --- MONDAY WEBHOOKS MODULE ---
+    if (module === "monday-webhooks") {
+      if (req.method === "GET") {
+        const boardId = String(req.query.boardId || DEFAULT_MONDAY_CASE_BOARD_ID);
+        const data = await mondayAdminFetch(
+          `query ($boardIds: [ID!]) {
+            boards(ids: $boardIds) {
+              id
+              name
+              webhooks {
+                id
+                event
+                board_id
+                config
+              }
+            }
+          }`,
+          { boardIds: [boardId] }
+        );
+
+        return res.status(200).json({
+          board: data?.data?.boards?.[0] || null,
+          webhookUrl: buildMondayWebhookUrl(req, {}),
+        });
+      }
+
+      if (req.method === "POST") {
+        const boardId = String(req.body?.boardId || DEFAULT_MONDAY_CASE_BOARD_ID);
+        const eventName = String(req.body?.eventName || DEFAULT_MONDAY_WEBHOOK_EVENT);
+        const webhookUrl = buildMondayWebhookUrl(req, req.body);
+        const config = req.body?.config || null;
+
+        const variables: Record<string, unknown> = {
+          boardId,
+          url: webhookUrl,
+          event: eventName,
+        };
+
+        const mutation = config
+          ? `mutation ($boardId: ID!, $url: String!, $event: WebhookEventType!, $config: JSON!) {
+              create_webhook(board_id: $boardId, url: $url, event: $event, config: $config) {
+                id
+                board_id
+              }
+            }`
+          : `mutation ($boardId: ID!, $url: String!, $event: WebhookEventType!) {
+              create_webhook(board_id: $boardId, url: $url, event: $event) {
+                id
+                board_id
+              }
+            }`;
+
+        if (config) variables.config = JSON.stringify(config);
+
+        const data = await mondayAdminFetch(mutation, variables);
+
+        return res.status(201).json({
+          ok: true,
+          webhook: data?.data?.create_webhook,
+          eventName,
+          webhookUrl,
+        });
       }
     }
 
