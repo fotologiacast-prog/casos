@@ -1,5 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requestStageEditing, serializeEditingRequestError } from "../server/editingRequestCore";
+
+const serializeApiError = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    return [record.code, record.message, record.details, record.hint].filter(Boolean).map(String).join(" ");
+  }
+  return String(error);
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,12 +23,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { requestStageEditing } = await import("./_editingRequestCore.js");
     const result = await requestStageEditing(req.body);
     return res.status(result.status).json(result.body);
   } catch (error) {
     return res.status(500).json({
       error: "Falha ao mandar para edição.",
-      details: serializeEditingRequestError(error),
+      details: serializeApiError(error),
     });
   }
 }
