@@ -101,23 +101,6 @@ const normalizeKey = (value: string) =>
     .trim()
     .toLowerCase();
 
-const getColumnSettings = (column: { settings_str?: string | null }) => {
-  try {
-    return JSON.parse(column.settings_str || "{}");
-  } catch {
-    return {};
-  }
-};
-
-const findStatusLabelIndex = (column: { settings_str?: string | null }, label: string) => {
-  const settings = getColumnSettings(column);
-  const labels = settings?.labels;
-  if (!labels || typeof labels !== "object") return null;
-  const target = normalizeKey(label);
-  const match = Object.entries(labels).find(([, value]) => normalizeKey(String(value)) === target);
-  return match ? Number(match[0]) : null;
-};
-
 const pickStatus = (columns: MondayColumnValue[] = []) => {
   const statusColumn = columns.find(column => {
     const title = (column.column?.title || column.id || "").toLowerCase();
@@ -166,68 +149,6 @@ const normalizeAssets = (assets: MondayAsset[] = []) =>
         public_url: String(asset.public_url),
       };
     });
-
-const markEditingSubitemsAsEdited = async (
-  subitems: { id: string; name: string; boardId?: string | null; status?: string | null; statusColumnId?: string | null; assetsCount: number }[]
-) => {
-  const pending = subitems.filter(subitem =>
-    subitem.assetsCount > 0 &&
-    normalizeKey(subitem.name).startsWith("edicao") &&
-    normalizeKey(subitem.status || "") !== "editado" &&
-    subitem.boardId &&
-    subitem.statusColumnId
-  );
-
-  if (pending.length === 0) return new Map<string, string>();
-
-  const boardIds = Array.from(new Set(pending.map(subitem => String(subitem.boardId))));
-  const columnsData = await mondayFetch(
-    `query ($boardIds: [ID!]) {
-      boards(ids: $boardIds) {
-        id
-        columns { id title type settings_str }
-      }
-    }`,
-    { boardIds }
-  );
-
-  const boards = columnsData?.data?.boards || [];
-  const columnsByBoardId = new Map<string, { id: string; title: string; type: string; settings_str?: string | null }[]>(
-    boards.map((board: any) => [String(board.id), board.columns || []])
-  );
-  const updatedStatuses = new Map<string, string>();
-
-  await Promise.allSettled(pending.map(async subitem => {
-    const columns = columnsByBoardId.get(String(subitem.boardId)) || [];
-    const statusColumn = columns.find(column =>
-      String(column.id) === String(subitem.statusColumnId) ||
-      ((column.type === "status" || column.type === "color") &&
-        ["status", "situacao", "situacao da tarefa"].some(alias => normalizeKey(column.title).includes(alias)))
-    );
-    if (!statusColumn) return;
-
-    const editadoIndex = findStatusLabelIndex(statusColumn, "Editado");
-    const value = Number.isFinite(editadoIndex) ? { index: editadoIndex } : { label: "Editado" };
-    await mondayFetch(
-      `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
-        change_multiple_column_values(
-          board_id: $boardId,
-          item_id: $itemId,
-          column_values: $columnValues,
-          create_labels_if_missing: false
-        ) { id }
-      }`,
-      {
-        boardId: String(subitem.boardId),
-        itemId: String(subitem.id),
-        columnValues: JSON.stringify({ [String(statusColumn.id)]: value }),
-      }
-    );
-    updatedStatuses.set(String(subitem.id), "Editado");
-  }));
-
-  return updatedStatuses;
-};
 
 const syncEditedRequests = async (
   supabase: any,
@@ -311,19 +232,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const mondayData = await mondayFetch(query, { itemIds: mondayItemIds });
     const items: MondayItem[] = mondayData?.data?.items || [];
     const casesByMondayItemId = new Map(caseRows.map((item: any) => [String(item.monday_item_id), item]));
-    const subitemStatusUpdates = await markEditingSubitemsAsEdited(
-      items.flatMap(item => (item.subitems || []).map(subitem => ({
-        id: String(subitem.id),
-        name: subitem.name,
-        boardId: subitem.board?.id,
-        status: pickStatus(subitem.column_values || []),
-        statusColumnId: (subitem.column_values || []).find(column => {
-          const title = normalizeKey(column.column?.title || column.id || "");
-          return title.includes("status") || title.includes("situacao") || title.includes("situacao");
-        })?.id || null,
-        assetsCount: normalizeAssets(subitem.assets || []).length,
-      })))
-    );
 
     const editedRequestsToSync: { mondaySubitemId: string; creativeType?: string | null; assetCount: number }[] = [];
     const testimonials = items.flatMap(item => {
@@ -333,7 +241,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return (item.subitems || []).flatMap(subitem => {
         const assets = normalizeAssets(subitem.assets || []);
         if (assets.length === 0) return [];
-        const status = subitemStatusUpdates.get(String(subitem.id)) || pickStatus(subitem.column_values || []);
+        const status = pickStatus(subitem.column_values || []);
+        if (normalizeKey(status || "") !== "editado") return [];
+
         const creativeType = pickCreativeType(subitem.column_values || []);
         if (normalizeKey(subitem.name).startsWith("edicao") && normalizeKey(status || "") === "editado") {
           editedRequestsToSync.push({
