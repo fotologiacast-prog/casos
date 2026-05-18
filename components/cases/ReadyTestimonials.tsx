@@ -136,6 +136,7 @@ const VideoPreview: React.FC<{
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [showDrivePlayer, setShowDrivePlayer] = useState(false);
+  const [hasPreviewFrame, setHasPreviewFrame] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.85);
@@ -227,6 +228,15 @@ const VideoPreview: React.FC<{
       mediaSizeCache.set(asset.id, naturalSize);
       onNaturalSize?.(naturalSize);
     }
+    if (Number.isFinite(video.duration) && video.duration > 0.4 && video.currentTime < 0.05) {
+      try {
+        video.currentTime = Math.min(0.35, video.duration * 0.12);
+      } catch {
+        setHasPreviewFrame(true);
+      }
+    } else {
+      setHasPreviewFrame(true);
+    }
   };
 
   const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,14 +282,18 @@ const VideoPreview: React.FC<{
 
   return (
     <div className="group/player relative flex h-full min-h-[260px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white">
+      {!hasPreviewFrame && !hasError && <ThumbnailSkeleton />}
       <video
         ref={videoRef}
         src={asset.public_url}
-        className="h-full w-full object-contain"
+        className={`h-full w-full object-cover transition-opacity duration-500 ${hasPreviewFrame ? 'opacity-100' : 'opacity-0'}`}
         playsInline
-        preload="none"
+        preload="metadata"
         onClick={togglePlayback}
         onLoadedMetadata={handleLoadedMetadata}
+        onLoadedData={() => setHasPreviewFrame(true)}
+        onCanPlay={() => setHasPreviewFrame(true)}
+        onSeeked={() => setHasPreviewFrame(true)}
         onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
@@ -561,6 +575,9 @@ const VideoThumbnail: React.FC<{ asset: TestimonialAsset; className?: string }> 
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
     if (!video) return;
+    if (video.videoWidth && video.videoHeight) {
+      mediaSizeCache.set(asset.id, { width: video.videoWidth, height: video.videoHeight });
+    }
     const duration = Number.isFinite(video.duration) ? video.duration : 0;
     if (duration > 0.4) {
       try {
@@ -677,7 +694,7 @@ const ReadyAssetModal: React.FC<{
         <div className="grid gap-5 xl:grid-cols-[minmax(640px,1fr)_470px] 2xl:grid-cols-[minmax(720px,1fr)_520px]">
           <main className="min-w-0">
             <div className="impact-glass rounded-[2rem] p-3 sm:p-5">
-              <div className="mb-4 flex flex-col gap-4 rounded-[1.55rem] border border-white/80 bg-white/55 p-4 shadow-[0_14px_36px_rgba(22,78,129,0.08)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-4 flex flex-col gap-4 rounded-[1.55rem] border border-white/80 bg-white/55 p-4 shadow-[0_14px_36px_rgba(22,78,129,0.08)] lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                   <button
                     type="button"
@@ -698,6 +715,24 @@ const ReadyAssetModal: React.FC<{
                       {[testimonial.patientAge ? `${testimonial.patientAge} anos` : null, procedure, formatLabel].filter(Boolean).join(' • ')}
                     </p>
                   </div>
+                </div>
+                <div className="flex shrink-0 gap-2 sm:justify-end">
+                  {onOpenCase && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCase(testimonial.caseId)}
+                      className="impact-secondary min-h-10 flex-1 px-4 text-xs sm:flex-none"
+                    >
+                      Ver caso
+                    </button>
+                  )}
+                  <a
+                    href={getDownloadUrl(token, testimonial, asset, isDemo)}
+                    download={asset.name}
+                    className="impact-primary min-h-10 flex-1 px-4 text-xs sm:flex-none"
+                  >
+                    Download
+                  </a>
                 </div>
               </div>
 
@@ -722,55 +757,11 @@ const ReadyAssetModal: React.FC<{
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_220px]">
-                <div className="rounded-[1.35rem] border border-white/80 bg-white/70 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">{getAssetKind(asset)} pronto</p>
-                  <h3 className="mt-1 text-2xl font-black tracking-tight text-[#082653]">{testimonial.mondayItemName || testimonial.title}</h3>
-                  <p className="mt-2 text-sm font-semibold leading-relaxed text-[#5d7ca4]">
-                    Material pronto para uso, conectado ao caso do paciente e ao histórico salvo na plataforma.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 rounded-[1.35rem] border border-white/80 bg-white/70 p-4">
-                    {onOpenCase && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenCase(testimonial.caseId)}
-                        className="impact-secondary min-h-11 w-full px-3 text-xs"
-                      >
-                        Ver caso
-                      </button>
-                    )}
-                    <a
-                      href={getDownloadUrl(token, testimonial, asset, isDemo)}
-                      download={asset.name}
-                      className="impact-primary min-h-11 w-full px-3 text-xs"
-                    >
-                      Download
-                    </a>
-                </div>
-              </div>
             </div>
           </main>
 
           <aside className="min-w-0 xl:sticky xl:top-4 xl:self-start">
             <div className="impact-glass rounded-[2rem] p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e4f4ff] text-[#20a8f5]">
-                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                      <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v1.34a5.75 5.75 0 0 0-5.16 5.16H2.75a.75.75 0 0 0 0 1.5h1.34a5.75 5.75 0 0 0 5.16 5.16v1.34a.75.75 0 0 0 1.5 0v-1.34a5.75 5.75 0 0 0 5.16-5.16h1.34a.75.75 0 0 0 0-1.5h-1.34a5.75 5.75 0 0 0-5.16-5.16V2.75Z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Recomendados</p>
-                    <h3 className="text-lg font-black text-[#082653]">Pacientes parecidos</h3>
-                  </div>
-                </div>
-                <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-black text-[#5277a2]">
-                  {visibleRecommendations.length}
-                </span>
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 {visibleRecommendations.map(recommended => {
                   const recProcedure = getPrimaryProcedure(recommended.testimonial.patientProcedure);

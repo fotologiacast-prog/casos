@@ -385,46 +385,25 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#20a8f5]">Admin</p>
               <h1 className="text-lg font-black text-[#082653]">Portal Impact Doctor</h1>
             </div>
-            <div className="hidden items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl md:flex">
-              {[
-                ['home', 'Início'],
-                ['clients', 'Clientes'],
-                ['faqs', 'Faqs'],
-                ['dashboard', 'Dashboard'],
-                ['notifications', 'Notificações'],
-              ].map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => openAdminTab(id as AdminTab)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
-                    adminTab === id ? 'bg-white text-[#09315f] shadow-sm' : 'text-[#7894b7] hover:text-[#09315f]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
-          <select
-            value={adminTab}
-            onChange={event => openAdminTab(event.target.value as AdminTab)}
-            className="min-w-0 flex-1 rounded-2xl border border-[#cfe7fb] bg-white/80 px-3 py-2 text-xs font-black text-[#09315f] shadow-[0_8px_24px_rgba(22,78,129,0.08)] outline-none md:hidden"
-            aria-label="Navegação do admin"
-          >
-            <option value="home">Início</option>
-            <option value="clients">Clientes</option>
-            <option value="faqs">Faqs</option>
-            <option value="dashboard">Dashboard</option>
-            <option value="notifications">Notificações</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => { localStorage.removeItem('cases_admin_password'); setPassword(''); }}
-            className="impact-secondary min-h-10 px-4 text-xs"
-          >
-            Sair
-          </button>
+          <div className="flex items-center gap-2">
+            {adminTab !== 'home' && (
+              <button
+                type="button"
+                onClick={() => openAdminTab('home')}
+                className="impact-secondary min-h-10 px-4 text-xs"
+              >
+                Início
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { localStorage.removeItem('cases_admin_password'); setPassword(''); }}
+              className="impact-secondary min-h-10 px-4 text-xs"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
@@ -790,75 +769,89 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
             </button>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          <div className="rounded-[2rem] border border-[#d7ebfb] bg-white/55 p-3 shadow-[0_18px_55px_rgba(22,78,129,0.1)] backdrop-blur-xl sm:p-4">
             {isLoading ? (
               <div className="flex items-center justify-center p-12">
-                <div className="h-8 w-8 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin" />
+                <div className="h-8 w-8 rounded-full border-2 border-[#d7ecfb] border-t-[#20a8f5] animate-spin" />
               </div>
             ) : filteredClients.length === 0 ? (
               <div className="p-12 text-center">
-                <p className="text-sm font-semibold text-zinc-500">
+                <p className="text-sm font-semibold text-[#6d8db1]">
                   {search ? 'Nenhum cliente encontrado.' : 'Nenhum cliente cadastrado.'}
                 </p>
                 {!search && (
                   <button
                     type="button"
                     onClick={handleNew}
-                    className="mt-4 rounded-xl bg-black px-4 py-2 text-sm font-bold text-white transition-all hover:bg-zinc-800"
+                    className="impact-primary mt-4 min-h-10 px-4 text-xs"
                   >
                     + Novo cliente
                   </button>
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-zinc-100">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filteredClients.map(client => (
-                    <div key={client.id} className="flex flex-col gap-3 p-4 transition-colors hover:bg-zinc-50/70 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-[11px] font-bold text-white">
-                            {getInitials(client.name)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h2 className="font-bold text-zinc-900">{client.name}</h2>
-                              {client.active === false && (
-                                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-500">Inativo</span>
-                              )}
-                            </div>
-                            <p className="mt-0.5 truncate text-xs text-zinc-500">
-                              <span className="font-mono">{client.case_public_token}</span>
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-zinc-400">
-                              Drive: {client.drive_folder_id ? <span className="font-mono text-zinc-600">{client.drive_folder_id.slice(0, 20)}...</span> : 'sem pasta'}
-                            </p>
-                          </div>
+                  <article
+                    key={client.id}
+                    className="group flex min-h-[260px] flex-col rounded-[1.65rem] border border-white/80 bg-white/78 p-4 shadow-[0_14px_38px_rgba(22,78,129,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(22,78,129,0.16)]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-[#0b3768] to-[#20a8f5] text-sm font-black text-white shadow-[0_14px_30px_rgba(32,168,245,0.22)]">
+                          {getInitials(client.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="truncate text-lg font-black text-[#082653]">{client.name}</h2>
+                          <p className="mt-0.5 truncate text-[11px] font-bold text-[#6d8db1]">
+                            {client.monday_client_label || client.case_client_label || 'Sem label Monday'}
+                          </p>
                         </div>
                       </div>
-                      <div className="ml-14 flex flex-wrap gap-2 sm:ml-0">
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+                        client.active === false ? 'bg-zinc-100 text-zinc-500' : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {client.active === false ? 'Inativo' : 'Ativo'}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 space-y-3 rounded-[1.25rem] border border-[#e2f1fb] bg-[#f7fcff]/80 p-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Token</p>
+                        <p className="mt-1 truncate font-mono text-xs font-bold text-[#174579]">{client.case_public_token || 'sem-token'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Drive</p>
+                        <p className="mt-1 truncate font-mono text-xs font-bold text-[#174579]">{client.drive_folder_id || 'sem pasta vinculada'}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-auto pt-4">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => handleCopy(client.case_public_token || '')}
-                          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50"
+                          className="impact-secondary min-h-10 px-3 text-xs"
                         >
                           {copiedToken === client.case_public_token ? 'Copiado' : 'Copiar link'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(client)}
-                          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:border-zinc-400 hover:bg-zinc-50"
+                          className="impact-primary min-h-10 px-3 text-xs"
                         >
                           Editar
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(client)}
-                          className="rounded-xl border border-red-100 px-3 py-1.5 text-xs font-bold text-red-600 transition-all hover:border-red-300 hover:bg-red-50"
-                        >
-                          Excluir
-                        </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(client)}
+                        className="mt-2 min-h-10 w-full rounded-2xl border border-red-100 bg-white/80 px-3 text-xs font-black text-red-600 transition-colors hover:bg-red-50"
+                      >
+                        Excluir
+                      </button>
                     </div>
+                  </article>
                 ))}
               </div>
             )}

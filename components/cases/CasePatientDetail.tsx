@@ -77,6 +77,17 @@ const phaseHeaderThemes: Record<string, { gradient: string; accent: string; mute
   },
 };
 
+const EDITING_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const EDITING_MOMENTS = new Set(['Entrega', 'Evento', 'Agência']);
+
+const formatCooldown = (ms: number) => {
+  const safeMs = Math.max(0, ms);
+  const hours = Math.floor(safeMs / (60 * 60 * 1000));
+  const minutes = Math.ceil((safeMs % (60 * 60 * 1000)) / (60 * 1000));
+  if (hours <= 0) return `${minutes} min`;
+  return `${hours}h ${minutes.toString().padStart(2, '0')}min`;
+};
+
 const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   patient,
   onBack,
@@ -93,6 +104,15 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<'all' | 'captured' | 'todo'>('all');
+  const [isRequestingEditing, setIsRequestingEditing] = React.useState(false);
+  const [editingError, setEditingError] = React.useState<string | null>(null);
+  const [editingSuccessVisible, setEditingSuccessVisible] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+  const editingStorageKey = `case_patient_editing_requested_at_${patient.id}`;
+  const [lastEditingRequestAt, setLastEditingRequestAt] = React.useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return Number(window.localStorage.getItem(editingStorageKey) || 0);
+  });
 
   const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
     return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
@@ -118,6 +138,15 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     }
     await onRefreshPatient(patient.id);
   };
+
+  React.useEffect(() => {
+    setLastEditingRequestAt(typeof window === 'undefined' ? 0 : Number(window.localStorage.getItem(editingStorageKey) || 0));
+  }, [editingStorageKey]);
+
+  React.useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleFileDeleted = (stageId: string, fileId: string) => {
     // Optimistically remove from UI; parent will refresh on next open
@@ -157,8 +186,51 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     };
   };
 
+  const editableStages = orderedStages.filter(stage =>
+    !stage.id.startsWith('missing-') &&
+    EDITING_MOMENTS.has(String(stage.moment || '')) &&
+    stage.files.length > 0
+  );
+  const selectedEditingStage = editableStages[0] || null;
+  const editingCooldownRemaining = lastEditingRequestAt
+    ? Math.max(0, EDITING_COOLDOWN_MS - (now - lastEditingRequestAt))
+    : 0;
+  const isEditingBlockedByCooldown = editingCooldownRemaining > 0;
+  const canSendToEditing = Boolean(onRequestStageEditing && selectedEditingStage && !isEditingBlockedByCooldown && !isRequestingEditing);
+
+  const handleRequestCaseEditing = async () => {
+    if (!onRequestStageEditing || !selectedEditingStage || isEditingBlockedByCooldown || isRequestingEditing) return;
+    setEditingError(null);
+    setIsRequestingEditing(true);
+    try {
+      await onRequestStageEditing(selectedEditingStage);
+      const sentAt = Date.now();
+      setLastEditingRequestAt(sentAt);
+      window.localStorage.setItem(editingStorageKey, String(sentAt));
+      setNow(sentAt);
+      setEditingSuccessVisible(true);
+      window.setTimeout(() => setEditingSuccessVisible(false), 3200);
+    } catch (error) {
+      setEditingError(error instanceof Error ? error.message : 'Falha ao mandar para edição.');
+    } finally {
+      setIsRequestingEditing(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in pb-14 sm:pb-20">
+      {editingSuccessVisible && (
+        <div className="pointer-events-none fixed left-1/2 top-24 z-[70] -translate-x-1/2 animate-fade-in rounded-full border border-emerald-200 bg-white/95 px-5 py-3 text-sm font-black text-emerald-700 shadow-[0_18px_50px_rgba(16,185,129,0.22)] backdrop-blur-xl">
+          <span className="inline-flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
+              </svg>
+            </span>
+            Enviado para edição com sucesso!
+          </span>
+        </div>
+      )}
       {/* Compact detail toolbar */}
       <div className="sticky top-0 z-40 px-4 pt-4 lg:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between rounded-[1.75rem] border border-white/75 bg-white/60 px-4 py-3 shadow-[0_16px_44px_rgba(22,78,129,0.1)] backdrop-blur-2xl">
@@ -349,7 +421,6 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                       onUpload={handleUpload}
                       onFileDeleted={handleFileDeleted}
                       isPlaceholder={stage.id.startsWith('missing-')}
-                      onRequestEditing={onRequestStageEditing}
                     />
                   ))}
                 </div>
@@ -357,6 +428,55 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             );
           })}
         </div>
+
+        <section className="impact-glass rounded-[2rem] p-5 sm:p-6 lg:p-7">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-rose-500">Edição</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-[#082653]">Mandar materiais para edição</h2>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-[#6d8db1]">
+                {selectedEditingStage
+                  ? `Disponível porque já existe material em ${selectedEditingStage.moment}.`
+                  : 'Libera quando houver ao menos um arquivo nas fases Entrega, Evento ou Agência.'}
+              </p>
+              {isEditingBlockedByCooldown && (
+                <p className="mt-2 text-xs font-black text-amber-700">
+                  Novo envio liberado em {formatCooldown(editingCooldownRemaining)}.
+                </p>
+              )}
+              {editingError && (
+                <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700" role="status" aria-live="polite">
+                  {editingError}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleRequestCaseEditing}
+              disabled={!canSendToEditing}
+              className={`inline-flex min-h-14 w-full shrink-0 items-center justify-center gap-2 rounded-[1.35rem] px-6 text-sm font-black shadow-[0_18px_42px_rgba(244,63,94,0.24)] transition-all active:scale-95 disabled:cursor-not-allowed disabled:shadow-none lg:w-auto ${
+                canSendToEditing
+                  ? 'bg-rose-500 text-white hover:bg-rose-600'
+                  : 'bg-zinc-200 text-zinc-500'
+              }`}
+            >
+              {isRequestingEditing ? (
+                <span className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />
+              ) : (
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                  <path d="M3.105 3.105a1.5 1.5 0 0 1 1.62-.326l12 4.8a1.5 1.5 0 0 1 0 2.842l-12 4.8a1.5 1.5 0 0 1-2.036-1.77L3.75 10 2.69 6.55a1.5 1.5 0 0 1 .416-1.445ZM5.065 6.05 5.823 8.5H11a1.5 1.5 0 0 1 0 3H5.823l-.758 2.45L15.08 10 5.065 6.05Z" />
+                </svg>
+              )}
+              {isRequestingEditing
+                ? 'Enviando...'
+                : isEditingBlockedByCooldown
+                  ? 'Enviado para edição'
+                  : selectedEditingStage
+                    ? 'Mandar para edição'
+                    : 'Aguardando entrega'}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -94,3 +94,31 @@ create policy "No public direct access to admin_notifications"
   for all
   using (false)
   with check (false);
+
+create table if not exists public.admin_notification_reads (
+  id uuid primary key default gen_random_uuid(),
+  notification_id uuid not null references public.admin_notifications(id) on delete cascade,
+  client_id bigint not null references public.clients(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  unique(notification_id, client_id)
+);
+
+alter table public.admin_notification_reads add column if not exists notification_id uuid references public.admin_notifications(id) on delete cascade;
+alter table public.admin_notification_reads add column if not exists client_id bigint references public.clients(id) on delete cascade;
+alter table public.admin_notification_reads add column if not exists read_at timestamptz not null default now();
+
+create unique index if not exists admin_notification_reads_notification_client_uidx
+  on public.admin_notification_reads (notification_id, client_id);
+create index if not exists admin_notification_reads_notification_id_idx
+  on public.admin_notification_reads (notification_id);
+create index if not exists admin_notification_reads_client_id_idx
+  on public.admin_notification_reads (client_id);
+
+alter table public.admin_notification_reads enable row level security;
+
+drop policy if exists "No public direct access to admin_notification_reads" on public.admin_notification_reads;
+create policy "No public direct access to admin_notification_reads"
+  on public.admin_notification_reads
+  for all
+  using (false)
+  with check (false);

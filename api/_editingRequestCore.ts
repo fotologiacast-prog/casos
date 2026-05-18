@@ -1,6 +1,7 @@
 const ALLOWED_EDITING_MOMENTS = new Set(["Entrega", "Evento", "Agência", "Agencia"]);
 const EDITING_RESPONSIBLE_USER_ID = 68685168;
 const EDITING_PRIORITY_LABEL = "Critical ⚠️";
+const EDITING_REQUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 type EditingLogContext = {
   requestId: string;
@@ -505,6 +506,36 @@ export const requestStageEditing = async (body: any) => {
     mondayItemId: caseRow.monday_item_id,
     patientName: caseRow.patient_name,
   });
+
+  const { data: recentRequests, error: recentRequestsError } = await supabase
+    .from("case_editing_requests")
+    .select("id, sent_at, stage_name")
+    .eq("case_id", caseId)
+    .order("sent_at", { ascending: false })
+    .limit(1);
+  if (recentRequestsError) throw recentRequestsError;
+  const lastRequest = recentRequests?.[0];
+  if (lastRequest?.sent_at) {
+    const sentAt = new Date(lastRequest.sent_at).getTime();
+    const remainingMs = EDITING_REQUEST_COOLDOWN_MS - (Date.now() - sentAt);
+    if (remainingMs > 0) {
+      const retryAt = new Date(sentAt + EDITING_REQUEST_COOLDOWN_MS).toISOString();
+      logInfo(context, "cooldown_active", {
+        lastStageName: lastRequest.stage_name,
+        retryAt,
+        remainingMinutes: Math.ceil(remainingMs / 60000),
+      });
+      return {
+        status: 429,
+        body: {
+          error: "Este caso ja foi enviado para edicao nas ultimas 24 horas.",
+          retryAt,
+          remainingMs,
+          requestId: context.requestId,
+        },
+      };
+    }
+  }
 
   const { data: stageRow, error: stageError } = await supabase
     .from("case_stages")

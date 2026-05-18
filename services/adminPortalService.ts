@@ -36,6 +36,9 @@ export type AdminNotification = {
   published_at: string;
   created_at: string;
   updated_at?: string;
+  read_count?: number;
+  recipient_count?: number;
+  last_read_at?: string | null;
 };
 
 export type AdminNotificationPayload = {

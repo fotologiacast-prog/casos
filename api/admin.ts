@@ -220,12 +220,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- NOTIFICATIONS MODULE ---
     if (module === "notifications") {
       if (req.method === "GET") {
-        const { data, error } = await supabase
-          .from("admin_notifications")
-          .select("*")
-          .order("published_at", { ascending: false });
-        if (error) throw error;
-        return res.status(200).json({ notifications: data || [] });
+        const [notificationsResult, readsResult, clientsResult] = await Promise.all([
+          supabase.from("admin_notifications").select("*").order("published_at", { ascending: false }),
+          supabase.from("admin_notification_reads").select("notification_id, client_id, read_at"),
+          supabase.from("clients").select("id, active"),
+        ]);
+        if (notificationsResult.error) throw notificationsResult.error;
+        if (readsResult.error) throw readsResult.error;
+        if (clientsResult.error) throw clientsResult.error;
+
+        const readsByNotificationId = new Map<string, any[]>();
+        (readsResult.data || []).forEach((read: any) => {
+          const notificationId = String(read.notification_id);
+          readsByNotificationId.set(notificationId, [...(readsByNotificationId.get(notificationId) || []), read]);
+        });
+
+        const activeClientsCount = (clientsResult.data || []).filter((client: any) => client.active !== false).length;
+        const notifications = (notificationsResult.data || []).map((notification: any) => {
+          const reads = readsByNotificationId.get(String(notification.id)) || [];
+          const lastReadAt = reads
+            .map((read: any) => read.read_at)
+            .filter(Boolean)
+            .sort()
+            .at(-1) || null;
+          return {
+            ...notification,
+            read_count: reads.length,
+            recipient_count: notification.audience === "all" || !notification.client_id ? activeClientsCount : 1,
+            last_read_at: lastReadAt,
+          };
+        });
+
+        return res.status(200).json({ notifications });
       }
 
       if (req.method === "POST") {

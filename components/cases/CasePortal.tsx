@@ -9,7 +9,7 @@ import CasePatientList from './CasePatientList';
 import NewCasePatientForm, { NewCasePatientPayload } from './NewCasePatientForm';
 import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
-import { fetchPortalNotifications, PortalNotification } from '../../services/portalNotificationService';
+import { fetchPortalNotifications, markPortalNotificationsRead, PortalNotification } from '../../services/portalNotificationService';
 
 interface CasePortalProps {
   token: string;
@@ -155,6 +155,20 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     try {
       const loaded = await fetchPortalNotifications(token);
       setManualNotifications(loaded);
+      const serverReadIds = loaded
+        .filter(notification => notification.read_at)
+        .map(notification => `admin:${notification.id}`);
+      if (serverReadIds.length > 0) {
+        setReadNotificationIds(previousIds => {
+          const nextIds = Array.from(new Set([...previousIds, ...serverReadIds]));
+          try {
+            localStorage.setItem(`case_notifications_read_${token}`, JSON.stringify(nextIds));
+          } catch {
+            // localStorage can be unavailable in private contexts.
+          }
+          return nextIds;
+        });
+      }
     } catch (err) {
       console.warn('[Cases] Nao foi possivel buscar notificacoes manuais.', err);
       setManualNotifications([]);
@@ -197,6 +211,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         }
         return nextIds;
       });
+      const manualIds = unreadManualNotifications.map(item => item.id);
+      if (manualIds.length > 0) {
+        void markPortalNotificationsRead(token, manualIds).catch(err => {
+          console.warn('[Cases] Nao foi possivel marcar notificacoes manuais como lidas.', err);
+        });
+      }
     }, 900);
 
     return () => window.clearTimeout(timer);
@@ -270,11 +290,19 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
 
   const persistReadNotifications = (ids: string[]) => {
     const uniqueIds = Array.from(new Set(ids));
+    const newManualIds = uniqueIds
+      .filter(id => id.startsWith('admin:') && !readNotificationIds.includes(id))
+      .map(id => id.replace(/^admin:/, ''));
     setReadNotificationIds(uniqueIds);
     try {
       localStorage.setItem(`case_notifications_read_${token}`, JSON.stringify(uniqueIds));
     } catch {
       // localStorage can be unavailable in private contexts.
+    }
+    if (newManualIds.length > 0) {
+      void markPortalNotificationsRead(token, newManualIds).catch(err => {
+        console.warn('[Cases] Nao foi possivel marcar notificacoes manuais como lidas.', err);
+      });
     }
   };
 

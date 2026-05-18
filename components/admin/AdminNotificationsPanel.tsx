@@ -27,6 +27,12 @@ const emptyNotification: AdminNotificationPayload = {
 
 const isVideo = (url?: string | null) => /\.(mp4|m4v|mov|webm|mpeg|mpg|3gp|ogv)(\?|$)/i.test(url || '');
 const isImage = (url?: string | null) => /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(url || '');
+const formatReadDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
 
 const AdminNotificationsPanel: React.FC<AdminNotificationsPanelProps> = ({ password, clients }) => {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -246,13 +252,33 @@ const AdminNotificationsPanel: React.FC<AdminNotificationsPanelProps> = ({ passw
                     </p>
                     <h3 className="mt-1 text-lg font-black text-[#082653]">{notification.title}</h3>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
-                    notification.active ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
-                  }`}>
-                    {notification.active ? 'Ativo' : 'Inativo'}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+                      notification.active ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500'
+                    }`}>
+                      {notification.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+                      (notification.read_count || 0) > 0 ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {(notification.read_count || 0) > 0 ? 'Visualizado' : 'Não visto'}
+                    </span>
+                  </div>
                 </div>
                 {notification.body && <p className="mt-3 line-clamp-3 text-sm font-semibold leading-relaxed text-[#5f82aa]">{notification.body}</p>}
+                <div className="mt-4 rounded-[1.2rem] border border-[#d7ebfb] bg-[#f7fcff]/80 px-3 py-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Leitura</p>
+                  <p className="mt-1 text-xs font-black text-[#174579]">
+                    {(notification.read_count || 0) > 0
+                      ? `${notification.read_count}/${notification.recipient_count || 1} visualizaram`
+                      : `0/${notification.recipient_count || 1} visualizaram`}
+                  </p>
+                  {notification.last_read_at && (
+                    <p className="mt-0.5 text-[11px] font-semibold text-[#6d8db1]">
+                      Última leitura: {formatReadDate(notification.last_read_at)}
+                    </p>
+                  )}
+                </div>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <button type="button" onClick={() => handleEdit(notification)} className="impact-secondary min-h-9 px-4 text-xs">
                     Editar

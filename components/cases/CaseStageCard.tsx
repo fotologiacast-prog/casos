@@ -9,7 +9,6 @@ interface CaseStageCardProps {
   onUpload: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   onFileDeleted?: (stageId: string, fileId: string) => void;
   isPlaceholder?: boolean;
-  onRequestEditing?: (stage: CaseStage) => Promise<void>;
 }
 
 const isImageFile = (file: CaseStage['files'][number]) => {
@@ -361,7 +360,7 @@ const VideoPlayer = ({ file, className, controls, autoPlay, muted, onClick }: an
   );
 };
 
-const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder, onFileDeleted, onRequestEditing }) => {
+const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, isPlaceholder, onFileDeleted }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
@@ -371,12 +370,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [faqOpen, setFaqOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isRequestingEditing, setIsRequestingEditing] = useState(false);
-  const [editingRequested, setEditingRequested] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(`case_stage_editing_requested_${stage.id}`) === '1';
-  });
-  const [successToastVisible, setSuccessToastVisible] = useState(false);
   const stageType = stage.title;
   const { faqs, isLoading: faqLoading, loadFaqs } = useStageFaqs(stageType);
 
@@ -414,14 +407,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
-  const canRequestEditing = Boolean(
-    onRequestEditing &&
-    !isPlaceholder &&
-    isCaptured &&
-    stage.files.length > 0 &&
-    ['Entrega', 'Evento', 'Agência'].includes(String(stage.moment || ''))
-  );
-
   const handleFiles = async (files: File[]) => {
     if (files.length === 0 || isPlaceholder) return;
     setError(null);
@@ -476,23 +461,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     }
   };
 
-  const handleRequestEditing = async () => {
-    if (!onRequestEditing || !canRequestEditing || isRequestingEditing || editingRequested) return;
-    setError(null);
-    setIsRequestingEditing(true);
-    try {
-      await onRequestEditing(stage);
-      setEditingRequested(true);
-      window.localStorage.setItem(`case_stage_editing_requested_${stage.id}`, '1');
-      setSuccessToastVisible(true);
-      window.setTimeout(() => setSuccessToastVisible(false), 3200);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao mandar para edição.');
-    } finally {
-      setIsRequestingEditing(false);
-    }
-  };
-
   return (
     <div
       id={`stage-${stage.id}`}
@@ -502,18 +470,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           : 'border border-white/75 bg-white/70 shadow-[0_12px_34px_rgba(22,78,129,0.1)] backdrop-blur-xl'
       } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'hover:border-[#cde8fb]'}`}
     >
-      {successToastVisible && (
-        <div className="pointer-events-none fixed left-1/2 top-24 z-[70] -translate-x-1/2 animate-fade-in rounded-full border border-emerald-200 bg-white/95 px-5 py-3 text-sm font-black text-emerald-700 shadow-[0_18px_50px_rgba(16,185,129,0.22)] backdrop-blur-xl">
-          <span className="inline-flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
-              </svg>
-            </span>
-            Enviado para edição com sucesso!
-          </span>
-        </div>
-      )}
       <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
       <div 
         className="flex cursor-pointer items-center gap-3.5 px-5 py-4 transition-colors hover:bg-white/50 sm:gap-4 sm:px-6 sm:py-5 lg:gap-5 lg:px-7 lg:py-6"
@@ -626,27 +582,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-[#7d9bbd]">Arquivos enviados</h4>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {canRequestEditing && (
-                    <button
-                      type="button"
-                      onClick={handleRequestEditing}
-                      disabled={isRequestingEditing || editingRequested}
-                      className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-[11px] font-black shadow-lg transition-all active:scale-95 disabled:cursor-default ${
-                        editingRequested
-                          ? 'bg-zinc-200 text-zinc-700 shadow-none'
-                          : `text-white ${capturedTheme.uploadButton}`
-                      }`}
-                    >
-                      {isRequestingEditing ? (
-                        <span className="h-3.5 w-3.5 rounded-full border-2 border-white/35 border-t-white animate-spin" />
-                      ) : (
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                          <path d="M3.105 3.105a1.5 1.5 0 0 1 1.62-.326l12 4.8a1.5 1.5 0 0 1 0 2.842l-12 4.8a1.5 1.5 0 0 1-2.036-1.77L3.75 10 2.69 6.55a1.5 1.5 0 0 1 .416-1.445ZM5.065 6.05 5.823 8.5H11a1.5 1.5 0 0 1 0 3H5.823l-.758 2.45L15.08 10 5.065 6.05Z" />
-                        </svg>
-                      )}
-                      {isRequestingEditing ? 'Enviando...' : editingRequested ? 'Enviado para edição' : 'Mandar para edição'}
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => inputRef.current?.click()}
