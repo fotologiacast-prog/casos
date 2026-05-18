@@ -16,6 +16,13 @@ type ReadyAssetItem = {
   asset: TestimonialAsset;
 };
 
+type MediaNaturalSize = {
+  width: number;
+  height: number;
+};
+
+const mediaSizeCache = new Map<string, MediaNaturalSize>();
+
 const isImageAsset = (asset: TestimonialAsset) =>
   /\.(png|jpe?g|webp|gif|avif|bmp|heic)$/i.test(asset.name) ||
   /[?&](format|fm)=(png|jpe?g|webp|gif|avif)/i.test(asset.public_url);
@@ -121,7 +128,10 @@ const SelectChip: React.FC<{ value: string; onChange: (v: string) => void; optio
   </label>
 );
 
-const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
+const VideoPreview: React.FC<{
+  asset: TestimonialAsset;
+  onNaturalSize?: (size: MediaNaturalSize) => void;
+}> = ({ asset, onNaturalSize }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -212,6 +222,11 @@ const VideoPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
     setDuration(video.duration || 0);
     video.volume = volume;
     video.muted = isMuted;
+    if (video.videoWidth && video.videoHeight) {
+      const naturalSize = { width: video.videoWidth, height: video.videoHeight };
+      mediaSizeCache.set(asset.id, naturalSize);
+      onNaturalSize?.(naturalSize);
+    }
   };
 
   const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +360,10 @@ const AudioPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => (
   </div>
 );
 
-const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
+const AssetPreview: React.FC<{
+  asset: TestimonialAsset;
+  onNaturalSize?: (size: MediaNaturalSize) => void;
+}> = ({ asset, onNaturalSize }) => {
   if (isImageAsset(asset)) {
     return (
       <img
@@ -356,12 +374,22 @@ const AssetPreview: React.FC<{ asset: TestimonialAsset }> = ({ asset }) => {
         className="h-full w-full object-contain"
         decoding="async"
         loading="lazy"
+        onLoad={event => {
+          const naturalSize = {
+            width: event.currentTarget.naturalWidth,
+            height: event.currentTarget.naturalHeight,
+          };
+          if (naturalSize.width && naturalSize.height) {
+            mediaSizeCache.set(asset.id, naturalSize);
+            onNaturalSize?.(naturalSize);
+          }
+        }}
       />
     );
   }
 
   if (isVideoAsset(asset)) {
-    return <VideoPreview asset={asset} />;
+    return <VideoPreview asset={asset} onNaturalSize={onNaturalSize} />;
   }
 
   if (isAudioAsset(asset)) {
@@ -438,15 +466,40 @@ const getAssetFormatLabel = (asset: TestimonialAsset, creativeType?: string | nu
   return getAssetKind(asset);
 };
 
-const getAssetFrameClass = (asset: TestimonialAsset, creativeType?: string | null) => {
+const getFallbackAspectRatio = (asset: TestimonialAsset, creativeType?: string | null) => {
   const text = getAssetFormatText(asset, creativeType);
   if (/reels|story|stories|9:16|vertical/.test(text)) {
-    return 'aspect-[9/16] h-auto max-h-[72dvh] w-full max-w-[430px]';
+    return 9 / 16;
   }
   if (/post|feed|carrossel|square|1:1/.test(text)) {
-    return 'aspect-square h-auto max-h-[70dvh] w-full max-w-[660px]';
+    return 1;
   }
-  return 'aspect-video h-auto max-h-[70dvh] w-full max-w-[980px]';
+  return 16 / 9;
+};
+
+const getAssetRatio = (asset: TestimonialAsset, creativeType?: string | null, naturalSize?: MediaNaturalSize | null) => {
+  if (naturalSize?.width && naturalSize?.height) return naturalSize.width / naturalSize.height;
+  return getFallbackAspectRatio(asset, creativeType);
+};
+
+const getAssetFrameClass = (
+  asset: TestimonialAsset,
+  creativeType?: string | null,
+  naturalSize?: MediaNaturalSize | null
+) => {
+  const ratio = getAssetRatio(asset, creativeType, naturalSize);
+  if (ratio < 0.85) return 'h-[min(72dvh,780px)] w-auto max-w-full';
+  if (ratio < 1.25) return 'w-full max-w-[660px] max-h-[70dvh]';
+  return 'w-full max-w-[980px] max-h-[70dvh]';
+};
+
+const getAssetFrameStyle = (
+  asset: TestimonialAsset,
+  creativeType?: string | null,
+  naturalSize?: MediaNaturalSize | null
+) => {
+  const ratio = getAssetRatio(asset, creativeType, naturalSize);
+  return { aspectRatio: `${ratio}` };
 };
 
 const getAssetCardHeight = (asset: TestimonialAsset, creativeType?: string | null) => {
@@ -457,28 +510,51 @@ const getAssetCardHeight = (asset: TestimonialAsset, creativeType?: string | nul
   return 'h-[330px]';
 };
 
+const ThumbnailSkeleton: React.FC = () => (
+  <div className="absolute inset-0 overflow-hidden bg-[#d8edff]" aria-hidden="true">
+    <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#dff2ff] via-[#b9dff7] to-[#eef8ff]" />
+    <div className="absolute inset-x-3 top-3 flex items-center gap-2">
+      <span className="h-7 w-7 rounded-xl bg-white/60" />
+      <span className="h-3 w-24 rounded-full bg-white/60" />
+    </div>
+    <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45" />
+    <div className="absolute inset-y-0 -left-1/2 w-1/2 animate-[shimmer_1.35s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/55 to-transparent" />
+    <div className="absolute inset-x-4 bottom-5 space-y-2">
+      <span className="block h-4 w-2/3 rounded-full bg-white/60" />
+      <span className="block h-3 w-1/3 rounded-full bg-white/50" />
+    </div>
+  </div>
+);
+
 const VideoThumbnail: React.FC<{ asset: TestimonialAsset; className?: string }> = ({ asset, className = '' }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
 
   useEffect(() => {
     setIsReady(false);
     setHasError(false);
+    setImageLoaded(false);
   }, [asset.public_url]);
 
   if (driveThumbnailUrl) {
     return (
-      <img
-        src={driveThumbnailUrl}
-        alt=""
-        width={800}
-        height={1200}
-        className={`h-full w-full object-cover ${className}`}
-        decoding="async"
-        loading="lazy"
-      />
+      <div className={`relative h-full w-full overflow-hidden bg-[#d8edff] ${className}`}>
+        {!imageLoaded && <ThumbnailSkeleton />}
+        <img
+          src={driveThumbnailUrl}
+          alt=""
+          width={800}
+          height={1200}
+          className={`h-full w-full object-cover transition-opacity duration-500 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          decoding="async"
+          loading="lazy"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(true)}
+        />
+      </div>
     );
   }
 
@@ -499,6 +575,7 @@ const VideoThumbnail: React.FC<{ asset: TestimonialAsset; className?: string }> 
 
   return (
     <div className={`relative h-full w-full overflow-hidden bg-gradient-to-br from-[#082653] via-[#1f78ba] to-[#bdefff] ${className}`}>
+      {!isReady && !hasError && <ThumbnailSkeleton />}
       {!hasError && (
         <video
           ref={videoRef}
@@ -580,9 +657,14 @@ const ReadyAssetModal: React.FC<{
   onOpenCase?: (caseId: string) => void;
 }> = ({ item, recommendations, token, isDemo, onClose, onSelect, onOpenCase }) => {
   const { testimonial, asset } = item;
+  const [naturalSize, setNaturalSize] = useState<MediaNaturalSize | null>(() => mediaSizeCache.get(asset.id) || null);
   const visibleRecommendations = recommendations.slice(0, 12);
   const procedure = getPrimaryProcedure(testimonial.patientProcedure);
   const formatLabel = getAssetFormatLabel(asset, testimonial.creativeType);
+
+  useEffect(() => {
+    setNaturalSize(mediaSizeCache.get(asset.id) || null);
+  }, [asset.id]);
 
   return (
     <div
@@ -621,9 +703,10 @@ const ReadyAssetModal: React.FC<{
 
               <div className="rounded-[1.6rem] border border-[#c9e7fb] bg-gradient-to-br from-[#dff2ff] via-white to-[#e7f6ff] p-3 shadow-inner sm:p-4">
                 <div
-                  className={`relative mx-auto flex items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#06182f] shadow-[0_24px_70px_rgba(8,38,83,0.22)] ${getAssetFrameClass(asset, testimonial.creativeType)}`}
+                  className={`relative mx-auto flex items-center justify-center overflow-hidden rounded-[1.35rem] bg-[#06182f] shadow-[0_24px_70px_rgba(8,38,83,0.22)] ${getAssetFrameClass(asset, testimonial.creativeType, naturalSize)}`}
+                  style={getAssetFrameStyle(asset, testimonial.creativeType, naturalSize)}
                 >
-                  <AssetPreview asset={asset} />
+                  <AssetPreview asset={asset} onNaturalSize={setNaturalSize} />
                   <span className="absolute left-4 top-4 rounded-full bg-black/45 px-3 py-1 text-xs font-black text-white backdrop-blur">
                     {formatLabel}
                   </span>
