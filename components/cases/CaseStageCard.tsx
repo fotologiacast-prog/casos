@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CaseStage, CaseStageMoment } from '../../types';
 import { UploadProgressInfo } from '../../services/driveUploadService';
 import { useStageFaqs } from './useStageFaqs';
@@ -667,7 +668,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         )}
 
       {/* FAQ Popup */}
-      {faqOpen && (
+      {faqOpen && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-4 backdrop-blur-sm"
           onClick={() => setFaqOpen(false)}
@@ -737,11 +738,12 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Lightbox */}
-      {lightboxFile && (
+      {lightboxFile && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/90 p-4 backdrop-blur-sm"
           onClick={() => setLightboxFile(null)}
@@ -790,7 +792,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -135,27 +135,30 @@ export const getProductionStatus = (
   patient: CasePatient,
   readyTestimonialCount = 0,
 ): ProductionStatus => {
-  // Material pronto (edited content available)
-  if (readyTestimonialCount > 0) return 'material_pronto';
-
-  // Check for usage locks (editing requests)
+  // 1. Check for usage locks (editing requests in progress)
   const hasUsageLock = patient.stages.some(s => s.usageLock?.editingRequestId);
   if (hasUsageLock) return 'em_edicao';
 
-  // Check editing-eligible stages for files
+  // 2. Check editing-eligible stages for files that are not yet locked/sent to editing
   const editableStages = patient.stages.filter(
     s => EDITING_ELIGIBLE_MOMENTS.has(String(s.moment || '')),
   );
-  const editableWithFiles = editableStages.filter(s => s.files.length > 0);
+  const unlockedEditableWithFiles = editableStages.filter(
+    s => s.files.length > 0 && !s.usageLock?.editingRequestId
+  );
 
-  if (editableWithFiles.length > 0) return 'pronto_para_edicao';
+  if (unlockedEditableWithFiles.length > 0) return 'pronto_para_edicao';
 
-  // Check material progress
+  // 3. Material pronto (edited content available)
+  if (readyTestimonialCount > 0) return 'material_pronto';
+
+  // 4. Check material progress
   const captured = getCapturedCount(patient);
   if (captured === 0) return 'sem_material';
 
   return 'material_parcial';
 };
+
 
 export const productionStatusConfig: Record<
   ProductionStatus,

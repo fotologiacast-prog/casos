@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { CasePatient } from '../../types';
 import {
   getProductionStatus,
+  getCaseThumbnail,
   ProductionStatus,
   productionStatusConfig,
 } from './caseUiUtils';
@@ -13,20 +14,22 @@ interface ProductionTrackingTabProps {
   onBack: () => void;
 }
 
-type TrackingFilter = 'all' | 'ready' | 'editing' | 'awaiting';
+type TrackingFilter = 'all' | 'awaiting' | 'ready' | 'editing' | 'done';
 
 const filterConfig: { id: TrackingFilter; label: string }[] = [
   { id: 'all', label: 'Todos' },
-  { id: 'ready', label: 'Prontos' },
-  { id: 'editing', label: 'Em edição' },
   { id: 'awaiting', label: 'Aguardando' },
+  { id: 'ready', label: 'Pronto p/ enviar' },
+  { id: 'editing', label: 'Em edição' },
+  { id: 'done', label: 'Materiais Prontos' },
 ];
 
 const matchesFilter = (status: ProductionStatus, filter: TrackingFilter) => {
   if (filter === 'all') return true;
-  if (filter === 'ready') return status === 'material_pronto';
+  if (filter === 'awaiting') return status === 'sem_material' || status === 'material_parcial';
+  if (filter === 'ready') return status === 'pronto_para_edicao';
   if (filter === 'editing') return status === 'em_edicao' || status === 'enviado_para_edicao';
-  if (filter === 'awaiting') return status === 'sem_material' || status === 'material_parcial' || status === 'pronto_para_edicao';
+  if (filter === 'done') return status === 'material_pronto';
   return true;
 };
 
@@ -56,7 +59,6 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
       })
       .filter(item => matchesFilter(item.status, filter))
       .sort((a, b) => {
-        // Sort: material_pronto first, then em_edicao, then pronto_para_edicao, then rest
         const order: Record<ProductionStatus, number> = {
           material_pronto: 0,
           em_edicao: 1,
@@ -70,13 +72,14 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
   }, [patients, readyTestimonialCounts, filter]);
 
   const counts = useMemo(() => {
-    const result = { all: 0, ready: 0, editing: 0, awaiting: 0 };
+    const result = { all: 0, awaiting: 0, ready: 0, editing: 0, done: 0 };
     for (const patient of patients) {
       const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
       result.all++;
-      if (status === 'material_pronto') result.ready++;
+      if (status === 'sem_material' || status === 'material_parcial') result.awaiting++;
+      else if (status === 'pronto_para_edicao') result.ready++;
       else if (status === 'em_edicao' || status === 'enviado_para_edicao') result.editing++;
-      else result.awaiting++;
+      else if (status === 'material_pronto') result.done++;
     }
     return result;
   }, [patients, readyTestimonialCounts]);
@@ -98,13 +101,13 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
       </div>
 
       {/* Sub-tabs */}
-      <div className="impact-glass mt-6 grid grid-cols-4 gap-1 rounded-[1.7rem] p-1.5">
+      <div className="impact-glass mt-6 flex flex-wrap gap-1 rounded-[1.7rem] p-1.5">
         {filterConfig.map(item => (
           <button
             key={item.id}
             type="button"
             onClick={() => setFilter(item.id)}
-            className={`min-h-11 rounded-[1.2rem] px-2 text-[10px] font-black uppercase tracking-wider transition-all sm:text-[11px] ${
+            className={`flex-1 min-h-11 rounded-[1.2rem] px-2 text-[10px] font-black uppercase tracking-wider transition-all sm:text-[11px] min-w-[7.5rem] sm:min-w-0 ${
               filter === item.id
                 ? 'bg-white text-[#20a8f5] shadow-[0_8px_22px_rgba(22,78,129,0.1)]'
                 : 'text-[#7d9bbd] hover:text-[#174579]'
@@ -128,6 +131,13 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
         ) : (
           items.map(({ patient, status, lastRequest }) => {
             const cfg = productionStatusConfig[status];
+            const thumbnail = getCaseThumbnail(patient);
+            const initials = patient.name
+              .split(' ')
+              .slice(0, 2)
+              .map(n => n[0])
+              .join('')
+              .toUpperCase();
             return (
               <button
                 key={patient.id}
@@ -135,14 +145,25 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
                 onClick={() => onOpenPatient(patient)}
                 className="impact-soft-card flex w-full items-center gap-4 rounded-[1.4rem] p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(22,78,129,0.14)] sm:p-5"
               >
-                {/* Status dot */}
-                <span
-                  className="h-3 w-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: cfg.iconColor }}
-                />
+                {/* Patient avatar / initials */}
+                {thumbnail?.src ? (
+                  <img
+                    src={thumbnail.src}
+                    alt={patient.name}
+                    className="h-11 w-11 shrink-0 rounded-full object-cover ring-2 ring-white shadow-sm"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e8f6ff] to-[#cfe7fb] text-xs font-black text-[#20a8f5] ring-2 ring-white shadow-sm">
+                    {initials || 'P'}
+                  </div>
+                )}
+
                 {/* Patient info */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-black text-[#082653]">{patient.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-base font-black text-[#082653]">{patient.name}</p>
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cfg.iconColor }} />
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-black ${cfg.className}`}>
                       {cfg.shortLabel}

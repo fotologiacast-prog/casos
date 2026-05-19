@@ -162,9 +162,26 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Casos de pacientes</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-[#082653] sm:text-4xl">{clientName}</h1>
-          <p className="mt-1 text-sm font-semibold text-[#5d7ca4]">
-            {patients.length} caso{patients.length === 1 ? '' : 's'} cadastrado{patients.length === 1 ? '' : 's'}
-          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-[#5d7ca4]">
+              {filteredPatients.length} de {patients.length} caso{patients.length === 1 ? '' : 's'}
+            </p>
+            {productionFilter && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f5ff] px-2.5 py-0.5 text-xs font-black text-[#20a8f5] ring-1 ring-[#cde6f9] shadow-sm animate-fade-in">
+                Filtro: {productionFilter === 'awaiting' ? 'Aguardando material' : productionFilter === 'ready' ? 'Prontos para enviar' : productionFilter === 'editing' ? 'Em edição' : 'Materiais prontos'}
+                <button
+                  type="button"
+                  onClick={() => onProductionFilter?.(null)}
+                  className="ml-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#20a8f5] text-white hover:bg-[#1594de] transition-colors"
+                  aria-label="Limpar filtro de produção"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                  </svg>
+                </button>
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -68,7 +68,7 @@ export interface CaseStage {
   status: CaseStageStatus | string;
   statusColumnId: string;
   filesColumnId: string;
-  files: { id: string; name: string; public_url: string; type?: string }[];
+  files: { id: string; name: string; public_url: string; type?: string; createdAt?: string }[];
   usageLock?: CaseStageUsageLock | null;
 }
 

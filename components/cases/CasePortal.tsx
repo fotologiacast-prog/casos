@@ -11,7 +11,7 @@ import ProductionTrackingTab from './ProductionTrackingTab';
 import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
 import { fetchPortalNotifications, markPortalNotificationsRead, PortalNotification } from '../../services/portalNotificationService';
-import { getProductionStatus } from './caseUiUtils';
+import { getProductionStatus, getCaseThumbnail } from './caseUiUtils';
 
 interface CasePortalProps {
   token: string;
@@ -85,12 +85,64 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
   return null;
 };
 
+const formatElapsedTime = (timestamp: number) => {
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return 'agora';
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return 'agora';
+  if (diffMin < 60) return `há ${diffMin}m`;
+  if (diffHr < 24) return `há ${diffHr}h`;
+  return `há ${diffDay}d`;
+};
+
+const NotificationAvatar: React.FC<{ src: string | null; name: string; type?: string }> = ({ src, name, type }) => {
+  if (type === 'admin') {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600 ring-1 ring-sky-100/80 shadow-sm">
+        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4.5 w-4.5">
+          <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Z" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+        decoding="async"
+        loading="lazy"
+      />
+    );
+  }
+
+  const initials = name
+    .split(' ')
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e8f6ff] to-[#cfe7fb] text-[11px] font-black text-[#20a8f5] ring-1 ring-[#cce7fb]/60 shadow-sm">
+      {initials || 'P'}
+    </div>
+  );
+};
+
 const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [portalClient, setPortalClient] = useState<PortalClient | null>(null);
   const [patients, setPatients] = useState<CasePatient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'create' | 'edit'>('list');
   const [editFromDetail, setEditFromDetail] = useState(false);
+  const [comingFromTracking, setComingFromTracking] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('cases');
   const [testimonialSearch, setTestimonialSearch] = useState('');
   const [productionFilter, setProductionFilter] = useState<string | null>(null);
@@ -136,59 +188,194 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   );
 
   const localNotifications = useMemo(() => {
-    const list: Array<{ id: string; title: string; body: string; type: 'ready_to_send' | 'in_editing' | 'inactive'; patientId: string; patientName: string }> = [];
+    const list: Array<{
+      id: string;
+      title: string;
+      body: string;
+      type: 'ready_to_send' | 'in_editing' | 'inactive';
+      patientId: string;
+      patientName: string;
+      timestamp: number;
+      thumbnailSrc: string | null;
+    }> = [];
     const nowMs = Date.now();
+    const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia']);
+
     patients.forEach(patient => {
       const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
 
       // 1. Ready to send
       if (status === 'pronto_para_edicao') {
-        list.push({
-          id: `local-ready-${patient.id}`,
-          title: `Pronto para Enviar`,
-          body: `O caso de ${patient.name} tem material pronto para ser enviado para a edição.`,
-          type: 'ready_to_send',
-          patientId: patient.id,
-          patientName: patient.name,
+        const editableStages = patient.stages.filter(
+          s => EDITING_ELIGIBLE_MOMENTS.has(String(s.moment || ''))
+        );
+        let latestUploadTime = patient.createdAt ? new Date(patient.createdAt).getTime() : 0;
+        editableStages.forEach(s => {
+          s.files.forEach(f => {
+            if (f.createdAt) {
+              const t = new Date(f.createdAt).getTime();
+              if (t > latestUploadTime) latestUploadTime = t;
+            }
+          });
         });
+
+        // Trigger delay: 2 hours
+        const delayMs = 2 * 60 * 60 * 1000;
+        const isDemo = portalClient?.isDemo;
+        const triggerTime = isDemo ? nowMs - delayMs - 600000 : latestUploadTime;
+
+        if (nowMs - triggerTime >= delayMs) {
+          const thumbnail = getCaseThumbnail(patient);
+          list.push({
+            id: `local-ready-${patient.id}`,
+            title: `Material Pronto para Enviar`,
+            body: `O caso de ${patient.name} tem material pronto para ser enviado para a edição.`,
+            type: 'ready_to_send',
+            patientId: patient.id,
+            patientName: patient.name,
+            timestamp: triggerTime,
+            thumbnailSrc: thumbnail?.src || null,
+          });
+        }
       }
 
       // 2. In editing
       if (status === 'em_edicao' || status === 'enviado_para_edicao') {
+        let editingStartTime = patient.createdAt ? new Date(patient.createdAt).getTime() : 0;
+        const lockStage = patient.stages.find(s => s.usageLock?.lockedAt);
+        if (lockStage?.usageLock?.lockedAt) {
+          editingStartTime = new Date(lockStage.usageLock.lockedAt).getTime();
+        } else if (patient.editingRequests && patient.editingRequests.length > 0) {
+          editingStartTime = new Date(patient.editingRequests[0].sentAt).getTime();
+        }
+
+        const thumbnail = getCaseThumbnail(patient);
         list.push({
           id: `local-editing-${patient.id}`,
-          title: `Em Edição`,
-          body: `O material do paciente ${patient.name} já está em andamento de edição.`,
+          title: `Caso em Edição`,
+          body: `O material do paciente ${patient.name} está em andamento de edição pela agência.`,
           type: 'in_editing',
           patientId: patient.id,
           patientName: patient.name,
+          timestamp: editingStartTime,
+          thumbnailSrc: thumbnail?.src || null,
         });
       }
 
-      // 3. Inactive for 10+ days (e.g. sem_material or material_parcial and last updated 10+ days ago)
+      // 3. Inactive for 10+ days
       if (patient.createdAt && (status === 'sem_material' || status === 'material_parcial')) {
-        const days = Math.floor((nowMs - new Date(patient.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        let latestUploadTime = new Date(patient.createdAt).getTime();
+        patient.stages.forEach(s => {
+          s.files.forEach(f => {
+            if (f.createdAt) {
+              const t = new Date(f.createdAt).getTime();
+              if (t > latestUploadTime) latestUploadTime = t;
+            }
+          });
+        });
+
+        const days = Math.floor((nowMs - latestUploadTime) / (1000 * 60 * 60 * 24));
         if (days >= 10) {
+          const thumbnail = getCaseThumbnail(patient);
           list.push({
             id: `local-stale-${patient.id}`,
-            title: `Sem novos arquivos`,
+            title: `Aguardando Arquivos`,
             body: `O caso de ${patient.name} está sem novos materiais há ${days} dias.`,
             type: 'inactive',
             patientId: patient.id,
             patientName: patient.name,
+            timestamp: latestUploadTime,
+            thumbnailSrc: thumbnail?.src || null,
           });
         }
       }
     });
+
     return list;
-  }, [patients, readyTestimonialCounts]);
+  }, [patients, readyTestimonialCounts, portalClient?.isDemo]);
 
   const unreadLocalNotifications = useMemo(
     () => localNotifications.filter(item => !readNotificationIds.includes(item.id)),
     [localNotifications, readNotificationIds]
   );
 
-  const unreadNotificationCount = editedAssetCount + unreadManualNotifications.length + unreadLocalNotifications.length;
+  const unifiedNotifications = useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      body: string;
+      timestamp: number;
+      isUnread: boolean;
+      thumbnailSrc: string | null;
+      patientName: string;
+      type: 'local' | 'admin' | 'testimonial';
+      mediaUrl?: string | null;
+      ctaLabel?: string | null;
+      ctaUrl?: string | null;
+      patientId?: string;
+      localType?: 'ready_to_send' | 'in_editing' | 'inactive';
+    }> = [];
+
+    // 1. Local notifications
+    localNotifications.forEach(item => {
+      const isUnread = !readNotificationIds.includes(item.id);
+      list.push({
+        id: item.id,
+        title: item.title,
+        body: item.body,
+        timestamp: item.timestamp,
+        isUnread,
+        thumbnailSrc: item.thumbnailSrc,
+        patientName: item.patientName,
+        type: 'local',
+        patientId: item.patientId,
+        localType: item.type,
+      });
+    });
+
+    // 2. Admin manual notifications
+    manualNotifications.forEach(item => {
+      const notificationId = `admin:${item.id}`;
+      const isUnread = !readNotificationIds.includes(notificationId);
+      list.push({
+        id: notificationId,
+        title: item.title,
+        body: item.body || '',
+        timestamp: new Date(item.published_at).getTime(),
+        isUnread,
+        thumbnailSrc: null,
+        patientName: 'Admin',
+        type: 'admin',
+        mediaUrl: item.media_url,
+        ctaLabel: item.cta_label,
+        ctaUrl: item.cta_url,
+      });
+    });
+
+    // 3. Edited testimonials
+    editedTestimonials.forEach(item => {
+      const isUnread = !readNotificationIds.includes(item.id);
+      const patientMatch = patients.find(p => p.id === item.caseId || p.name.toLowerCase() === item.patientName.toLowerCase());
+      const thumbnail = patientMatch ? getCaseThumbnail(patientMatch) : null;
+      list.push({
+        id: item.id,
+        title: `Material Disponível`,
+        body: `O conteúdo editado do paciente ${item.patientName} já está disponível para download.`,
+        timestamp: new Date(item.caseCreatedAt || Date.now()).getTime(),
+        isUnread,
+        thumbnailSrc: thumbnail?.src || null,
+        patientName: item.patientName,
+        type: 'testimonial',
+      });
+    });
+
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  }, [localNotifications, manualNotifications, editedTestimonials, readNotificationIds, patients]);
+
+  const unreadNotificationCount = useMemo(
+    () => unifiedNotifications.filter(item => item.isUnread).length,
+    [unifiedNotifications]
+  );
 
   const loadPatients = useCallback(async (client: PortalClient, refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
@@ -337,6 +524,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setProductionFilter(null);
     setMode('list');
     setSelectedPatientId(null);
+    setComingFromTracking(false);
   };
 
   const handleOpenTestimonialsForPatient = (patient: CasePatient) => {
@@ -650,21 +838,21 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               alt="Impact Doctor"
               width={180}
               height={32}
-              className="h-7 w-auto max-w-[150px] shrink-0 object-contain sm:h-8 sm:max-w-[190px]"
+              className="h-5 w-auto max-w-[80px] shrink-0 object-contain sm:h-8 sm:max-w-[190px]"
             />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-0.5 sm:p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl">
               <button
                 type="button"
                 onClick={() => handleSetTab('cases')}
-                className={`flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
+                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
                   activeTab === 'cases'
                     ? 'bg-white text-[#09315f] shadow-sm'
                     : 'text-[#7894b7] hover:text-[#09315f]'
                 }`}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
                   <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
                 </svg>
                 Casos
@@ -672,13 +860,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               <button
                 type="button"
                 onClick={() => handleSetTab('tracking')}
-                className={`flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
+                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
                   activeTab === 'tracking'
                     ? 'bg-white text-[#09315f] shadow-sm'
                     : 'text-[#7894b7] hover:text-[#09315f]'
                 }`}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
                   <path fillRule="evenodd" d="M6 4.75A.75.75 0 0 1 6.75 4h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 4.75ZM6 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 10Zm0 5.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1-.75-.75ZM1.99 4.75a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 10a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V10Zm1 4.25a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Z" clipRule="evenodd" />
                 </svg>
                 <span className="hidden sm:inline">Acompanhamento</span>
@@ -687,13 +875,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               <button
                 type="button"
                 onClick={() => handleSetTab('testimonials')}
-                className={`flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
+                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
                   activeTab === 'testimonials'
                     ? 'bg-white text-[#09315f] shadow-sm'
                     : 'text-[#7894b7] hover:text-[#09315f]'
                 }`}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
                   <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
                 </svg>
                 <span className="hidden sm:inline">Materiais Prontos</span>
@@ -729,133 +917,92 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                       </span>
                     )}
                   </div>
-                  <div className="max-h-80 overflow-y-auto p-2">
-                    {manualNotifications.length === 0 && editedTestimonials.length === 0 && localNotifications.length === 0 ? (
+                  <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+                    {unifiedNotifications.length === 0 ? (
                       <div className="rounded-2xl bg-[#f5fbff] px-4 py-6 text-center">
                         <p className="text-sm font-black text-[#244f7f]">Nada novo por enquanto.</p>
-                        <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e materiais editados aparecem aqui.</p>
+                        <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e atualizações aparecem aqui.</p>
                       </div>
                     ) : (
-                      <>
-                        {localNotifications.slice(0, 5).map(item => {
-                          const isUnread = !readNotificationIds.includes(item.id);
-                          const colorMap = {
-                            ready_to_send: 'bg-rose-100 text-rose-700',
-                            in_editing: 'bg-amber-100 text-amber-700',
-                            inactive: 'bg-red-100 text-red-700',
-                          };
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => {
-                                persistReadNotifications([...readNotificationIds, item.id]);
-                                setNotificationsOpen(false);
-                                setActiveTab('cases');
-                                setMode('list');
-                                setSelectedPatientId(item.patientId);
-                              }}
-                              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[#f1f9ff]"
-                            >
-                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                isUnread ? colorMap[item.type] : 'bg-[#edf6ff] text-[#5f82aa]'
-                              }`}>
-                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                                  <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.25v2.75a.75.75 0 0 0 1.5 0V10A.75.75 0 0 0 10 9H9Z" clipRule="evenodd" />
-                                </svg>
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <span className="block truncate text-sm font-black text-[#082653]">{item.title}</span>
-                                  {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />}
-                                </span>
-                                <span className="mt-0.5 block text-xs font-semibold leading-relaxed text-[#5f82aa]">{item.body}</span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {manualNotifications.slice(0, 4).map(item => {
-                          const notificationId = `admin:${item.id}`;
-                          const isUnread = !readNotificationIds.includes(notificationId);
-                          return (
-                            <div key={item.id} className="rounded-2xl px-3 py-3 transition-colors hover:bg-[#f1f9ff]">
-                              <div className="flex items-start gap-3">
-                                <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                  isUnread ? 'bg-sky-100 text-sky-700' : 'bg-[#edf6ff] text-[#5f82aa]'
-                                }`}>
-                                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                                    <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Z" />
-                                  </svg>
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <span className="block truncate text-sm font-black text-[#082653]">{item.title}</span>
-                                    {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-label="Nova notificação" />}
+                      unifiedNotifications.slice(0, 10).map(item => {
+                        return (
+                          <div
+                            key={item.id}
+                            className={`group relative flex w-full gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-[#f1f9ff] ${
+                              item.isUnread ? 'bg-[#f6fbff]/50' : 'bg-transparent'
+                            }`}
+                          >
+                            {/* Avatar */}
+                            <NotificationAvatar src={item.thumbnailSrc} name={item.patientName} type={item.type} />
+
+                            {/* Content */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="flex min-w-0 items-center gap-1.5">
+                                  <span className="block truncate text-sm font-black text-[#082653]">
+                                    {item.title}
                                   </span>
-                                  {item.body && <p className="mt-1 line-clamp-3 text-xs font-semibold leading-relaxed text-[#5f82aa]">{item.body}</p>}
-                                  {item.media_url && /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(item.media_url) && (
-                                    <img src={item.media_url} alt="" className="mt-2 h-24 w-full rounded-2xl object-cover" loading="lazy" decoding="async" />
+                                  {item.isUnread && (
+                                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />
                                   )}
-                                  {item.media_url && /\.(mp4|m4v|mov|webm|mpeg|mpg|3gp|ogv)(\?|$)/i.test(item.media_url) && (
-                                    <video src={item.media_url} controls className="mt-2 max-h-40 w-full rounded-2xl bg-black object-contain" />
-                                  )}
-                                  {item.media_url && (
-                                    <a
-                                      href={item.media_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      onClick={() => persistReadNotifications([...readNotificationIds, notificationId])}
-                                      className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-sky-700"
-                                    >
-                                      Ver mídia
-                                    </a>
-                                  )}
-                                  {item.cta_url && (
-                                    <a
-                                      href={item.cta_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      onClick={() => persistReadNotifications([...readNotificationIds, notificationId])}
-                                      className="ml-2 mt-2 inline-flex rounded-full bg-[#e8f6ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0b3768]"
-                                    >
-                                      {item.cta_label || 'Abrir'}
-                                    </a>
-                                  )}
-                                </div>
+                                </span>
+                                <span className="text-[10px] font-bold text-[#8aa8c6] whitespace-nowrap shrink-0 mt-0.5">
+                                  {formatElapsedTime(item.timestamp)}
+                                </span>
                               </div>
+                              <p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#5f82aa] break-words">
+                                {item.body}
+                              </p>
+
+                              {/* Admin media and CTA details */}
+                              {item.type === 'admin' && (
+                                <div className="mt-2">
+                                  {item.mediaUrl && /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(item.mediaUrl) && (
+                                    <img src={item.mediaUrl} alt="" className="h-24 w-full rounded-xl object-cover shadow-sm" loading="lazy" decoding="async" />
+                                  )}
+                                  {item.mediaUrl && /\.(mp4|m4v|mov|webm|mpeg|mpg|3gp|ogv)(\?|$)/i.test(item.mediaUrl) && (
+                                    <video src={item.mediaUrl} controls className="max-h-40 w-full rounded-xl bg-black object-contain shadow-sm" />
+                                  )}
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {item.mediaUrl && (
+                                      <a
+                                        href={item.mediaUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={item.onClick}
+                                        className="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-sky-700 hover:bg-sky-100 transition-colors"
+                                      >
+                                        Ver mídia
+                                      </a>
+                                    )}
+                                    {item.ctaUrl && (
+                                      <a
+                                        href={item.ctaUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={item.onClick}
+                                        className="inline-flex rounded-full bg-[#e8f6ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0b3768] hover:bg-[#cfe7fb] transition-colors"
+                                      >
+                                        {item.ctaLabel || 'Abrir'}
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Interactive clickable overlay for patients / testimonials */}
+                              {item.type !== 'admin' && (
+                                <button
+                                  type="button"
+                                  onClick={item.onClick}
+                                  className="absolute inset-0 z-10 w-full h-full cursor-pointer focus:outline-none"
+                                  aria-label="Abrir detalhes da notificação"
+                                />
+                              )}
                             </div>
-                          );
-                        })}
-                        {editedTestimonials.slice(0, 6).map(item => {
-                          const isUnread = !readNotificationIds.includes(item.id);
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleOpenEditedMaterial(item.id, item.patientName)}
-                              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[#f1f9ff]"
-                            >
-                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                                isUnread ? 'bg-emerald-100 text-emerald-700' : 'bg-[#edf6ff] text-[#5f82aa]'
-                              }`}>
-                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z" clipRule="evenodd" />
-                                </svg>
-                              </span>
-                              <span className="min-w-0">
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <span className="block truncate text-sm font-black text-[#082653]">{item.patientName}</span>
-                                  {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />}
-                                </span>
-                                <span className="mt-0.5 block truncate text-xs font-bold text-[#5f82aa]">{item.title}</span>
-                                <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                                  {isUnread ? 'Novo material' : 'Lido'}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                   {unreadNotificationCount > 0 && (
@@ -894,6 +1041,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               setActiveTab('cases');
               setSelectedPatientId(patient.id);
               setMode('list');
+              setComingFromTracking(true);
             }}
             onBack={() => handleSetTab('cases')}
           />
@@ -926,7 +1074,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         ) : selectedPatient ? (
           <CasePatientDetail
             patient={selectedPatient}
-            onBack={() => setSelectedPatientId(null)}
+            onBack={() => {
+              if (comingFromTracking) {
+                setActiveTab('tracking');
+                setComingFromTracking(false);
+              }
+              setSelectedPatientId(null);
+            }}
             onRefreshPatient={handleRefreshPatient}
             onDeletePatient={handleDeletePatient}
             onUploadStageFiles={portalClient.isDemo ? handleDemoUpload : undefined}

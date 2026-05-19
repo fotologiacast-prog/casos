@@ -229,6 +229,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
               name: file.file_name,
               public_url: file.web_content_link || (file.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file.web_view_link || "#"),
               type: file.mime_type || undefined,
+              createdAt: file.created_at || undefined,
             })),
         };
       });

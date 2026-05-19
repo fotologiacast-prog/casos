@@ -905,6 +905,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
   const [filterGender, setFilterGender] = useState('all');
   const [filterAge, setFilterAge] = useState('all');
   const [filterCreativeType, setFilterCreativeType] = useState('all');
+  const [filterRating, setFilterRating] = useState<'all' | number>('all');
   const [ratingOverrides, setRatingOverrides] = useState<Record<string, number>>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ReadyGalleryItem | null>(null);
@@ -962,11 +963,12 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
       if (filterProcedure !== 'all' && !splitProcedures(item.patientProcedure).includes(filterProcedure)) return false;
       if (filterGender !== 'all' && item.patientGender !== filterGender) return false;
       if (filterCreativeType !== 'all' && item.creativeType !== filterCreativeType) return false;
+      if (filterRating !== 'all' && item.rating !== filterRating) return false;
       if (!matchesAgeRange(item.patientAge, filterAge)) return false;
       
       return true;
     });
-  }, [deferredSearch, ratedTestimonials, filterProcedure, filterGender, filterCreativeType, filterAge]);
+  }, [deferredSearch, ratedTestimonials, filterProcedure, filterGender, filterCreativeType, filterAge, filterRating]);
 
   const galleryItems = useMemo<ReadyGalleryItem[]>(
     () => buildReadyGalleryItems(filteredTestimonials),
@@ -995,7 +997,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
     return items;
   }, [procedures]);
 
-  const hasActiveFilters = filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all' || filterCreativeType !== 'all';
+  const hasActiveFilters = filterProcedure !== 'all' || filterGender !== 'all' || filterAge !== 'all' || filterCreativeType !== 'all' || filterRating !== 'all';
 
   return (
     <section className="animate-fade-in">
@@ -1079,7 +1081,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
 
       {filtersOpen && (
         <div className="mt-5 rounded-[1.7rem] border border-[#d7ebfb] bg-white/58 p-5 backdrop-blur-xl">
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Gênero</p>
               <div className="flex flex-wrap gap-2">
@@ -1130,6 +1132,23 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 ))}
               </div>
             </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5]">Avaliação (Estrelas)</p>
+              <div className="flex flex-wrap gap-2">
+                <FilterChip active={filterRating === 'all'} onClick={() => setFilterRating('all')} tone="bg-[#dff2ff]">Todos</FilterChip>
+                {[5, 4, 3, 2, 1].map(stars => (
+                  <FilterChip key={stars} active={filterRating === stars} onClick={() => setFilterRating(stars)} tone="bg-[#fff3d1]">
+                    <span className="flex items-center gap-1">
+                      <span>{stars}</span>
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-[#ffbf2f]">
+                        <path d="m10 1.9 2.35 4.76 5.25.76-3.8 3.7.9 5.23L10 13.88l-4.7 2.47.9-5.23-3.8-3.7 5.25-.76L10 1.9Z" />
+                      </svg>
+                    </span>
+                  </FilterChip>
+                ))}
+              </div>
+            </div>
           </div>
           {hasActiveFilters && (
             <button
@@ -1139,6 +1158,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 setFilterGender('all');
                 setFilterAge('all');
                 setFilterCreativeType('all');
+                setFilterRating('all');
               }}
               className="mt-5 text-xs font-black text-[#5277a2] underline underline-offset-2 hover:text-[#082653]"
             >
@@ -1183,55 +1203,58 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 key={item.id}
                 type="button"
                 onClick={() => setSelectedItem(item)}
-                className={`group relative w-full overflow-hidden rounded-[1.35rem] border border-white/75 bg-[#d8edff] text-left shadow-[0_10px_28px_rgba(22,78,129,0.1)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.14)] ${getAssetCardHeight(item.primaryAsset, item.testimonial.creativeType)}`}
+                className="group flex flex-col w-full overflow-hidden rounded-[1.35rem] border border-[#cfe7fb] bg-white text-left shadow-[0_10px_28px_rgba(22,78,129,0.06)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.12)]"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '340px' }}
                 aria-label={`Abrir ${item.testimonial.title} de ${item.testimonial.patientName}`}
               >
-                <GalleryAssetPreview asset={item.primaryAsset} />
-
-                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-[#06182f]/65 to-transparent p-3 pb-12">
-                  <div className="flex min-w-0 items-start gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/78 text-[#2b75bd] backdrop-blur">
-                      {isVideoAsset(item.primaryAsset) ? (
-                        <PlayIcon className="ml-0.5 h-3.5 w-3.5" />
-                      ) : (
-                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-                          <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm.28 10.72 2.47-2.47a1.5 1.5 0 0 1 2.12 0l.88.88 2.13-2.13a1.5 1.5 0 0 1 2.12 0l1.25 1.25v3.5a.25.25 0 0 1-.25.25H4.25a.25.25 0 0 1-.25-.25v-.5l.53-.53Z" clipRule="evenodd" />
-                        </svg>
-                      )}
+                {/* Media Container */}
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#06182f]">
+                  <GalleryAssetPreview asset={item.primaryAsset} />
+                  
+                  {isVideoAsset(item.primaryAsset) && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/10">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#082653] shadow-md backdrop-blur transition-transform group-hover:scale-105">
+                        <PlayIcon className="ml-0.5 h-6 w-6" />
+                      </span>
                     </span>
-                    <div className="min-w-0 text-white">
-                      <p className="truncate text-[11px] font-black">{item.testimonial.patientName}</p>
-                      <p className="mt-0.5 truncate text-[10px] font-bold text-white/78">
-                        {[item.testimonial.patientAge ? `${item.testimonial.patientAge} anos` : null, procedure].filter(Boolean).join(' • ')}
-                      </p>
+                  )}
+
+                  {/* Header Patient Info Overlay */}
+                  <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-[#06182f]/60 to-transparent p-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/80 text-[#2b75bd] backdrop-blur">
+                        {isVideoAsset(item.primaryAsset) ? (
+                          <PlayIcon className="h-3 w-3" />
+                        ) : (
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
+                            <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm.28 10.72 2.47-2.47a1.5 1.5 0 0 1 2.12 0l.88.88 2.13-2.13a1.5 1.5 0 0 1 2.12 0l1.25 1.25v3.5a.25.25 0 0 1-.25.25H4.25a.25.25 0 0 1-.25-.25v-.5l.53-.53Z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="min-w-0 text-white">
+                        <p className="truncate text-[10px] font-black">{item.testimonial.patientName}</p>
+                      </div>
                     </div>
+                    {procedure && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-black text-white backdrop-blur">
+                        {procedure}
+                      </span>
+                    )}
                   </div>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/24 text-white backdrop-blur">
-                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m10 3.2 1.86 3.77 4.16.61-3.01 2.93.71 4.14L10 12.7l-3.72 1.95.71-4.14-3.01-2.93 4.16-.61L10 3.2Z" />
-                    </svg>
-                  </span>
                 </div>
 
-                {isVideoAsset(item.primaryAsset) && (
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/88 text-[#082653] shadow-[0_18px_40px_rgba(8,38,83,0.28)] backdrop-blur transition-transform group-hover:scale-105">
-                      <PlayIcon className="ml-1 h-7 w-7" />
-                    </span>
-                  </span>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 via-white/70 to-transparent p-4 pt-24">
-                  <p className="line-clamp-2 text-lg font-serif leading-tight text-[#42699a]">
+                {/* Text & Meta details container */}
+                <div className="flex flex-col flex-1 p-4 bg-white">
+                  <p className="line-clamp-2 text-sm font-black text-[#082653] leading-snug min-h-[2.5rem]">
                     {item.testimonial.title || item.testimonial.mondayItemName}
                   </p>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[10px] font-black text-[#2b75bd]">
+                  
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f4faff] pt-3">
+                    <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[9px] font-black text-[#2b75bd]">
                       {item.isPhotoCatalog ? `${item.assets.length} fotos` : formatLabel}
                     </span>
                     <StarRating value={item.testimonial.rating} compact />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5] group-hover:underline">
                       Abrir
                     </span>
                   </div>
