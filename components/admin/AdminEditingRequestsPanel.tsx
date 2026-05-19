@@ -11,9 +11,6 @@ interface AdminEditingRequestsPanelProps {
   password: string;
 }
 
-const isImageUrl = (url?: string | null) =>
-  /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)(\?|$)/i.test(url || '');
-
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sem data';
   const date = new Date(value);
@@ -49,10 +46,36 @@ const getStageSummary = (stage: AdminEditingRequestStage) => {
   return `${count} arquivo${count === 1 ? '' : 's'}`;
 };
 
+const getStageOpenUrl = (stage: AdminEditingRequestStage) =>
+  stage.files.find(file => file.publicUrl && file.publicUrl !== '#')?.publicUrl || null;
+
+const RequestCover = ({ request }: { request: AdminEditingRequest }) => {
+  const [failed, setFailed] = useState(false);
+  if (!request.coverUrl || failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#eaf7ff] to-white text-3xl font-black text-[#20a8f5]">
+        {getInitials(request.patientName)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={request.coverUrl}
+      alt={request.patientName}
+      width={360}
+      height={260}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover"
+    />
+  );
+};
+
 const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ password }) => {
   const [requests, setRequests] = useState<AdminEditingRequest[]>([]);
   const [selectedByRequestId, setSelectedByRequestId] = useState<Record<string, string[]>>({});
-  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'empty' | 'marked'>('all');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,7 +90,6 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
       const loaded = await listAdminEditingRequests(password);
       setRequests(loaded);
       setSelectedByRequestId(Object.fromEntries(loaded.map(request => [request.id, request.usedStageIds || []])));
-      if (!expandedRequestId && loaded[0]) setExpandedRequestId(loaded[0].id);
     } catch (err) {
       setError(err instanceof AdminApiError || err instanceof Error ? err.message : 'Falha ao carregar pedidos.');
     } finally {
@@ -226,22 +248,11 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
         <div className="grid gap-5 xl:grid-cols-2">
           {filteredRequests.map(request => {
             const selected = new Set(selectedByRequestId[request.id] || []);
-            const expanded = expandedRequestId === request.id;
             return (
               <article key={request.id} className="impact-soft-card overflow-hidden rounded-[2rem] p-0">
-                <button
-                  type="button"
-                  onClick={() => setExpandedRequestId(expanded ? null : request.id)}
-                  className="flex w-full flex-col gap-4 p-4 text-left sm:flex-row"
-                >
-                  <div className="relative h-40 overflow-hidden rounded-[1.45rem] bg-[#eaf7ff] sm:h-auto sm:w-44 sm:shrink-0">
-                    {request.coverUrl && isImageUrl(request.coverUrl) ? (
-                      <img src={request.coverUrl} alt={request.patientName} width={320} height={240} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#eaf7ff] to-white text-3xl font-black text-[#20a8f5]">
-                        {getInitials(request.patientName)}
-                      </div>
-                    )}
+                <div className="flex flex-col gap-4 p-4 sm:flex-row">
+                  <div className="relative h-44 overflow-hidden rounded-[1.45rem] bg-[#eaf7ff] sm:h-auto sm:min-h-[13.5rem] sm:w-48 sm:shrink-0">
+                    <RequestCover request={request} />
                     <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[10px] font-black ring-1 ${getStatusTone(request.status)}`}>
                       {getStatusLabel(request.status)}
                     </span>
@@ -269,40 +280,41 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                       <span>{request.requestedStageName || 'Pedido geral'}</span>
                     </div>
                   </div>
-                </button>
+                </div>
 
-                {expanded && (
-                  <div className="border-t border-[#e2f1fb] p-4">
-                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Materiais usados</p>
-                        <h4 className="mt-1 text-lg font-black text-[#082653]">Marque o que entrou na edição</h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSave(request)}
-                        disabled={savingRequestId === request.id}
-                        className="impact-primary min-h-11 px-5 text-xs"
-                      >
-                        {savingRequestId === request.id ? 'Salvando...' : savedRequestId === request.id ? 'Salvo' : 'Salvar marcação'}
-                      </button>
+                <div className="border-t border-[#e2f1fb] p-4">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Materiais usados</p>
+                      <h4 className="mt-1 text-lg font-black text-[#082653]">Marque o que entrou na edição</h4>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSave(request)}
+                      disabled={savingRequestId === request.id}
+                      className="impact-primary min-h-11 px-5 text-xs"
+                    >
+                      {savingRequestId === request.id ? 'Salvando...' : savedRequestId === request.id ? 'Salvo' : 'Salvar marcação'}
+                    </button>
+                  </div>
 
-                    <div className="space-y-3">
-                      {request.availableStages.map(stage => {
-                        const checked = selected.has(stage.id);
-                        const disabled = stage.lockedByOtherRequest;
-                        return (
-                          <label
-                            key={stage.id}
-                            className={`flex cursor-pointer items-start gap-3 rounded-[1.35rem] border px-4 py-3 transition-colors ${
-                              checked
-                                ? 'border-emerald-200 bg-emerald-50/80'
-                                : disabled
-                                  ? 'border-slate-200 bg-slate-50 opacity-70'
-                                  : 'border-[#d7ebfb] bg-white/78 hover:border-[#9cddfb]'
-                            }`}
-                          >
+                  <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
+                    {request.availableStages.map(stage => {
+                      const checked = selected.has(stage.id);
+                      const disabled = stage.lockedByOtherRequest;
+                      const openUrl = getStageOpenUrl(stage);
+                      return (
+                        <div
+                          key={stage.id}
+                          className={`flex items-start gap-3 rounded-[1.35rem] border px-4 py-3 transition-colors ${
+                            checked
+                              ? 'border-emerald-200 bg-emerald-50/80'
+                              : disabled
+                                ? 'border-slate-200 bg-slate-50 opacity-70'
+                                : 'border-[#d7ebfb] bg-white/78 hover:border-[#9cddfb]'
+                          }`}
+                        >
+                          <label className="mt-0.5 flex shrink-0 cursor-pointer items-center">
                             <input
                               type="checkbox"
                               checked={checked}
@@ -310,36 +322,65 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                               onChange={() => toggleStage(request.id, stage.id)}
                               className="mt-1 h-5 w-5 rounded border-[#b8d8ef] text-[#20a8f5] focus:ring-[#20a8f5]"
                             />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-black text-[#082653]">{stage.name}</p>
-                                {stage.moment && (
-                                  <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
-                                )}
-                                {disabled && (
-                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {stage.files.slice(0, 4).map(file => (
-                                  <span key={file.id} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#42668f] ring-1 ring-[#e2f1fb]">
+                            <span className="sr-only">Marcar {stage.name} como usado</span>
+                          </label>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-black text-[#082653]">{stage.name}</p>
+                              {stage.moment && (
+                                <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
+                              )}
+                              {disabled && (
+                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {stage.files.slice(0, 4).map(file => (
+                                file.publicUrl && file.publicUrl !== '#' ? (
+                                  <a
+                                    key={file.id}
+                                    href={file.publicUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="max-w-full truncate rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#42668f] ring-1 ring-[#e2f1fb] transition-colors hover:bg-[#f4fbff] hover:text-[#159de9]"
+                                  >
+                                    {file.name}
+                                  </a>
+                                ) : (
+                                  <span key={file.id} className="max-w-full truncate rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#42668f] ring-1 ring-[#e2f1fb]">
                                     {file.name}
                                   </span>
-                                ))}
-                                {stage.files.length > 4 && (
-                                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#6d8db1] ring-1 ring-[#e2f1fb]">
-                                    +{stage.files.length - 4}
-                                  </span>
-                                )}
-                              </div>
+                                )
+                              ))}
+                              {stage.files.length > 4 && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#6d8db1] ring-1 ring-[#e2f1fb]">
+                                  +{stage.files.length - 4}
+                                </span>
+                              )}
                             </div>
-                          </label>
-                        );
-                      })}
-                    </div>
+                          </div>
+                          <div className="shrink-0">
+                            {openUrl ? (
+                              <a
+                                href={openUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex min-h-10 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
+                              >
+                                Abrir
+                              </a>
+                            ) : (
+                              <span className="inline-flex min-h-10 items-center rounded-2xl bg-slate-100 px-4 text-xs font-black text-slate-400">
+                                Sem link
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </article>
             );
           })}

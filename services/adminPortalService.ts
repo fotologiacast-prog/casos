@@ -57,6 +57,7 @@ export type AdminEditingRequestStageFile = {
   type?: string | null;
   sizeBytes?: number | null;
   publicUrl: string;
+  previewUrl?: string | null;
   createdAt?: string | null;
 };
 

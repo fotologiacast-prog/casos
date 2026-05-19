@@ -150,8 +150,14 @@ const toArray = <T,>(value: T[] | null | undefined): T[] => Array.isArray(value)
 const getDirectDriveFileUrl = (fileId: string) =>
   `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
 
+const getDriveThumbnailUrl = (fileId: string) =>
+  `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800`;
+
 const getAdminFileUrl = (file: any) =>
   file?.web_content_link || (file?.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file?.web_view_link || "#");
+
+const getAdminPreviewUrl = (file: any) =>
+  file?.drive_file_id ? getDriveThumbnailUrl(file.drive_file_id) : getAdminFileUrl(file);
 
 const isImageFile = (file: any) =>
   String(file?.mime_type || file?.type || "").startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i.test(String(file?.file_name || file?.name || ""));
@@ -231,6 +237,7 @@ const fetchAdminEditingRequests = async (supabase: any) => {
             type: file.mime_type,
             sizeBytes: file.size_bytes,
             publicUrl: getAdminFileUrl(file),
+            previewUrl: getAdminPreviewUrl(file),
             createdAt: file.created_at,
           })),
         };
@@ -258,7 +265,7 @@ const fetchAdminEditingRequests = async (supabase: any) => {
       editedAt: request.edited_at,
       usedStageIds: requestLocks.map(lock => lock.stage_id),
       usedCount: requestLocks.length,
-      coverUrl: coverFile?.publicUrl || null,
+      coverUrl: coverFile?.previewUrl || coverFile?.publicUrl || null,
       availableStages: caseStages,
     };
   });
