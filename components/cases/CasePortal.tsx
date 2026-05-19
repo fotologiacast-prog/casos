@@ -925,10 +925,42 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                       </div>
                     ) : (
                       unifiedNotifications.slice(0, 10).map(item => {
+                        let badgeText = '';
+                        let badgeClass = '';
+                        let borderLeftClass = '';
+
+                        if (item.type === 'testimonial') {
+                          badgeText = 'Material Pronto';
+                          badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                          borderLeftClass = 'border-l-4 border-emerald-500 rounded-r-2xl rounded-l-md';
+                        } else if (item.type === 'admin') {
+                          badgeText = 'Aviso';
+                          badgeClass = 'bg-violet-50 text-violet-700 border border-violet-200';
+                          borderLeftClass = 'border-l-4 border-violet-500 rounded-r-2xl rounded-l-md';
+                        } else if (item.type === 'local') {
+                          if (item.localType === 'ready_to_send') {
+                            badgeText = 'Pronto p/ Enviar';
+                            badgeClass = 'bg-sky-50 text-sky-700 border border-sky-200';
+                            borderLeftClass = 'border-l-4 border-sky-500 rounded-r-2xl rounded-l-md';
+                          } else if (item.localType === 'in_editing') {
+                            badgeText = 'Em Edição';
+                            badgeClass = 'bg-rose-50 text-rose-700 border border-rose-200';
+                            borderLeftClass = 'border-l-4 border-rose-500 rounded-r-2xl rounded-l-md';
+                          } else if (item.localType === 'inactive') {
+                            badgeText = 'Aguardando';
+                            badgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                            borderLeftClass = 'border-l-4 border-amber-500 rounded-r-2xl rounded-l-md';
+                          } else {
+                            borderLeftClass = 'rounded-2xl';
+                          }
+                        } else {
+                          borderLeftClass = 'rounded-2xl';
+                        }
+
                         return (
                           <div
                             key={item.id}
-                            className={`group relative flex w-full gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-[#f1f9ff] ${
+                            className={`group relative flex w-full gap-3 p-3 text-left transition-colors hover:bg-[#f1f9ff] ${borderLeftClass} ${
                               item.isUnread ? 'bg-[#f6fbff]/50' : 'bg-transparent'
                             }`}
                           >
@@ -938,14 +970,21 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                             {/* Content */}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-2">
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                  <span className="block truncate text-sm font-black text-[#082653]">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {badgeText && (
+                                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider ${badgeClass}`}>
+                                        {badgeText}
+                                      </span>
+                                    )}
+                                    {item.isUnread && (
+                                      <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 animate-pulse" aria-label="Nova notificação" />
+                                    )}
+                                  </div>
+                                  <p className="mt-1 truncate text-sm font-black text-[#082653]">
                                     {item.title}
-                                  </span>
-                                  {item.isUnread && (
-                                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />
-                                  )}
-                                </span>
+                                  </p>
+                                </div>
                                 <span className="text-[10px] font-bold text-[#8aa8c6] whitespace-nowrap shrink-0 mt-0.5">
                                   {formatElapsedTime(item.timestamp)}
                                 </span>
