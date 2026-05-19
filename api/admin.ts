@@ -145,6 +145,214 @@ const normalizeNotificationPayload = (body: any) => {
   };
 };
 
+const toArray = <T,>(value: T[] | null | undefined): T[] => Array.isArray(value) ? value : [];
+
+const getDirectDriveFileUrl = (fileId: string) =>
+  `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+
+const getAdminFileUrl = (file: any) =>
+  file?.web_content_link || (file?.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file?.web_view_link || "#");
+
+const isImageFile = (file: any) =>
+  String(file?.mime_type || file?.type || "").startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i.test(String(file?.file_name || file?.name || ""));
+
+const normalizeStageIds = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(item => String(item || "").trim()).filter(Boolean))];
+};
+
+const fetchAdminEditingRequests = async (supabase: any) => {
+  const { data: requests, error: requestsError } = await supabase
+    .from("case_editing_requests")
+    .select("*")
+    .order("sent_at", { ascending: false })
+    .limit(200);
+  if (requestsError) throw requestsError;
+
+  const requestRows = toArray<any>(requests);
+  const clientIds = [...new Set(requestRows.map(request => request.client_id).filter(Boolean))];
+  const caseIds = [...new Set(requestRows.map(request => request.case_id).filter(Boolean))];
+
+  const [clientsResult, casesResult, stagesResult, filesResult, locksResult] = await Promise.all([
+    clientIds.length ? supabase.from("clients").select("id, name").in("id", clientIds) : { data: [], error: null },
+    caseIds.length ? supabase.from("cases").select("id, patient_name, birth_date, age, gender, procedure, created_at, client_id").in("id", caseIds) : { data: [], error: null },
+    caseIds.length ? supabase.from("case_stages").select("id, case_id, stage_name, moment, sort_order, status").in("case_id", caseIds).order("sort_order", { ascending: true }) : { data: [], error: null },
+    caseIds.length ? supabase.from("case_files").select("id, case_id, stage_id, file_name, mime_type, size_bytes, drive_file_id, web_view_link, web_content_link, created_at").in("case_id", caseIds) : { data: [], error: null },
+    caseIds.length ? supabase.from("case_stage_usage_locks").select("*").in("case_id", caseIds) : { data: [], error: null },
+  ]);
+
+  if (clientsResult.error) throw clientsResult.error;
+  if (casesResult.error) throw casesResult.error;
+  if (stagesResult.error) throw stagesResult.error;
+  if (filesResult.error) throw filesResult.error;
+  if (locksResult.error) throw locksResult.error;
+
+  const clientsById = new Map(toArray<any>(clientsResult.data).map(client => [Number(client.id), client]));
+  const casesById = new Map(toArray<any>(casesResult.data).map(caseRow => [String(caseRow.id), caseRow]));
+  const filesByStageId = new Map<string, any[]>();
+  toArray<any>(filesResult.data).forEach(file => {
+    const stageId = String(file.stage_id);
+    filesByStageId.set(stageId, [...(filesByStageId.get(stageId) || []), file]);
+  });
+
+  const locksByStageId = new Map(toArray<any>(locksResult.data).map(lock => [String(lock.stage_id), lock]));
+  const locksByRequestId = new Map<string, any[]>();
+  toArray<any>(locksResult.data).forEach(lock => {
+    const requestId = String(lock.editing_request_id || "");
+    if (!requestId) return;
+    locksByRequestId.set(requestId, [...(locksByRequestId.get(requestId) || []), lock]);
+  });
+
+  return requestRows.map(request => {
+    const caseRow = casesById.get(String(request.case_id));
+    const client = clientsById.get(Number(request.client_id));
+    const caseStages = toArray<any>(stagesResult.data)
+      .filter(stage => String(stage.case_id) === String(request.case_id))
+      .map(stage => {
+        const files = filesByStageId.get(String(stage.id)) || [];
+        const lock = locksByStageId.get(String(stage.id));
+        return {
+          id: stage.id,
+          name: stage.stage_name,
+          moment: stage.moment,
+          status: stage.status,
+          sortOrder: stage.sort_order,
+          isUsed: Boolean(lock && String(lock.editing_request_id || "") === String(request.id)),
+          lockedByOtherRequest: Boolean(lock && String(lock.editing_request_id || "") !== String(request.id)),
+          lock: lock ? {
+            id: lock.id,
+            editingRequestId: lock.editing_request_id,
+            lockedAt: lock.locked_at,
+            lockedBy: lock.locked_by,
+          } : null,
+          files: files.map(file => ({
+            id: file.id,
+            name: file.file_name,
+            type: file.mime_type,
+            sizeBytes: file.size_bytes,
+            publicUrl: getAdminFileUrl(file),
+            createdAt: file.created_at,
+          })),
+        };
+      })
+      .filter(stage => stage.files.length > 0);
+    const coverFile = caseStages.flatMap(stage => stage.files).find(isImageFile) || caseStages.flatMap(stage => stage.files)[0] || null;
+    const requestLocks = locksByRequestId.get(String(request.id)) || [];
+
+    return {
+      id: request.id,
+      clientId: request.client_id,
+      clientName: client?.name || "Cliente",
+      caseId: request.case_id,
+      patientName: caseRow?.patient_name || "Paciente",
+      patientAge: caseRow?.age ?? null,
+      patientBirthDate: caseRow?.birth_date || null,
+      patientGender: caseRow?.gender || null,
+      patientProcedure: caseRow?.procedure || null,
+      requestedStageId: request.stage_id,
+      requestedStageName: request.stage_name,
+      materialUrl: request.material_url,
+      status: request.status,
+      creativeType: request.creative_type,
+      sentAt: request.sent_at,
+      editedAt: request.edited_at,
+      usedStageIds: requestLocks.map(lock => lock.stage_id),
+      usedCount: requestLocks.length,
+      coverUrl: coverFile?.publicUrl || null,
+      availableStages: caseStages,
+    };
+  });
+};
+
+const updateEditingRequestUsedStages = async (supabase: any, requestId: string, body: any) => {
+  const usedStageIds = normalizeStageIds(body?.usedStageIds);
+  const lockedBy = cleanText(body?.lockedBy) || "Editor";
+
+  const { data: request, error: requestError } = await supabase
+    .from("case_editing_requests")
+    .select("id, client_id, case_id")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (requestError) throw requestError;
+  if (!request) return { status: 404, body: { error: "Pedido de edicao nao encontrado." } };
+
+  const { data: stages, error: stagesError } = usedStageIds.length
+    ? await supabase
+      .from("case_stages")
+      .select("id, case_id, stage_name")
+      .in("id", usedStageIds)
+    : { data: [], error: null };
+  if (stagesError) throw stagesError;
+
+  const stageRows = toArray<any>(stages);
+  const validStageIds = new Set(
+    stageRows
+      .filter(stage => String(stage.case_id) === String(request.case_id))
+      .map(stage => String(stage.id))
+  );
+  const invalidStageIds = usedStageIds.filter(stageId => !validStageIds.has(stageId));
+  if (invalidStageIds.length > 0) {
+    return { status: 400, body: { error: "Um ou mais materiais nao pertencem ao caso deste pedido." } };
+  }
+
+  const { data: existingLocks, error: locksError } = usedStageIds.length
+    ? await supabase
+      .from("case_stage_usage_locks")
+      .select("id, stage_id, editing_request_id, stage_name")
+      .eq("case_id", request.case_id)
+      .in("stage_id", usedStageIds)
+    : { data: [], error: null };
+  if (locksError) throw locksError;
+
+  const lockedByOther = toArray<any>(existingLocks).filter(lock => String(lock.editing_request_id || "") !== requestId);
+  if (lockedByOther.length > 0) {
+    return {
+      status: 409,
+      body: {
+        error: "Alguns materiais ja foram bloqueados em outro pedido.",
+        stages: lockedByOther.map(lock => lock.stage_name || lock.stage_id),
+      },
+    };
+  }
+
+  const { data: ownLocks, error: ownLocksError } = await supabase
+    .from("case_stage_usage_locks")
+    .select("id, stage_id")
+    .eq("editing_request_id", requestId);
+  if (ownLocksError) throw ownLocksError;
+
+  const usedSet = new Set(usedStageIds);
+  const lockIdsToDelete = toArray<any>(ownLocks)
+    .filter(lock => !usedSet.has(String(lock.stage_id)))
+    .map(lock => lock.id);
+  if (lockIdsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("case_stage_usage_locks")
+      .delete()
+      .in("id", lockIdsToDelete);
+    if (deleteError) throw deleteError;
+  }
+
+  const rows = stageRows.map(stage => ({
+    client_id: request.client_id,
+    case_id: request.case_id,
+    stage_id: stage.id,
+    editing_request_id: request.id,
+    stage_name: stage.stage_name,
+    locked_by: lockedBy,
+    locked_at: new Date().toISOString(),
+  }));
+
+  if (rows.length > 0) {
+    const { error: upsertError } = await supabase
+      .from("case_stage_usage_locks")
+      .upsert(rows, { onConflict: "case_id,stage_id" });
+    if (upsertError) throw upsertError;
+  }
+
+  return { status: 200, body: { ok: true, usedStageIds } };
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -338,6 +546,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { error } = await supabase.from("admin_notifications").delete().eq("id", id);
         if (error) throw error;
         return res.status(200).json({ ok: true });
+      }
+    }
+
+    // --- EDITING REQUESTS MODULE ---
+    if (module === "editing-requests") {
+      if (req.method === "GET") {
+        const requests = await fetchAdminEditingRequests(supabase);
+        return res.status(200).json({ requests });
+      }
+
+      if (req.method === "PUT") {
+        const id = String(req.query.id || req.body?.id || "").trim();
+        if (!id) return res.status(400).json({ error: "ID do pedido ausente." });
+
+        const result = await updateEditingRequestUsedStages(supabase, id, req.body);
+        return res.status(result.status).json(result.body);
       }
     }
 

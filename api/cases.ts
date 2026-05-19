@@ -188,30 +188,50 @@ const normalizeCasePayload = (body: any) => ({
 const getDirectDriveFileUrl = (fileId: string) =>
   `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
 
-const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = []) =>
+const isMissingSupabaseSchema = (error: any) => {
+  const text = [error?.code, error?.message, error?.details].filter(Boolean).join(" ");
+  return /PGRST204|PGRST205|42P01|case_stage_usage_locks/i.test(text);
+};
+
+const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = [], usageLockRows: any[] = []) =>
   caseRows.map(caseRow => {
+    const usageLocksByStageId = new Map(
+      usageLockRows
+        .filter(lock => lock.case_id === caseRow.id)
+        .map(lock => [String(lock.stage_id), lock])
+    );
     const stages = stageRows
       .filter(stage => stage.case_id === caseRow.id)
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map(stage => ({
-        id: stage.id,
-        boardId: caseRow.monday_item_id || caseRow.id,
-        parentItemId: caseRow.id,
-        title: getCanonicalCaseStageTitle(stage.stage_name),
-        moment: getCaseStageMoment(stage.stage_name) || stage.moment,
-        expectedItems: getCaseStageExpectedItems(stage.stage_name),
-        status: stage.status === "capturado" ? "Capturado" : "Fazer",
-        statusColumnId: stage.monday_subitem_id || "",
-        filesColumnId: stage.drive_folder_id || "",
-        files: fileRows
-          .filter(file => file.stage_id === stage.id)
-          .map(file => ({
-            id: file.id,
-            name: file.file_name,
-            public_url: file.web_content_link || (file.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file.web_view_link || "#"),
-            type: file.mime_type || undefined,
-          })),
-      }));
+      .map(stage => {
+        const usageLock = usageLocksByStageId.get(String(stage.id));
+        return {
+          id: stage.id,
+          boardId: caseRow.monday_item_id || caseRow.id,
+          parentItemId: caseRow.id,
+          title: getCanonicalCaseStageTitle(stage.stage_name),
+          moment: getCaseStageMoment(stage.stage_name) || stage.moment,
+          expectedItems: getCaseStageExpectedItems(stage.stage_name),
+          status: stage.status === "capturado" ? "Capturado" : "Fazer",
+          statusColumnId: stage.monday_subitem_id || "",
+          filesColumnId: stage.drive_folder_id || "",
+          usageLock: usageLock ? {
+            id: usageLock.id,
+            editingRequestId: usageLock.editing_request_id,
+            stageName: usageLock.stage_name,
+            lockedAt: usageLock.locked_at,
+            lockedBy: usageLock.locked_by,
+          } : null,
+          files: fileRows
+            .filter(file => file.stage_id === stage.id)
+            .map(file => ({
+              id: file.id,
+              name: file.file_name,
+              public_url: file.web_content_link || (file.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file.web_view_link || "#"),
+              type: file.mime_type || undefined,
+            })),
+        };
+      });
 
     return {
       id: caseRow.id,
@@ -268,7 +288,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : { data: [], error: null };
       if (filesError) throw filesError;
 
-      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || []) });
+      const { data: usageLocks, error: usageLocksError } = caseIds.length
+        ? await supabase.from("case_stage_usage_locks").select("*").in("case_id", caseIds)
+        : { data: [], error: null };
+      if (usageLocksError && !isMissingSupabaseSchema(usageLocksError)) throw usageLocksError;
+
+      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || [], usageLocksError ? [] : usageLocks || []) });
     }
 
     if (req.method === "POST") {
@@ -821,6 +846,220 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // --- fim Monday.com integration ---
 
       return res.status(201).json({ caseId: createdCase.id, monday: mondayResult });
+    }
+
+    if (req.method === "PUT") {
+      const caseId = String(req.query.caseId || req.body?.caseId || "").trim();
+      if (!caseId) return res.status(400).json({ error: "caseId ausente." });
+
+      const { data: existingCase, error: caseError } = await supabase
+        .from("cases")
+        .select("*")
+        .eq("id", caseId)
+        .eq("client_id", client.id)
+        .maybeSingle();
+      if (caseError) throw caseError;
+      if (!existingCase) return res.status(404).json({ error: "Caso nao encontrado." });
+
+      const payload = normalizeCasePayload(req.body);
+      if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
+
+      // Rename Google Drive folder if name changed
+      if (existingCase.drive_folder_id && existingCase.patient_name !== payload.patient_name && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
+        try {
+          const { getGoogleAccessToken, sanitizeDriveFolderName, updateDriveFolderName } = await import("./_googleDrive.js");
+          const accessToken = await getGoogleAccessToken({ preferOAuth: true });
+          await updateDriveFolderName(
+            accessToken,
+            existingCase.drive_folder_id,
+            sanitizeDriveFolderName(payload.patient_name)
+          );
+        } catch (driveErr) {
+          console.error("[Cases API] Falha ao renomear pasta no Drive:", driveErr);
+        }
+      }
+
+      // Update in Supabase
+      const { data: updatedCase, error: updateError } = await supabase
+        .from("cases")
+        .update({
+          patient_name: payload.patient_name,
+          birth_date: payload.birth_date,
+          gender: payload.gender,
+          procedure: payload.procedure,
+          dentist_responsible: payload.dentist_responsible,
+          notes: payload.notes,
+          age: calculateAge(payload.birth_date),
+        })
+        .eq("id", caseId)
+        .eq("client_id", client.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+
+      // Monday.com integration (non-blocking)
+      let mondayResult: any = { success: false, skipped: true };
+      const mondayToken = process.env.MONDAY_TOKEN;
+      const mondayBoardId = DEFAULT_MONDAY_CASE_BOARD_ID;
+      if (mondayToken && mondayBoardId && existingCase.monday_item_id) {
+        mondayResult.skipped = false;
+        try {
+          // 1. Rename item in Monday if name changed
+          if (existingCase.patient_name !== payload.patient_name) {
+            await fetch("https://api.monday.com/v2", {
+              method: "POST",
+              headers: {
+                Authorization: mondayToken.trim(),
+                "Content-Type": "application/json",
+                "API-Version": "2024-10",
+              },
+              body: JSON.stringify({
+                query: `mutation ($boardId: ID!, $itemId: ID!, $newName: String!) { rename_item(board_id: $boardId, item_id: $itemId, new_name: $newName) { id } }`,
+                variables: {
+                  boardId: String(mondayBoardId),
+                  itemId: String(existingCase.monday_item_id),
+                  newName: payload.patient_name,
+                },
+              }),
+            });
+          }
+
+          // 2. Fetch board columns to map other column updates
+          const colsResponse = await fetch("https://api.monday.com/v2", {
+            method: "POST",
+            headers: {
+              Authorization: mondayToken.trim(),
+              "Content-Type": "application/json",
+              "API-Version": "2024-10",
+            },
+            body: JSON.stringify({
+              query: `query ($boardIds: [ID!]) { boards(ids: $boardIds) { columns { id title type settings_str } } }`,
+              variables: { boardIds: [String(mondayBoardId)] },
+            }),
+          });
+          const colsData = await colsResponse.json();
+          const columns: { id: string; title: string; type: string; settings_str?: string | null }[] = colsData?.data?.boards?.[0]?.columns || [];
+
+          const normalizeKey = (v: string) =>
+            v
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .trim()
+              .toLowerCase()
+              .replace(/^#+/, "")
+              .replace(/[^a-z0-9]+/g, " ")
+              .trim();
+
+          const readOnlyTypes = ["formula", "creation_log", "last_updated", "auto_number", "item_id", "progress", "lookup", "board_relation", "subtasks", "mirror"];
+          const findCol = (colNames: string | string[], preferredTypes: string[] = []) => {
+            const names = Array.isArray(colNames) ? colNames : [colNames];
+            const matches = columns.filter((c) => names.some(name => normalizeKey(c.title) === normalizeKey(name)));
+            if (matches.length === 0) return undefined;
+            const writableMatches = matches.filter((c) => !readOnlyTypes.includes(c.type));
+            const preferredMatch = writableMatches.find((c) => preferredTypes.includes(c.type));
+            return preferredMatch || writableMatches[0] || matches[0];
+          };
+
+          const getColumnSettings = (col: { settings_str?: string | null }) => {
+            try {
+              return JSON.parse(col.settings_str || "{}");
+            } catch {
+              return {};
+            }
+          };
+
+          const findStatusLabelIndex = (col: { settings_str?: string | null }, label: string) => {
+            const settings = getColumnSettings(col);
+            const labels = settings?.labels;
+            if (!labels || typeof labels !== "object") return null;
+            const target = normalizeKey(label);
+            const match = Object.entries(labels).find(([, value]) => normalizeKey(String(value)) === target);
+            return match ? Number(match[0]) : null;
+          };
+
+          const columnUpdates: { id: string; title: string; value: unknown }[] = [];
+          const set = (colNames: string | string[], value: unknown, preferredTypes: string[] = []) => {
+            const names = Array.isArray(colNames) ? colNames : [colNames];
+            const col = findCol(names, preferredTypes);
+            if (!col) return;
+            if (value === undefined || value === null || String(value).trim() === "") return;
+            
+            const text = String(value).trim();
+            const type = col.type;
+            let formattedValue: unknown;
+            if (type === "status" || type === "color") {
+              const labelIndex = findStatusLabelIndex(col, text);
+              formattedValue = Number.isFinite(labelIndex) ? { index: labelIndex } : { label: text };
+            }
+            else if (type === "dropdown") formattedValue = { labels: text.split(",").map(item => item.trim()).filter(Boolean) };
+            else if (type === "date") formattedValue = { date: text };
+            else if (type === "long_text" || type === "long-text") formattedValue = { text };
+            else if (type === "numbers" || type === "numeric") formattedValue = text;
+            else formattedValue = text;
+
+            columnUpdates.push({ id: col.id, title: col.title, value: formattedValue });
+          };
+
+          const dentistResponsible = String(payload.dentist_responsible || "").trim();
+          set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
+          set(["Idade", "#Idade"], calculateAge(payload.birth_date));
+          if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender, ["status", "color", "dropdown", "text"]);
+          if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure, ["dropdown", "status", "color", "text"]);
+          if (dentistResponsible) set(["Dentista Responsável", "#Dentista Responsável", "Dentista Responsavel", "#Dentista Responsavel"], dentistResponsible, ["text", "long_text", "status", "color", "dropdown"]);
+
+          if (columnUpdates.length > 0) {
+            const columnValues = columnUpdates.reduce<Record<string, unknown>>((acc, update) => {
+              acc[update.id] = update.value;
+              return acc;
+            }, {});
+
+            await fetch("https://api.monday.com/v2", {
+              method: "POST",
+              headers: {
+                Authorization: mondayToken.trim(),
+                "Content-Type": "application/json",
+                "API-Version": "2024-10",
+              },
+              body: JSON.stringify({
+                query: `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+                  change_multiple_column_values(board_id: $boardId, item_id: $itemId, column_values: $columnValues) { id }
+                }`,
+                variables: {
+                  boardId: String(mondayBoardId),
+                  itemId: String(existingCase.monday_item_id),
+                  columnValues: JSON.stringify(columnValues),
+                },
+              }),
+            });
+          }
+
+          // 3. Add Monday update update/timeline note only if notes changed
+          if (payload.notes && existingCase.notes !== payload.notes) {
+            await fetch("https://api.monday.com/v2", {
+              method: "POST",
+              headers: {
+                Authorization: mondayToken.trim(),
+                "Content-Type": "application/json",
+                "API-Version": "2024-10",
+              },
+              body: JSON.stringify({
+                query: `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }`,
+                variables: {
+                  itemId: String(existingCase.monday_item_id),
+                  body: `[Atualização] ${payload.notes}`,
+                },
+              }),
+            });
+          }
+
+          mondayResult.success = true;
+        } catch (mondayError) {
+          console.error("[Cases API] Falha ao atualizar Monday (nao bloqueante):", mondayError);
+          mondayResult.error = mondayError instanceof Error ? mondayError.message : String(mondayError);
+        }
+      }
+
+      return res.status(200).json({ caseId: updatedCase.id, monday: mondayResult });
     }
 
     if (req.method === "DELETE") {

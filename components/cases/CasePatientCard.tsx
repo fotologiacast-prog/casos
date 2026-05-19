@@ -7,6 +7,7 @@ interface CasePatientCardProps {
   onOpen: (patient: CasePatient) => void;
   onOpenTestimonials?: (patient: CasePatient) => void;
   readyTestimonialCount?: number;
+  onEdit?: (patient: CasePatient) => void;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -57,7 +58,7 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
   );
 };
 
-const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0 }) => {
+const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0, onEdit }) => {
   const progress = getPatientProgress(patient);
   const status = getPatientStatus(patient);
   const config = statusConfig[status] || statusConfig['Em andamento'];
@@ -90,9 +91,27 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
       {/* Content */}
       <div className="space-y-4 px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
         {/* Name */}
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
-          <h3 className="mt-1.5 truncate text-lg font-black leading-tight text-[#082653]">{patient.name}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
+            <h3 className="mt-1.5 truncate text-lg font-black leading-tight text-[#082653]">{patient.name}</h3>
+          </div>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(patient);
+              }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f0f8ff] text-[#20a8f5] shadow-sm hover:bg-[#20a8f5] hover:text-white transition-colors"
+              aria-label={`Editar paciente ${patient.name}`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.313.313-.689.544-1.107.676l-3.155 1.262a.5.5 0 0 1-.645-.645Z" />
+                <path d="M2 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5a.5.5 0 0 0-.5-.5h-15a.5.5 0 0 0-.5.5V18Z" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Info badges */}

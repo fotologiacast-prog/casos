@@ -14,6 +14,7 @@ interface CasePatientDetailProps {
   readyTestimonialCount?: number;
   onOpenTestimonials?: (patient: CasePatient) => void;
   onRequestStageEditing?: (stage: CaseStage) => Promise<void>;
+  onEdit?: () => void;
 }
 
 const momentVisuals: Record<string, { bar: string; badge: string; panel: string; label: string }> = {
@@ -97,6 +98,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   readyTestimonialCount = 0,
   onOpenTestimonials,
   onRequestStageEditing,
+  onEdit,
 }) => {
   const progress = getPatientProgress(patient);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
@@ -276,16 +278,31 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-red-500 hover:ring-red-100"
-            aria-label="Excluir caso"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          <div className="flex gap-2 shrink-0">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-[#20a8f5] hover:ring-[#20a8f5]/20 active:scale-95"
+                aria-label="Editar caso"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.313.313-.689.544-1.107.676l-3.155 1.262a.5.5 0 0 1-.645-.645Z" />
+                  <path d="M2 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5a.5.5 0 0 0-.5-.5h-15a.5.5 0 0 0-.5.5V18Z" />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-red-500 hover:ring-red-100 active:scale-95"
+              aria-label="Excluir caso"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Filter Bar */}

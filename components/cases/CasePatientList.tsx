@@ -13,6 +13,7 @@ interface CasePatientListProps {
   readyTestimonialCounts?: Record<string, number>;
   onRefresh: () => void;
   isRefreshing: boolean;
+  onEdit?: (patient: CasePatient) => void;
 }
 
 const ageRanges = [
@@ -61,6 +62,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   readyTestimonialCounts = {},
   onRefresh,
   isRefreshing,
+  onEdit,
 }) => {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -274,6 +276,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
                 onOpen={onOpen}
                 readyTestimonialCount={readyTestimonialCounts[patient.id] || 0}
                 onOpenTestimonials={onOpenTestimonials}
+                onEdit={onEdit}
               />
             ))}
           </div>

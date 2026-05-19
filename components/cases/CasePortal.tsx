@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CasePatient, CaseStage, Client } from '../../types';
-import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients, requestCaseStageEditing } from '../../services/caseSupabaseService';
+import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients, requestCaseStageEditing, updateSupabaseCasePatient } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
@@ -87,7 +87,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [portalClient, setPortalClient] = useState<PortalClient | null>(null);
   const [patients, setPatients] = useState<CasePatient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [mode, setMode] = useState<'list' | 'create'>('list');
+  const [mode, setMode] = useState<'list' | 'create' | 'edit'>('list');
+  const [editFromDetail, setEditFromDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('cases');
   const [testimonialSearch, setTestimonialSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -375,6 +376,48 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     await loadPatients(portalClient, true);
     setSelectedPatientId(patientId);
     setMode('list');
+  };
+
+  const handleUpdatePatient = async (payload: NewCasePatientPayload) => {
+    if (!portalClient || !selectedPatientId) return;
+    if (portalClient.isDemo) {
+      setPatients(prev => prev.map(patient => {
+        if (patient.id !== selectedPatientId) return patient;
+        let patientAge = null;
+        if (payload.birthDate) {
+          const birth = new Date(`${payload.birthDate}T00:00:00`);
+          if (!Number.isNaN(birth.getTime())) {
+            const today = new Date();
+            patientAge = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+              patientAge -= 1;
+            }
+          }
+        }
+        return {
+          ...patient,
+          name: payload.name,
+          birthDate: payload.birthDate,
+          gender: payload.gender,
+          procedure: payload.procedure,
+          dentistResponsible: payload.dentistResponsible || null,
+          notes: payload.notes,
+          age: patientAge,
+        };
+      }));
+      setMode('list');
+      if (!editFromDetail) {
+        setSelectedPatientId(null);
+      }
+      return;
+    }
+    await updateSupabaseCasePatient(token, selectedPatientId, payload);
+    await loadPatients(portalClient, true);
+    setMode('list');
+    if (!editFromDetail) {
+      setSelectedPatientId(null);
+    }
   };
 
   const handleDemoUpload = async (stage: any, files: File[]) => {
@@ -738,6 +781,26 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             onCancel={() => setMode('list')}
             onSubmit={handleCreatePatient}
           />
+        ) : mode === 'edit' && selectedPatient ? (
+          <NewCasePatientForm
+            clientName={portalClient.displayName}
+            isEditing={true}
+            initialData={{
+              name: selectedPatient.name,
+              birthDate: selectedPatient.birthDate || '',
+              gender: selectedPatient.gender || '',
+              procedure: selectedPatient.procedure || '',
+              dentistResponsible: selectedPatient.dentistResponsible || '',
+              notes: selectedPatient.notes || '',
+            }}
+            onCancel={() => {
+              setMode('list');
+              if (!editFromDetail) {
+                setSelectedPatientId(null);
+              }
+            }}
+            onSubmit={handleUpdatePatient}
+          />
         ) : selectedPatient ? (
           <CasePatientDetail
             patient={selectedPatient}
@@ -748,6 +811,10 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             readyTestimonialCount={selectedPatient ? readyTestimonialCounts[selectedPatient.id] || 0 : 0}
             onOpenTestimonials={handleOpenTestimonialsForPatient}
             onRequestStageEditing={handleRequestStageEditing}
+            onEdit={() => {
+              setEditFromDetail(true);
+              setMode('edit');
+            }}
           />
         ) : (
           <CasePatientList
@@ -759,6 +826,11 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             readyTestimonialCounts={readyTestimonialCounts}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
+            onEdit={patient => {
+              setSelectedPatientId(patient.id);
+              setEditFromDetail(false);
+              setMode('edit');
+            }}
           />
         )}
       </div>

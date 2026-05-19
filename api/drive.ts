@@ -46,6 +46,20 @@ const ensureStageFolder = async (input: {
   return folder.id;
 };
 
+const getStageUsageLock = async (supabase: any, stageId: string) => {
+  const { data, error } = await supabase
+    .from("case_stage_usage_locks")
+    .select("id, stage_name, locked_at")
+    .eq("stage_id", stageId)
+    .maybeSingle();
+  if (error) {
+    const text = [error?.code, error?.message, error?.details].filter(Boolean).join(" ");
+    if (/PGRST204|PGRST205|42P01|case_stage_usage_locks/i.test(text)) return null;
+    throw error;
+  }
+  return data || null;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS");
@@ -69,9 +83,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!caseFileId) return res.status(400).json({ error: "caseFileId é obrigatório." });
 
       let actualDriveFileId = driveFileId;
+      let actualStageId = stageId ? String(stageId) : "";
       if (!actualDriveFileId) {
-        const { data: fileData } = await supabase.from("case_files").select("drive_file_id").eq("id", caseFileId).single();
+        const { data: fileData } = await supabase.from("case_files").select("drive_file_id, stage_id").eq("id", caseFileId).single();
         if (fileData?.drive_file_id) actualDriveFileId = fileData.drive_file_id;
+        if (!actualStageId && fileData?.stage_id) actualStageId = fileData.stage_id;
+      } else if (!actualStageId) {
+        const { data: fileData } = await supabase.from("case_files").select("stage_id").eq("id", caseFileId).single();
+        if (fileData?.stage_id) actualStageId = fileData.stage_id;
+      }
+
+      if (actualStageId) {
+        const usageLock = await getStageUsageLock(supabase, actualStageId);
+        if (usageLock) {
+          return res.status(409).json({
+            error: "Material bloqueado.",
+            details: "Este material ja foi utilizado pela edicao e nao pode mais ser removido.",
+          });
+        }
       }
 
       if (actualDriveFileId) {
@@ -101,6 +130,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!stageId) return res.status(400).json({ error: "stageId ausente." });
 
       const stage = await getStageContext(supabase, stageId);
+      const usageLock = await getStageUsageLock(supabase, stageId);
+      if (usageLock) {
+        return res.status(409).json({
+          error: "Material bloqueado.",
+          details: "Este material ja foi utilizado pela edicao e nao aceita novos uploads.",
+        });
+      }
 
       if (action === "start") {
         const fileName = String(req.body?.fileName || "").trim();

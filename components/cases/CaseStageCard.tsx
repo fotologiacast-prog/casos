@@ -405,10 +405,15 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   };
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
+  const isUsageLocked = Boolean(stage.usageLock);
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
   const handleFiles = async (files: File[]) => {
     if (files.length === 0 || isPlaceholder) return;
+    if (isUsageLocked) {
+      setError('Este material ja foi utilizado pela edicao e nao aceita novos uploads.');
+      return;
+    }
     setError(null);
     setIsUploading(true);
     setUploadProgress(null);
@@ -431,12 +436,16 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault();
     setIsDragging(false);
-    if (isPlaceholder) return;
+    if (isPlaceholder || isUsageLocked) return;
     const files = Array.from(event.dataTransfer.files) as File[];
     await handleFiles(files);
   };
 
   const handleDeleteFile = async (file: CaseStage['files'][number]) => {
+    if (isUsageLocked) {
+      setError('Este material ja foi utilizado pela edicao e nao pode mais ser removido.');
+      return;
+    }
     if (!window.confirm(`Remover "${file.name}" permanentemente do Drive e do sistema?`)) return;
     setDeletingFileId(file.id);
     try {
@@ -470,7 +479,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           : 'border border-white/75 bg-white/70 shadow-[0_12px_34px_rgba(22,78,129,0.1)] backdrop-blur-xl'
       } ${isExpanded ? `ring-2 ${capturedTheme.ring}` : isCaptured ? capturedTheme.hoverBorder : 'hover:border-[#cde8fb]'}`}
     >
-      <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" />
+      <input ref={inputRef} type="file" multiple accept={UPLOAD_ACCEPT} onChange={handleInputChange} className="hidden" disabled={isUsageLocked} />
       <div 
         className="flex cursor-pointer items-center gap-3.5 px-5 py-4 transition-colors hover:bg-white/50 sm:gap-4 sm:px-6 sm:py-5 lg:gap-5 lg:px-7 lg:py-6"
         onClick={handleToggleExpand}
@@ -501,7 +510,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
         <div className="flex-1 min-w-0">
           <h3 className="truncate text-[0.95rem] font-black tracking-tight text-[#082653] sm:text-base lg:text-lg">{stage.title}</h3>
-          {isCaptured ? (
+          {isUsageLocked ? (
+            <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500 lg:text-[11px]">Utilizado pela edição · bloqueado</p>
+          ) : isCaptured ? (
             <p className={`text-[10px] lg:text-[11px] font-black uppercase tracking-widest ${capturedTheme.text} mt-0.5`}>Capturado · {stage.files.length} arquivos</p>
           ) : (
             <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[#8aa5c4] lg:text-[11px]">Pendente de envio</p>
@@ -540,8 +551,23 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
 
       <div id={`stage-panel-${stage.id}`} className={`overflow-hidden transition-[max-height,opacity] duration-300 ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="space-y-6 px-5 pb-6 sm:px-6 sm:pb-8 sm:space-y-8 lg:px-7 lg:pb-8">
+          {isUsageLocked && (
+            <div className="flex items-start gap-3 rounded-[1.35rem] border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10 1.944a4.5 4.5 0 0 0-4.5 4.5V8H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V6.444a4.5 4.5 0 0 0-4.5-4.5Zm3 6.056V6.444a3 3 0 1 0-6 0V8h6Z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-black text-[#082653]">Material usado pela edição</p>
+                <p className="mt-1 text-xs font-semibold leading-relaxed text-[#6d8db1]">
+                  Esta etapa foi marcada pelo editor e nao recebe novos uploads para preservar o material usado na producao.
+                </p>
+              </div>
+            </div>
+          )}
           {/* Upload Area */}
-          {!isCaptured ? (
+          {!isCaptured && !isUsageLocked ? (
             <div 
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
@@ -581,15 +607,17 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-[#7d9bbd]">Arquivos enviados</h4>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
-                  >
-                    + Adicionar mais
-                  </button>
-                </div>
+                {!isUsageLocked && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                      className={`text-xs font-black transition-colors ${capturedTheme.buttonText}`}
+                    >
+                      + Adicionar mais
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
                 {stage.files.map(file => (
@@ -609,17 +637,19 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                         <MediaFallback file={file} label="Arquivo" />
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={(event) => { event.stopPropagation(); handleDeleteFile(file); }}
-                      disabled={deletingFileId === file.id}
-                      aria-label={`Remover arquivo ${file.name}`}
-                      className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-50 sm:h-9 sm:w-9 sm:opacity-0 sm:group-hover:opacity-100"
-                    >
-                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                      </svg>
-                    </button>
+                    {!isUsageLocked && (
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); handleDeleteFile(file); }}
+                        disabled={deletingFileId === file.id}
+                        aria-label={`Remover arquivo ${file.name}`}
+                        className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-50 sm:h-9 sm:w-9 sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

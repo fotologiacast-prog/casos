@@ -69,6 +69,15 @@ export interface CaseStage {
   statusColumnId: string;
   filesColumnId: string;
   files: { id: string; name: string; public_url: string; type?: string }[];
+  usageLock?: CaseStageUsageLock | null;
+}
+
+export interface CaseStageUsageLock {
+  id: string;
+  editingRequestId?: string | null;
+  stageName: string;
+  lockedAt: string;
+  lockedBy?: string | null;
 }
 
 export interface CasePatient {

@@ -277,3 +277,22 @@ export const sanitizeDriveFolderName = (value: string) =>
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
+
+export const updateDriveFolderName = async (accessToken: string, folderId: string, name: string) => {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?supportsAllDrives=true`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name }),
+    }
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error?.message || "Falha ao renomear pasta no Google Drive.");
+  }
+};

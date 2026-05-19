@@ -287,6 +287,57 @@ create policy "No public direct access to case_editing_requests"
   using (false)
   with check (false);
 
+create table if not exists public.case_stage_usage_locks (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  client_id bigint not null references public.clients(id) on delete cascade,
+  case_id uuid not null references public.cases(id) on delete cascade,
+  stage_id uuid not null references public.case_stages(id) on delete cascade,
+  editing_request_id uuid references public.case_editing_requests(id) on delete set null,
+  stage_name text not null,
+  locked_by text,
+  locked_at timestamptz not null default now(),
+  note text,
+  unique(case_id, stage_id)
+);
+
+alter table public.case_stage_usage_locks add column if not exists client_id bigint references public.clients(id) on delete cascade;
+alter table public.case_stage_usage_locks add column if not exists case_id uuid references public.cases(id) on delete cascade;
+alter table public.case_stage_usage_locks add column if not exists stage_id uuid references public.case_stages(id) on delete cascade;
+alter table public.case_stage_usage_locks add column if not exists editing_request_id uuid references public.case_editing_requests(id) on delete set null;
+alter table public.case_stage_usage_locks add column if not exists stage_name text;
+alter table public.case_stage_usage_locks add column if not exists locked_by text;
+alter table public.case_stage_usage_locks add column if not exists locked_at timestamptz not null default now();
+alter table public.case_stage_usage_locks add column if not exists note text;
+
+create index if not exists case_stage_usage_locks_client_id_idx
+  on public.case_stage_usage_locks (client_id);
+
+create index if not exists case_stage_usage_locks_case_id_idx
+  on public.case_stage_usage_locks (case_id);
+
+create index if not exists case_stage_usage_locks_stage_id_idx
+  on public.case_stage_usage_locks (stage_id);
+
+create index if not exists case_stage_usage_locks_editing_request_id_idx
+  on public.case_stage_usage_locks (editing_request_id);
+
+drop trigger if exists case_stage_usage_locks_set_updated_at on public.case_stage_usage_locks;
+create trigger case_stage_usage_locks_set_updated_at
+before update on public.case_stage_usage_locks
+for each row
+execute function public.set_updated_at();
+
+alter table public.case_stage_usage_locks enable row level security;
+
+drop policy if exists "No public direct access to case_stage_usage_locks" on public.case_stage_usage_locks;
+create policy "No public direct access to case_stage_usage_locks"
+  on public.case_stage_usage_locks
+  for all
+  using (false)
+  with check (false);
+
 create table if not exists public.monday_webhook_events (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),

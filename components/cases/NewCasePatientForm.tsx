@@ -14,16 +14,26 @@ interface NewCasePatientFormProps {
   clientName: string;
   onCancel: () => void;
   onSubmit: (payload: NewCasePatientPayload) => Promise<void>;
+  initialData?: NewCasePatientPayload;
+  isEditing?: boolean;
 }
 
-const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onCancel, onSubmit }) => {
+const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
+  clientName,
+  onCancel,
+  onSubmit,
+  initialData,
+  isEditing = false,
+}) => {
   const [formData, setFormData] = useState({
-    name: '',
-    birthDate: '',
-    gender: CASE_GENDERS[0],
-    procedures: [CASE_PROCEDURES[0]],
-    dentistResponsible: '',
-    notes: '',
+    name: initialData?.name || '',
+    birthDate: initialData?.birthDate || '',
+    gender: initialData?.gender || CASE_GENDERS[0],
+    procedures: initialData?.procedure
+      ? initialData.procedure.split(',').map(s => s.trim())
+      : [CASE_PROCEDURES[0]],
+    dentistResponsible: initialData?.dentistResponsible || '',
+    notes: initialData?.notes || '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +93,14 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
 
         <div className="border-b border-white/70 px-6 py-6">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#20a8f5]">{clientName}</p>
-          <h1 className="mt-1.5 text-3xl font-black tracking-tight text-[#082653]">Novo paciente</h1>
-          <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Preencha os dados para cadastrar o caso clínico.</p>
+          <h1 className="mt-1.5 text-3xl font-black tracking-tight text-[#082653]">
+            {isEditing ? 'Editar paciente' : 'Novo paciente'}
+          </h1>
+          <p className="mt-1 text-sm font-semibold text-[#6d8db1]">
+            {isEditing
+              ? 'Edite os dados abaixo e salve as alterações.'
+              : 'Preencha os dados para cadastrar o caso clínico.'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
@@ -225,10 +241,10 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({ clientName, onC
               {isSubmitting ? (
                 <>
                   <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Criando...
+                  {isEditing ? 'Salvando...' : 'Criando...'}
                 </>
               ) : (
-                'Criar paciente'
+                isEditing ? 'Salvar alterações' : 'Criar paciente'
               )}
             </button>
           </div>
