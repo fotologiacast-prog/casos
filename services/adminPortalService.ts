@@ -51,6 +51,55 @@ export type AdminNotificationPayload = {
   active?: boolean;
 };
 
+export type AdminEditingRequestStageFile = {
+  id: string;
+  name: string;
+  type?: string | null;
+  sizeBytes?: number | null;
+  publicUrl: string;
+  createdAt?: string | null;
+};
+
+export type AdminEditingRequestStage = {
+  id: string;
+  name: string;
+  moment?: string | null;
+  status?: string | null;
+  sortOrder?: number | null;
+  isUsed: boolean;
+  lockedByOtherRequest: boolean;
+  lock?: {
+    id: string;
+    editingRequestId?: string | null;
+    lockedAt?: string | null;
+    lockedBy?: string | null;
+  } | null;
+  files: AdminEditingRequestStageFile[];
+};
+
+export type AdminEditingRequest = {
+  id: string;
+  clientId: number;
+  clientName: string;
+  caseId: string;
+  patientName: string;
+  patientAge?: number | null;
+  patientBirthDate?: string | null;
+  patientGender?: string | null;
+  patientProcedure?: string | null;
+  requestedStageId?: string | null;
+  requestedStageName?: string | null;
+  materialUrl?: string | null;
+  status?: string | null;
+  creativeType?: string | null;
+  sentAt?: string | null;
+  editedAt?: string | null;
+  usedStageIds: string[];
+  usedCount: number;
+  coverUrl?: string | null;
+  availableStages: AdminEditingRequestStage[];
+};
+
 const requestAdmin = async (
   path: string,
   password: string,
@@ -122,6 +171,23 @@ export const updateAdminNotification = async (
 
 export const deleteAdminNotification = async (password: string, id: string): Promise<void> => {
   await requestAdmin(`/api/admin?module=notifications&id=${encodeURIComponent(id)}`, password, { method: 'DELETE' });
+};
+
+export const listAdminEditingRequests = async (password: string): Promise<AdminEditingRequest[]> => {
+  const data = await requestAdmin('/api/admin?module=editing-requests', password, { method: 'GET' });
+  return data.requests || [];
+};
+
+export const updateAdminEditingRequestMaterials = async (
+  password: string,
+  id: string,
+  usedStageIds: string[]
+): Promise<string[]> => {
+  const data = await requestAdmin(`/api/admin?module=editing-requests&id=${encodeURIComponent(id)}`, password, {
+    method: 'PUT',
+    body: JSON.stringify({ usedStageIds }),
+  });
+  return data.usedStageIds || usedStageIds;
 };
 
 export const resolveNotificationClientName = (notification: AdminNotification, clients: Client[]) => {

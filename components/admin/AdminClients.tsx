@@ -11,9 +11,10 @@ import {
 } from '../../services/adminClientService';
 import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 import AdminDashboardPanel from './AdminDashboardPanel';
+import AdminEditingRequestsPanel from './AdminEditingRequestsPanel';
 import AdminNotificationsPanel from './AdminNotificationsPanel';
 
-type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'notifications';
+type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'editingRequests' | 'notifications';
 
 interface AdminClientsProps {
   initialTab?: AdminTab;
@@ -100,6 +101,13 @@ const adminCards: Array<{
     description: 'Veja pacientes por cliente, materiais enviados para edição e prontos.',
     meta: 'Relatórios',
     tone: 'from-amber-50 to-white text-amber-600',
+  },
+  {
+    id: 'editingRequests',
+    title: 'Pedidos de edição',
+    description: 'Editor marca quais materiais usou e bloqueia novos envios duplicados.',
+    meta: 'Fila da edição',
+    tone: 'from-violet-50 to-white text-violet-600',
   },
   {
     id: 'notifications',
@@ -456,6 +464,10 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
       ) : adminTab === 'dashboard' ? (
         <div className="impact-shell">
           <AdminDashboardPanel password={password} />
+        </div>
+      ) : adminTab === 'editingRequests' ? (
+        <div className="impact-shell">
+          <AdminEditingRequestsPanel password={password} />
         </div>
       ) : adminTab === 'notifications' ? (
         <div className="impact-shell">
