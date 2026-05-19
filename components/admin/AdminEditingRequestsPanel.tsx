@@ -49,6 +49,14 @@ const getStageSummary = (stage: AdminEditingRequestStage) => {
 const getStageOpenUrl = (stage: AdminEditingRequestStage) =>
   stage.files.find(file => file.publicUrl && file.publicUrl !== '#')?.publicUrl || null;
 
+const getFileKind = (type?: string | null) => {
+  const value = String(type || '').toLowerCase();
+  if (value.startsWith('video/')) return 'Video';
+  if (value.startsWith('image/')) return 'Imagem';
+  if (value.startsWith('audio/')) return 'Audio';
+  return 'Arquivo';
+};
+
 const RequestCover = ({ request }: { request: AdminEditingRequest }) => {
   const [failed, setFailed] = useState(false);
   if (!request.coverUrl || failed) {
@@ -76,6 +84,7 @@ const RequestCover = ({ request }: { request: AdminEditingRequest }) => {
 const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ password }) => {
   const [requests, setRequests] = useState<AdminEditingRequest[]>([]);
   const [selectedByRequestId, setSelectedByRequestId] = useState<Record<string, string[]>>({});
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'empty' | 'marked'>('all');
   const [isLoading, setIsLoading] = useState(false);
@@ -126,6 +135,11 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
       marked,
     };
   }, [requests, selectedByRequestId]);
+
+  const activeRequest = useMemo(
+    () => filteredRequests.find(request => request.id === activeRequestId) || null,
+    [activeRequestId, filteredRequests]
+  );
 
   const toggleStage = (requestId: string, stageId: string) => {
     setSavedRequestId(null);
@@ -245,20 +259,33 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
           <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Quando um cliente mandar material para edição, ele aparece aqui.</p>
         </div>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-2">
-          {filteredRequests.map(request => {
-            const selected = new Set(selectedByRequestId[request.id] || []);
-            return (
-              <article key={request.id} className="impact-soft-card overflow-hidden rounded-[2rem] p-0">
-                <div className="flex flex-col gap-4 p-4 sm:flex-row">
-                  <div className="relative h-44 overflow-hidden rounded-[1.45rem] bg-[#eaf7ff] sm:h-auto sm:min-h-[13.5rem] sm:w-48 sm:shrink-0">
+        <div className="space-y-6">
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredRequests.map(request => {
+              const selectedCount = selectedByRequestId[request.id]?.length || 0;
+              const isActive = activeRequestId === request.id;
+              return (
+                <button
+                  key={request.id}
+                  type="button"
+                  onClick={() => setActiveRequestId(request.id)}
+                  className={`group overflow-hidden rounded-[2rem] bg-white/82 p-3 text-left shadow-[0_16px_44px_rgba(8,38,83,0.08)] ring-1 transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(8,38,83,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#20a8f5] ${
+                    isActive ? 'ring-[#20a8f5]' : 'ring-[#d7ebfb]'
+                  }`}
+                >
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.45rem] bg-[#eaf7ff]">
                     <RequestCover request={request} />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#06234f]/82 via-[#06234f]/34 to-transparent p-3">
+                      <p className="truncate text-sm font-black text-white">{request.patientName}</p>
+                      <p className="mt-0.5 truncate text-[11px] font-bold text-white/78">
+                        {[request.patientProcedure, request.patientAge ? `${request.patientAge}a` : null].filter(Boolean).join(' · ') || request.clientName}
+                      </p>
+                    </div>
                     <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[10px] font-black ring-1 ${getStatusTone(request.status)}`}>
                       {getStatusLabel(request.status)}
                     </span>
                   </div>
-
-                  <div className="min-w-0 flex-1">
+                  <div className="p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[#eaf7ff] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#159de9]">
                         {request.clientName}
@@ -269,121 +296,176 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                         </span>
                       )}
                     </div>
-                    <h3 className="mt-3 truncate text-2xl font-black tracking-tight text-[#082653]">{request.patientName}</h3>
-                    <p className="mt-1 text-sm font-bold text-[#6d8db1]">
-                      {[request.patientProcedure, request.patientAge ? `${request.patientAge}a` : null, request.patientGender].filter(Boolean).join(' · ') || 'Sem detalhes do paciente'}
-                    </p>
-                    <div className="mt-4 grid gap-2 text-xs font-bold text-[#42668f] sm:grid-cols-2">
-                      <span>Pedido em {formatDate(request.sentAt)}</span>
-                      <span>{request.availableStages.length} materiais disponíveis</span>
-                      <span>{selected.size} marcados para bloqueio</span>
+                    <h3 className="mt-3 truncate text-xl font-black tracking-tight text-[#082653]">{request.patientName}</h3>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-[#42668f]">
+                      <span>{request.availableStages.length} materiais</span>
+                      <span>{selectedCount} selecionados</span>
+                      <span>{formatDate(request.sentAt)}</span>
                       <span>{request.requestedStageName || 'Pedido geral'}</span>
                     </div>
                   </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeRequest ? (() => {
+            const selected = new Set(selectedByRequestId[activeRequest.id] || []);
+            const files = activeRequest.availableStages.flatMap(stage =>
+              stage.files.map(file => ({
+                ...file,
+                stageId: stage.id,
+                stageName: stage.name,
+                stageMoment: stage.moment,
+                selected: selected.has(stage.id),
+              }))
+            );
+
+            return (
+              <article className="impact-glass rounded-[2.35rem] p-4 sm:p-6">
+                <div className="flex flex-col gap-4 border-b border-[#d7ebfb] pb-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.45rem] bg-[#eaf7ff]">
+                      <RequestCover request={activeRequest} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#20a8f5]">Pedido aberto</p>
+                      <h3 className="mt-1 truncate text-2xl font-black tracking-tight text-[#082653]">{activeRequest.patientName}</h3>
+                      <p className="mt-1 text-sm font-bold text-[#6d8db1]">
+                        {[activeRequest.clientName, activeRequest.patientProcedure, activeRequest.patientAge ? `${activeRequest.patientAge}a` : null, activeRequest.patientGender].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSave(activeRequest)}
+                    disabled={savingRequestId === activeRequest.id}
+                    className="impact-primary min-h-12 px-5 text-xs"
+                  >
+                    {savingRequestId === activeRequest.id ? 'Salvando...' : savedRequestId === activeRequest.id ? 'Salvo' : 'Salvar marcação'}
+                  </button>
                 </div>
 
-                <div className="border-t border-[#e2f1fb] p-4">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Materiais usados</p>
+                <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+                  <div className="rounded-[1.8rem] bg-white/78 p-4 ring-1 ring-[#d7ebfb]">
+                    <div className="mb-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Conteúdos do pedido</p>
                       <h4 className="mt-1 text-lg font-black text-[#082653]">Marque o que entrou na edição</h4>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSave(request)}
-                      disabled={savingRequestId === request.id}
-                      className="impact-primary min-h-11 px-5 text-xs"
-                    >
-                      {savingRequestId === request.id ? 'Salvando...' : savedRequestId === request.id ? 'Salvo' : 'Salvar marcação'}
-                    </button>
+                    <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                      {activeRequest.availableStages.map(stage => {
+                        const checked = selected.has(stage.id);
+                        const disabled = stage.lockedByOtherRequest;
+                        const openUrl = getStageOpenUrl(stage);
+                        return (
+                          <div
+                            key={stage.id}
+                            className={`rounded-[1.35rem] border p-4 transition-colors ${
+                              checked
+                                ? 'border-emerald-200 bg-emerald-50/85'
+                                : disabled
+                                  ? 'border-slate-200 bg-slate-50 opacity-70'
+                                  : 'border-[#d7ebfb] bg-white hover:border-[#9cddfb]'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <label className="mt-0.5 flex shrink-0 cursor-pointer items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={disabled}
+                                  onChange={() => toggleStage(activeRequest.id, stage.id)}
+                                  className="mt-1 h-5 w-5 rounded border-[#b8d8ef] text-[#20a8f5] focus:ring-[#20a8f5]"
+                                />
+                                <span className="sr-only">Marcar {stage.name} como usado</span>
+                              </label>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-black text-[#082653]">{stage.name}</p>
+                                  {stage.moment && (
+                                    <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
+                                  )}
+                                  {disabled && (
+                                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
+                              </div>
+                              {openUrl ? (
+                                <a
+                                  href={openUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={event => event.stopPropagation()}
+                                  className="inline-flex min-h-10 shrink-0 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
+                                >
+                                  Abrir
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
-                    {request.availableStages.map(stage => {
-                      const checked = selected.has(stage.id);
-                      const disabled = stage.lockedByOtherRequest;
-                      const openUrl = getStageOpenUrl(stage);
-                      return (
-                        <div
-                          key={stage.id}
-                          className={`flex items-start gap-3 rounded-[1.35rem] border px-4 py-3 transition-colors ${
-                            checked
-                              ? 'border-emerald-200 bg-emerald-50/80'
-                              : disabled
-                                ? 'border-slate-200 bg-slate-50 opacity-70'
-                                : 'border-[#d7ebfb] bg-white/78 hover:border-[#9cddfb]'
+                  <div className="rounded-[1.8rem] bg-white/78 p-4 ring-1 ring-[#d7ebfb]">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Mini drive</p>
+                        <h4 className="mt-1 text-lg font-black text-[#082653]">Arquivos do pedido</h4>
+                      </div>
+                      <span className="rounded-full bg-[#eaf7ff] px-3 py-1 text-[10px] font-black text-[#159de9]">
+                        {files.filter(file => file.selected).length}/{files.length} selecionados
+                      </span>
+                    </div>
+                    <div className="grid max-h-[28rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                      {files.map(file => (
+                        <a
+                          key={`${file.stageId}-${file.id}`}
+                          href={file.publicUrl && file.publicUrl !== '#' ? file.publicUrl : undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-disabled={!file.publicUrl || file.publicUrl === '#'}
+                          className={`group flex min-h-28 flex-col justify-between rounded-[1.35rem] border p-3 transition-all ${
+                            file.selected
+                              ? 'border-emerald-200 bg-emerald-50 shadow-[0_14px_36px_rgba(16,185,129,0.12)]'
+                              : 'border-[#d7ebfb] bg-white hover:border-[#9cddfb] hover:bg-[#f4fbff]'
                           }`}
                         >
-                          <label className="mt-0.5 flex shrink-0 cursor-pointer items-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={disabled}
-                              onChange={() => toggleStage(request.id, stage.id)}
-                              className="mt-1 h-5 w-5 rounded border-[#b8d8ef] text-[#20a8f5] focus:ring-[#20a8f5]"
-                            />
-                            <span className="sr-only">Marcar {stage.name} como usado</span>
-                          </label>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-black text-[#082653]">{stage.name}</p>
-                              {stage.moment && (
-                                <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
-                              )}
-                              {disabled && (
-                                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
-                              )}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                              file.selected ? 'bg-emerald-100 text-emerald-700' : 'bg-[#eaf7ff] text-[#159de9]'
+                            }`}>
+                              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                                <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm5.28 10.03 4.5-4.5a.75.75 0 0 0-1.06-1.06L9 11.44 7.03 9.47a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0Z" clipRule="evenodd" />
+                              </svg>
                             </div>
-                            <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {stage.files.slice(0, 4).map(file => (
-                                file.publicUrl && file.publicUrl !== '#' ? (
-                                  <a
-                                    key={file.id}
-                                    href={file.publicUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="max-w-full truncate rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#42668f] ring-1 ring-[#e2f1fb] transition-colors hover:bg-[#f4fbff] hover:text-[#159de9]"
-                                  >
-                                    {file.name}
-                                  </a>
-                                ) : (
-                                  <span key={file.id} className="max-w-full truncate rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#42668f] ring-1 ring-[#e2f1fb]">
-                                    {file.name}
-                                  </span>
-                                )
-                              ))}
-                              {stage.files.length > 4 && (
-                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-[#6d8db1] ring-1 ring-[#e2f1fb]">
-                                  +{stage.files.length - 4}
-                                </span>
-                              )}
-                            </div>
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                              file.selected ? 'bg-white text-emerald-700' : 'bg-[#eaf7ff] text-[#42668f]'
+                            }`}>
+                              {file.selected ? 'Selecionado' : getFileKind(file.type)}
+                            </span>
                           </div>
-                          <div className="shrink-0">
-                            {openUrl ? (
-                              <a
-                                href={openUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex min-h-10 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
-                              >
-                                Abrir
-                              </a>
-                            ) : (
-                              <span className="inline-flex min-h-10 items-center rounded-2xl bg-slate-100 px-4 text-xs font-black text-slate-400">
-                                Sem link
-                              </span>
-                            )}
+                          <div className="mt-4 min-w-0">
+                            <p className="truncate text-sm font-black text-[#082653]">{file.name}</p>
+                            <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-snug text-[#6d8db1]">
+                              {file.stageName}{file.stageMoment ? ` · ${file.stageMoment}` : ''}
+                            </p>
                           </div>
-                        </div>
-                      );
-                    })}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </article>
             );
-          })}
+          })() : (
+            <div className="impact-soft-card rounded-[2rem] p-10 text-center">
+              <p className="text-sm font-black text-[#082653]">Selecione um pedido para revisar.</p>
+              <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Os checks e o mini drive aparecem somente depois de abrir um card.</p>
+            </div>
+          )}
         </div>
       )}
     </section>
