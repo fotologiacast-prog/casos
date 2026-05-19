@@ -2,7 +2,14 @@ import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'r
 import { CasePatient } from '../../types';
 import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 import CasePatientCard from './CasePatientCard';
-import { formatMonthLabel, getPatientStatus } from './caseUiUtils';
+import ProductionSummaryBar from './ProductionSummaryBar';
+import {
+  formatMonthLabel,
+  getPatientStatus,
+  getProductionStatus,
+  getProductionSummary,
+  ProductionStatus,
+} from './caseUiUtils';
 
 interface CasePatientListProps {
   patients: CasePatient[];
@@ -14,6 +21,8 @@ interface CasePatientListProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   onEdit?: (patient: CasePatient) => void;
+  productionFilter?: string | null;
+  onProductionFilter?: (filter: string | null) => void;
 }
 
 const ageRanges = [
@@ -63,6 +72,8 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   onRefresh,
   isRefreshing,
   onEdit,
+  productionFilter = null,
+  onProductionFilter,
 }) => {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -101,28 +112,53 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     return Array.from(months).sort().reverse();
   }, [patients]);
 
+  const productionSummary = useMemo(
+    () => getProductionSummary(patients, readyTestimonialCounts),
+    [patients, readyTestimonialCounts],
+  );
+
+  const matchesProductionFilter = (pStatus: ProductionStatus, filter: string | null) => {
+    if (!filter) return true;
+    switch (filter) {
+      case 'awaiting': return pStatus === 'sem_material' || pStatus === 'material_parcial';
+      case 'ready': return pStatus === 'pronto_para_edicao';
+      case 'editing': return pStatus === 'enviado_para_edicao' || pStatus === 'em_edicao';
+      case 'materialsReady': return pStatus === 'material_pronto';
+      default: return true;
+    }
+  };
+
   const filteredPatients = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
     return patients.filter(patient => {
       const patientMonth = patient.createdAt?.toISOString().slice(0, 7) || '';
       const patientStatus = getPatientStatus(patient);
+      const pStatus = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
       return (
         (!query || patient.name.toLowerCase().includes(query)) &&
         (month === 'all' || patientMonth === month) &&
         (status === 'Todos' || patientStatus === status) &&
         (gender === 'Todos' || patient.gender === gender) &&
         (procedure === 'Todos' || splitProcedures(patient.procedure).includes(procedure)) &&
-        matchesAgeRange(patient.age, ageRange)
+        matchesAgeRange(patient.age, ageRange) &&
+        matchesProductionFilter(pStatus, productionFilter)
       );
     });
-  }, [ageRange, deferredSearch, gender, month, patients, procedure, status]);
+  }, [ageRange, deferredSearch, gender, month, patients, procedure, productionFilter, readyTestimonialCounts, status]);
 
   const hasActiveFilters = month !== 'all' || status !== 'Todos' || gender !== 'Todos' || procedure !== 'Todos' || ageRange !== 'all';
 
   return (
     <div className="animate-fade-in">
+      {/* Production summary bar */}
+      <ProductionSummaryBar
+        summary={productionSummary}
+        activeFilter={productionFilter}
+        onFilter={(f) => onProductionFilter?.(f)}
+      />
+
       {/* Header */}
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Casos de pacientes</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-[#082653] sm:text-4xl">{clientName}</h1>
@@ -277,6 +313,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
                 readyTestimonialCount={readyTestimonialCounts[patient.id] || 0}
                 onOpenTestimonials={onOpenTestimonials}
                 onEdit={onEdit}
+                productionStatus={getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0)}
               />
             ))}
           </div>

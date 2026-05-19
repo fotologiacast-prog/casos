@@ -1,6 +1,13 @@
 import React from 'react';
 import { CasePatient } from '../../types';
-import { CaseThumbnail, formatDate, getCaseThumbnail, getPatientProgress, getPatientStatus } from './caseUiUtils';
+import {
+  CaseThumbnail,
+  formatDate,
+  getCaseThumbnail,
+  getPatientProgress,
+  ProductionStatus,
+  productionStatusConfig,
+} from './caseUiUtils';
 
 interface CasePatientCardProps {
   patient: CasePatient;
@@ -8,22 +15,8 @@ interface CasePatientCardProps {
   onOpenTestimonials?: (patient: CasePatient) => void;
   readyTestimonialCount?: number;
   onEdit?: (patient: CasePatient) => void;
+  productionStatus: ProductionStatus;
 }
-
-const statusConfig: Record<string, { label: string; className: string }> = {
-  Completo: {
-    label: 'Completo',
-    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100',
-  },
-  'Em andamento': {
-    label: 'Em andamento',
-    className: 'bg-sky-50 text-[#159de9] ring-1 ring-sky-100',
-  },
-  'Com pendencias': {
-    label: 'Pendente',
-    className: 'bg-amber-50 text-amber-600 ring-1 ring-amber-100',
-  },
-};
 
 const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string }> = ({ thumbnail, name }) => {
   const [failed, setFailed] = React.useState(false);
@@ -58,10 +51,9 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
   );
 };
 
-const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0, onEdit }) => {
+const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0, onEdit, productionStatus }) => {
   const progress = getPatientProgress(patient);
-  const status = getPatientStatus(patient);
-  const config = statusConfig[status] || statusConfig['Em andamento'];
+  const statusCfg = productionStatusConfig[productionStatus];
   const hasReadyTestimonials = readyTestimonialCount > 0;
   const thumbnail = getCaseThumbnail(patient);
 
@@ -83,13 +75,14 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
       <div className="relative flex h-40 w-full items-center justify-center overflow-hidden rounded-[1.25rem] bg-[#d8edff] sm:h-44">
         <PatientThumbnail thumbnail={thumbnail} name={patient.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-[#082653]/20 via-transparent to-white/10" />
-        <span className={`absolute right-3 top-3 inline-flex items-center rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${config.className}`}>
-          {config.label}
+        {/* Production badge */}
+        <span className={`absolute right-3 top-3 inline-flex items-center rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${statusCfg.className}`}>
+          {statusCfg.shortLabel}
         </span>
       </div>
 
       {/* Content */}
-      <div className="space-y-4 px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
+      <div className="space-y-3.5 px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
         {/* Name */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -133,22 +126,31 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
           )}
         </div>
 
-        {/* Progress */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black text-[#42668f]">{progress.captured}/{progress.total} etapas</span>
-            <span className="text-xs font-black text-[#082653]">{progress.percentage}%</span>
+        {/* Dual progress: Material sent + Production status */}
+        <div className="space-y-2.5">
+          {/* Material progress bar */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#6d8db1]">Material enviado</span>
+              <span className="text-xs font-black text-[#082653]">{progress.captured}/{progress.total}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#d7e8f4]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#20a8f5] to-[#51d4ff] transition-all duration-500"
+                style={{ width: `${progress.percentage}%` }}
+              />
+            </div>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[#d7e8f4]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#20a8f5] to-[#51d4ff] transition-all duration-500"
-              style={{ width: `${progress.percentage}%` }}
-            />
+
+          {/* Production status line */}
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusCfg.iconColor }} />
+            <span className="text-xs font-bold text-[#5277a2]">{statusCfg.label}</span>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 pt-2">
+        <div className="flex items-center justify-between gap-3 pt-1">
           {hasReadyTestimonials ? (
             <button
               type="button"

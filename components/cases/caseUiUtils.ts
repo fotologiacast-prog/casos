@@ -118,3 +118,124 @@ export const getCaseThumbnail = (patient: CasePatient): CaseThumbnail | null => 
 
   return null;
 };
+
+// --- Production Status ---
+
+export type ProductionStatus =
+  | 'sem_material'
+  | 'material_parcial'
+  | 'pronto_para_edicao'
+  | 'enviado_para_edicao'
+  | 'em_edicao'
+  | 'material_pronto';
+
+const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia']);
+
+export const getProductionStatus = (
+  patient: CasePatient,
+  readyTestimonialCount = 0,
+): ProductionStatus => {
+  // Material pronto (edited content available)
+  if (readyTestimonialCount > 0) return 'material_pronto';
+
+  // Check for usage locks (editing requests)
+  const hasUsageLock = patient.stages.some(s => s.usageLock?.editingRequestId);
+  if (hasUsageLock) return 'em_edicao';
+
+  // Check editing-eligible stages for files
+  const editableStages = patient.stages.filter(
+    s => EDITING_ELIGIBLE_MOMENTS.has(String(s.moment || '')),
+  );
+  const editableWithFiles = editableStages.filter(s => s.files.length > 0);
+
+  if (editableWithFiles.length > 0) return 'pronto_para_edicao';
+
+  // Check material progress
+  const captured = getCapturedCount(patient);
+  if (captured === 0) return 'sem_material';
+
+  return 'material_parcial';
+};
+
+export const productionStatusConfig: Record<
+  ProductionStatus,
+  { label: string; shortLabel: string; className: string; iconColor: string }
+> = {
+  sem_material: {
+    label: 'Sem material enviado',
+    shortLabel: 'Sem material',
+    className: 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200',
+    iconColor: '#71717a',
+  },
+  material_parcial: {
+    label: 'Material parcial',
+    shortLabel: 'Parcial',
+    className: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    iconColor: '#d97706',
+  },
+  pronto_para_edicao: {
+    label: 'Pronto para edição',
+    shortLabel: 'Pronto p/ edição',
+    className: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200',
+    iconColor: '#0284c7',
+  },
+  enviado_para_edicao: {
+    label: 'Enviado para edição',
+    shortLabel: 'Enviado',
+    className: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200',
+    iconColor: '#7c3aed',
+  },
+  em_edicao: {
+    label: 'Em edição pela agência',
+    shortLabel: 'Em edição',
+    className: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200',
+    iconColor: '#e11d48',
+  },
+  material_pronto: {
+    label: 'Material pronto disponível',
+    shortLabel: 'Material pronto',
+    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+    iconColor: '#059669',
+  },
+};
+
+export interface ProductionSummary {
+  awaitingMaterial: number;
+  readyToSend: number;
+  inEditing: number;
+  materialsReady: number;
+}
+
+export const getProductionSummary = (
+  patients: CasePatient[],
+  readyTestimonialCounts: Record<string, number> = {},
+): ProductionSummary => {
+  const summary: ProductionSummary = {
+    awaitingMaterial: 0,
+    readyToSend: 0,
+    inEditing: 0,
+    materialsReady: 0,
+  };
+
+  for (const patient of patients) {
+    const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
+    switch (status) {
+      case 'sem_material':
+      case 'material_parcial':
+        summary.awaitingMaterial++;
+        break;
+      case 'pronto_para_edicao':
+        summary.readyToSend++;
+        break;
+      case 'enviado_para_edicao':
+      case 'em_edicao':
+        summary.inEditing++;
+        break;
+      case 'material_pronto':
+        summary.materialsReady++;
+        break;
+    }
+  }
+
+  return summary;
+};

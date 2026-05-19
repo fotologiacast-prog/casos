@@ -96,6 +96,18 @@ export interface CasePatient {
   driveFolderId?: string | null;
   createdAt: Date | null;
   stages: CaseStage[];
+  editingRequests?: CaseEditingRequest[];
+}
+
+export interface CaseEditingRequest {
+  id: string;
+  stageId?: string | null;
+  stageName?: string | null;
+  status: string;
+  creativeType?: string | null;
+  sentAt: string;
+  editedAt?: string | null;
+  materialUrl?: string | null;
 }
 
 export interface TestimonialAsset {

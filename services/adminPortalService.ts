@@ -9,6 +9,12 @@ export type AdminDashboardClient = {
   editingSentCount: number;
   editingPendingCount: number;
   editedReadyCount: number;
+  stagesTotalCount?: number;
+  stagesWithFilesCount?: number;
+  lastCaseCreatedAt?: string | null;
+  lastEditingSentAt?: string | null;
+  daysSinceLastUpdate?: number;
+  healthStatus?: 'healthy' | 'attention' | 'critical';
 };
 
 export type AdminDashboardSummary = {

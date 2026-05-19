@@ -193,7 +193,7 @@ const isMissingSupabaseSchema = (error: any) => {
   return /PGRST204|PGRST205|42P01|case_stage_usage_locks/i.test(text);
 };
 
-const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = [], usageLockRows: any[] = []) =>
+const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = [], usageLockRows: any[] = [], editingRequestRows: any[] = []) =>
   caseRows.map(caseRow => {
     const usageLocksByStageId = new Map(
       usageLockRows
@@ -233,6 +233,20 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
         };
       });
 
+    const editingRequests = editingRequestRows
+      .filter(r => String(r.case_id) === String(caseRow.id))
+      .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
+      .map((r: any) => ({
+        id: r.id,
+        stageId: r.stage_id,
+        stageName: r.stage_name,
+        status: r.status || 'pending',
+        creativeType: r.creative_type,
+        sentAt: r.sent_at,
+        editedAt: r.edited_at,
+        materialUrl: r.material_url,
+      }));
+
     return {
       id: caseRow.id,
       boardId: caseRow.monday_item_id || caseRow.id,
@@ -249,6 +263,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
       driveFolderId: caseRow.drive_folder_id,
       createdAt: caseRow.created_at,
       stages,
+      editingRequests,
     };
   });
 
@@ -293,7 +308,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : { data: [], error: null };
       if (usageLocksError && !isMissingSupabaseSchema(usageLocksError)) throw usageLocksError;
 
-      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || [], usageLocksError ? [] : usageLocks || []) });
+      const { data: editingRequests, error: editingReqError } = caseIds.length
+        ? await supabase.from("case_editing_requests").select("id, case_id, stage_id, stage_name, status, creative_type, sent_at, edited_at, material_url").in("case_id", caseIds).order("sent_at", { ascending: false }).limit(100)
+        : { data: [], error: null };
+      if (editingReqError && !isMissingSupabaseSchema(editingReqError)) {
+        console.warn("[Cases] Falha ao buscar editing requests (tabela pode nao existir):", editingReqError);
+      }
+
+      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || [], usageLocksError ? [] : usageLocks || [], editingReqError ? [] : editingRequests || []) });
     }
 
     if (req.method === "POST") {

@@ -4,6 +4,7 @@ import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS, getCanonicalCaseStageTitle 
 import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
+import EditingReviewModal from './EditingReviewModal';
 
 interface CasePatientDetailProps {
   patient: CasePatient;
@@ -109,6 +110,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [isRequestingEditing, setIsRequestingEditing] = React.useState(false);
   const [editingError, setEditingError] = React.useState<string | null>(null);
   const [editingSuccessVisible, setEditingSuccessVisible] = React.useState(false);
+  const [editingReviewOpen, setEditingReviewOpen] = React.useState(false);
   const [now, setNow] = React.useState(() => Date.now());
   const editingStorageKey = `case_patient_editing_requested_at_${patient.id}`;
   const [lastEditingRequestAt, setLastEditingRequestAt] = React.useState(() => {
@@ -200,7 +202,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const isEditingBlockedByCooldown = editingCooldownRemaining > 0;
   const canSendToEditing = Boolean(onRequestStageEditing && selectedEditingStage && !isEditingBlockedByCooldown && !isRequestingEditing);
 
-  const handleRequestCaseEditing = async () => {
+  const handleRequestCaseEditing = async (notes?: string) => {
     if (!onRequestStageEditing || !selectedEditingStage || isEditingBlockedByCooldown || isRequestingEditing) return;
     setEditingError(null);
     setIsRequestingEditing(true);
@@ -210,6 +212,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
       setLastEditingRequestAt(sentAt);
       window.localStorage.setItem(editingStorageKey, String(sentAt));
       setNow(sentAt);
+      setEditingReviewOpen(false);
       setEditingSuccessVisible(true);
       window.setTimeout(() => setEditingSuccessVisible(false), 3200);
     } catch (error) {
@@ -469,7 +472,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             </div>
             <button
               type="button"
-              onClick={handleRequestCaseEditing}
+              onClick={() => setEditingReviewOpen(true)}
               disabled={!canSendToEditing}
               className={`inline-flex min-h-14 w-full shrink-0 items-center justify-center gap-2 rounded-[1.35rem] px-6 text-sm font-black shadow-[0_18px_42px_rgba(244,63,94,0.24)] transition-all active:scale-95 disabled:cursor-not-allowed disabled:shadow-none lg:w-auto ${
                 canSendToEditing
@@ -477,23 +480,77 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                   : 'bg-zinc-200 text-zinc-500'
               }`}
             >
-              {isRequestingEditing ? (
-                <span className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />
-              ) : (
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                  <path d="M3.105 3.105a1.5 1.5 0 0 1 1.62-.326l12 4.8a1.5 1.5 0 0 1 0 2.842l-12 4.8a1.5 1.5 0 0 1-2.036-1.77L3.75 10 2.69 6.55a1.5 1.5 0 0 1 .416-1.445ZM5.065 6.05 5.823 8.5H11a1.5 1.5 0 0 1 0 3H5.823l-.758 2.45L15.08 10 5.065 6.05Z" />
-                </svg>
-              )}
-              {isRequestingEditing
-                ? 'Enviando...'
-                : isEditingBlockedByCooldown
-                  ? 'Enviado para edição'
-                  : selectedEditingStage
-                    ? 'Mandar para edição'
-                    : 'Aguardando entrega'}
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                <path d="M3.105 3.105a1.5 1.5 0 0 1 1.62-.326l12 4.8a1.5 1.5 0 0 1 0 2.842l-12 4.8a1.5 1.5 0 0 1-2.036-1.77L3.75 10 2.69 6.55a1.5 1.5 0 0 1 .416-1.445ZM5.065 6.05 5.823 8.5H11a1.5 1.5 0 0 1 0 3H5.823l-.758 2.45L15.08 10 5.065 6.05Z" />
+              </svg>
+              {isEditingBlockedByCooldown
+                ? 'Enviado para edição'
+                : selectedEditingStage
+                  ? 'Mandar para edição'
+                  : 'Aguardando entrega'}
             </button>
           </div>
         </section>
+
+        {/* Editing Request History */}
+        {(patient.editingRequests || []).length > 0 && (
+          <section className="impact-glass rounded-[2rem] p-5 sm:p-6 lg:p-7">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-500">Histórico</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-[#082653]">Pedidos de edição</h2>
+            <div className="mt-4 space-y-3">
+              {(patient.editingRequests || []).map((req, idx) => {
+                const reqNum = (patient.editingRequests || []).length - idx;
+                const isEdited = String(req.status || '').toLowerCase() === 'edited';
+                const sentDate = (() => {
+                  try { return new Date(req.sentAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+                  catch { return req.sentAt; }
+                })();
+                return (
+                  <div key={req.id} className="rounded-[1.3rem] bg-white/60 p-4 ring-1 ring-white/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">
+                          #{reqNum}
+                        </span>
+                        <span className="text-sm font-black text-[#082653]">Pedido #{String(reqNum).padStart(3, '0')}</span>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                        isEdited
+                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                          : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                      }`}>
+                        {isEdited ? 'Material pronto' : 'Em andamento'}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-[#6d8db1]">
+                      <span>Enviado em {sentDate}</span>
+                      {req.stageName && <span>Material: {req.stageName}</span>}
+                      {req.creativeType && <span>Tipo: {req.creativeType}</span>}
+                    </div>
+                    {isEdited && req.editedAt && (
+                      <p className="mt-2 text-xs font-bold text-emerald-600">
+                        Finalizado em {(() => {
+                          try { return new Date(req.editedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+                          catch { return req.editedAt; }
+                        })()}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {editingReviewOpen && (
+          <EditingReviewModal
+            patient={patient}
+            stages={editableStages}
+            onConfirm={(notes) => handleRequestCaseEditing(notes)}
+            onCancel={() => setEditingReviewOpen(false)}
+            isSubmitting={isRequestingEditing}
+          />
+        )}
       </div>
     </div>
   );

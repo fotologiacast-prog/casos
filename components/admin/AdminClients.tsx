@@ -13,8 +13,9 @@ import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
 import AdminDashboardPanel from './AdminDashboardPanel';
 import AdminEditingRequestsPanel from './AdminEditingRequestsPanel';
 import AdminNotificationsPanel from './AdminNotificationsPanel';
+import AdminRadarPanel from './AdminRadarPanel';
 
-type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'editingRequests' | 'notifications';
+type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'editingRequests' | 'notifications' | 'radar';
 
 interface AdminClientsProps {
   initialTab?: AdminTab;
@@ -115,6 +116,13 @@ const adminCards: Array<{
     description: 'Publique avisos manuais para todos os clientes ou para uma clínica específica.',
     meta: 'Comunicados',
     tone: 'from-sky-50 to-white text-sky-600',
+  },
+  {
+    id: 'radar',
+    title: 'Radar de Clientes',
+    description: 'Saúde operacional de cada clínica: atividade, preenchimento e atenção necessária.',
+    meta: 'Monitoramento',
+    tone: 'from-rose-50 to-white text-rose-600',
   },
 ];
 
@@ -464,6 +472,10 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
       ) : adminTab === 'dashboard' ? (
         <div className="impact-shell">
           <AdminDashboardPanel password={password} />
+        </div>
+      ) : adminTab === 'radar' ? (
+        <div className="impact-shell">
+          <AdminRadarPanel password={password} />
         </div>
       ) : adminTab === 'editingRequests' ? (
         <div className="impact-shell">

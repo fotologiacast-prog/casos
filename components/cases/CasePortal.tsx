@@ -7,9 +7,11 @@ import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
 import CasePatientDetail from './CasePatientDetail';
 import CasePatientList from './CasePatientList';
 import NewCasePatientForm, { NewCasePatientPayload } from './NewCasePatientForm';
+import ProductionTrackingTab from './ProductionTrackingTab';
 import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
 import { fetchPortalNotifications, markPortalNotificationsRead, PortalNotification } from '../../services/portalNotificationService';
+import { getProductionStatus } from './caseUiUtils';
 
 interface CasePortalProps {
   token: string;
@@ -24,7 +26,7 @@ type PortalClient = {
   isDemo?: boolean;
 };
 
-type PortalTab = 'cases' | 'testimonials';
+type PortalTab = 'cases' | 'testimonials' | 'tracking';
 
 const getHashParams = () => {
   const search = window.location.hash.split('?')[1] || '';
@@ -91,6 +93,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [editFromDetail, setEditFromDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('cases');
   const [testimonialSearch, setTestimonialSearch] = useState('');
+  const [productionFilter, setProductionFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +135,60 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     [unreadEditedTestimonials]
   );
 
-  const unreadNotificationCount = editedAssetCount + unreadManualNotifications.length;
+  const localNotifications = useMemo(() => {
+    const list: Array<{ id: string; title: string; body: string; type: 'ready_to_send' | 'in_editing' | 'inactive'; patientId: string; patientName: string }> = [];
+    const nowMs = Date.now();
+    patients.forEach(patient => {
+      const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
+
+      // 1. Ready to send
+      if (status === 'pronto_para_edicao') {
+        list.push({
+          id: `local-ready-${patient.id}`,
+          title: `Pronto para Enviar`,
+          body: `O caso de ${patient.name} tem material pronto para ser enviado para a edição.`,
+          type: 'ready_to_send',
+          patientId: patient.id,
+          patientName: patient.name,
+        });
+      }
+
+      // 2. In editing
+      if (status === 'em_edicao' || status === 'enviado_para_edicao') {
+        list.push({
+          id: `local-editing-${patient.id}`,
+          title: `Em Edição`,
+          body: `O material do paciente ${patient.name} já está em andamento de edição.`,
+          type: 'in_editing',
+          patientId: patient.id,
+          patientName: patient.name,
+        });
+      }
+
+      // 3. Inactive for 10+ days (e.g. sem_material or material_parcial and last updated 10+ days ago)
+      if (patient.createdAt && (status === 'sem_material' || status === 'material_parcial')) {
+        const days = Math.floor((nowMs - new Date(patient.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+        if (days >= 10) {
+          list.push({
+            id: `local-stale-${patient.id}`,
+            title: `Sem novos arquivos`,
+            body: `O caso de ${patient.name} está sem novos materiais há ${days} dias.`,
+            type: 'inactive',
+            patientId: patient.id,
+            patientName: patient.name,
+          });
+        }
+      }
+    });
+    return list;
+  }, [patients, readyTestimonialCounts]);
+
+  const unreadLocalNotifications = useMemo(
+    () => localNotifications.filter(item => !readNotificationIds.includes(item.id)),
+    [localNotifications, readNotificationIds]
+  );
+
+  const unreadNotificationCount = editedAssetCount + unreadManualNotifications.length + unreadLocalNotifications.length;
 
   const loadPatients = useCallback(async (client: PortalClient, refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
@@ -197,13 +253,14 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   }, [notificationsOpen]);
 
   useEffect(() => {
-    if (!notificationsOpen || (unreadEditedTestimonials.length === 0 && unreadManualNotifications.length === 0)) return;
+    if (!notificationsOpen || (unreadEditedTestimonials.length === 0 && unreadManualNotifications.length === 0 && unreadLocalNotifications.length === 0)) return;
     const timer = window.setTimeout(() => {
       setReadNotificationIds(previousIds => {
         const nextIds = Array.from(new Set([
           ...previousIds,
           ...unreadEditedTestimonials.map(item => item.id),
           ...unreadManualNotifications.map(item => `admin:${item.id}`),
+          ...unreadLocalNotifications.map(item => item.id),
         ]));
         try {
           localStorage.setItem(`case_notifications_read_${token}`, JSON.stringify(nextIds));
@@ -221,7 +278,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     }, 900);
 
     return () => window.clearTimeout(timer);
-  }, [notificationsOpen, token, unreadEditedTestimonials, unreadManualNotifications]);
+  }, [notificationsOpen, token, unreadEditedTestimonials, unreadManualNotifications, unreadLocalNotifications]);
 
   useEffect(() => {
     let cancelled = false;
@@ -277,6 +334,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setActiveTab(tab);
     setNotificationsOpen(false);
     if (tab === 'testimonials') setTestimonialSearch('');
+    setProductionFilter(null);
     setMode('list');
     setSelectedPatientId(null);
   };
@@ -321,6 +379,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       ...readNotificationIds,
       ...editedTestimonials.map(item => item.id),
       ...manualNotifications.map(item => `admin:${item.id}`),
+      ...localNotifications.map(item => item.id),
     ]);
   };
 
@@ -612,6 +671,21 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               </button>
               <button
                 type="button"
+                onClick={() => handleSetTab('tracking')}
+                className={`flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
+                  activeTab === 'tracking'
+                    ? 'bg-white text-[#09315f] shadow-sm'
+                    : 'text-[#7894b7] hover:text-[#09315f]'
+                }`}
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path fillRule="evenodd" d="M6 4.75A.75.75 0 0 1 6.75 4h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 4.75ZM6 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 10Zm0 5.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1-.75-.75ZM1.99 4.75a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 10a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V10Zm1 4.25a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Z" clipRule="evenodd" />
+                </svg>
+                <span className="hidden sm:inline">Acompanhamento</span>
+                <span className="sm:hidden">Status</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => handleSetTab('testimonials')}
                 className={`flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-black transition-all ${
                   activeTab === 'testimonials'
@@ -656,13 +730,50 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto p-2">
-                    {manualNotifications.length === 0 && editedTestimonials.length === 0 ? (
+                    {manualNotifications.length === 0 && editedTestimonials.length === 0 && localNotifications.length === 0 ? (
                       <div className="rounded-2xl bg-[#f5fbff] px-4 py-6 text-center">
                         <p className="text-sm font-black text-[#244f7f]">Nada novo por enquanto.</p>
                         <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e materiais editados aparecem aqui.</p>
                       </div>
                     ) : (
                       <>
+                        {localNotifications.slice(0, 5).map(item => {
+                          const isUnread = !readNotificationIds.includes(item.id);
+                          const colorMap = {
+                            ready_to_send: 'bg-rose-100 text-rose-700',
+                            in_editing: 'bg-amber-100 text-amber-700',
+                            inactive: 'bg-red-100 text-red-700',
+                          };
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                persistReadNotifications([...readNotificationIds, item.id]);
+                                setNotificationsOpen(false);
+                                setActiveTab('cases');
+                                setMode('list');
+                                setSelectedPatientId(item.patientId);
+                              }}
+                              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-[#f1f9ff]"
+                            >
+                              <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                                isUnread ? colorMap[item.type] : 'bg-[#edf6ff] text-[#5f82aa]'
+                              }`}>
+                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.25v2.75a.75.75 0 0 0 1.5 0V10A.75.75 0 0 0 10 9H9Z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span className="block truncate text-sm font-black text-[#082653]">{item.title}</span>
+                                  {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-label="Nova notificação" />}
+                                </span>
+                                <span className="mt-0.5 block text-xs font-semibold leading-relaxed text-[#5f82aa]">{item.body}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
                         {manualNotifications.slice(0, 4).map(item => {
                           const notificationId = `admin:${item.id}`;
                           const isUnread = !readNotificationIds.includes(notificationId);
@@ -775,6 +886,17 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             onBack={() => handleSetTab('cases')}
             onOpenCase={handleOpenCaseFromTestimonial}
           />
+        ) : activeTab === 'tracking' ? (
+          <ProductionTrackingTab
+            patients={patients}
+            readyTestimonialCounts={readyTestimonialCounts}
+            onOpenPatient={(patient) => {
+              setActiveTab('cases');
+              setSelectedPatientId(patient.id);
+              setMode('list');
+            }}
+            onBack={() => handleSetTab('cases')}
+          />
         ) : mode === 'create' ? (
           <NewCasePatientForm
             clientName={portalClient.displayName}
@@ -826,6 +948,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             readyTestimonialCounts={readyTestimonialCounts}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
+            productionFilter={productionFilter}
+            onProductionFilter={setProductionFilter}
             onEdit={patient => {
               setSelectedPatientId(patient.id);
               setEditFromDetail(false);

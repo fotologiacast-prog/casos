@@ -422,10 +422,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- DASHBOARD MODULE ---
     if (module === "dashboard") {
       if (req.method === "GET") {
-        const [clientsResult, casesResult, editingResult] = await Promise.all([
+        const [clientsResult, casesResult, editingResult, stagesResult, filesResult] = await Promise.all([
           supabase.from("clients").select("id, name, active").order("name"),
-          supabase.from("cases").select("id, client_id"),
-          supabase.from("case_editing_requests").select("id, client_id, status"),
+          supabase.from("cases").select("id, client_id, created_at"),
+          supabase.from("case_editing_requests").select("id, client_id, status, sent_at"),
+          supabase.from("case_stages").select("id, case_id").limit(5000),
+          supabase.from("case_files").select("id, stage_id, case_id").limit(10000),
         ]);
 
         if (clientsResult.error) throw clientsResult.error;
@@ -435,13 +437,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clients = clientsResult.data || [];
         const cases = casesResult.data || [];
         const editingRequests = editingResult.data || [];
+        const stageRows = stagesResult.error ? [] : (stagesResult.data || []);
+        const fileRows = filesResult.error ? [] : (filesResult.data || []);
+
+        // Build lookup: case_id -> client_id
+        const caseToClient = new Map<string, number>();
+        cases.forEach((c: any) => caseToClient.set(String(c.id), Number(c.client_id)));
+
+        // Stages by case
+        const stagesByCaseId = new Map<string, string[]>();
+        stageRows.forEach((s: any) => {
+          const caseId = String(s.case_id);
+          stagesByCaseId.set(caseId, [...(stagesByCaseId.get(caseId) || []), String(s.id)]);
+        });
+
+        // Files by stage
+        const stagesWithFiles = new Set<string>();
+        fileRows.forEach((f: any) => stagesWithFiles.add(String(f.stage_id)));
 
         const patientsByClient = new Map<number, number>();
         const editingSentByClient = new Map<number, number>();
         const editingPendingByClient = new Map<number, number>();
         const editedReadyByClient = new Map<number, number>();
+        const lastCaseCreatedByClient = new Map<number, string>();
+        const lastEditingSentByClient = new Map<number, string>();
+        const stagesTotalByClient = new Map<number, number>();
+        const stagesWithFilesByClient = new Map<number, number>();
 
-        cases.forEach((caseRow: any) => increment(patientsByClient, Number(caseRow.client_id)));
+        cases.forEach((caseRow: any) => {
+          const clientId = Number(caseRow.client_id);
+          increment(patientsByClient, clientId);
+
+          // Track last case date
+          if (caseRow.created_at) {
+            const prev = lastCaseCreatedByClient.get(clientId);
+            if (!prev || caseRow.created_at > prev) lastCaseCreatedByClient.set(clientId, caseRow.created_at);
+          }
+
+          // Accumulate stages
+          const caseStages = stagesByCaseId.get(String(caseRow.id)) || [];
+          increment(stagesTotalByClient, clientId, caseStages.length);
+          const withFiles = caseStages.filter(sid => stagesWithFiles.has(sid)).length;
+          increment(stagesWithFilesByClient, clientId, withFiles);
+        });
 
         editingRequests.forEach((request: any) => {
           const clientId = Number(request.client_id);
@@ -452,10 +490,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           } else {
             increment(editingPendingByClient, clientId);
           }
+          if (request.sent_at) {
+            const prev = lastEditingSentByClient.get(clientId);
+            if (!prev || request.sent_at > prev) lastEditingSentByClient.set(clientId, request.sent_at);
+          }
         });
+
+        const now = Date.now();
+        const daysSince = (dateStr: string | undefined) => {
+          if (!dateStr) return 999;
+          try { return Math.floor((now - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)); }
+          catch { return 999; }
+        };
+
+        const computeHealth = (clientId: number) => {
+          const patients = patientsByClient.get(clientId) || 0;
+          if (patients === 0) return "critical";
+          const lastCase = lastCaseCreatedByClient.get(clientId);
+          const lastEditing = lastEditingSentByClient.get(clientId);
+          const lastActivity = [lastCase, lastEditing].filter(Boolean).sort().at(-1);
+          const daysInactive = daysSince(lastActivity);
+          const stTotal = stagesTotalByClient.get(clientId) || 0;
+          const stWithFiles = stagesWithFilesByClient.get(clientId) || 0;
+          const fillRate = stTotal > 0 ? stWithFiles / stTotal : 0;
+
+          if (daysInactive > 30 || fillRate < 0.1) return "critical";
+          if (daysInactive > 15 || fillRate < 0.25) return "attention";
+          return "healthy";
+        };
 
         const dashboardClients = clients.map((client: any) => {
           const id = Number(client.id);
+          const lastCase = lastCaseCreatedByClient.get(id);
+          const lastEditing = lastEditingSentByClient.get(id);
+          const lastActivity = [lastCase, lastEditing].filter(Boolean).sort().at(-1);
           return {
             id,
             name: client.name,
@@ -464,6 +532,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             editingSentCount: editingSentByClient.get(id) || 0,
             editingPendingCount: editingPendingByClient.get(id) || 0,
             editedReadyCount: editedReadyByClient.get(id) || 0,
+            stagesTotalCount: stagesTotalByClient.get(id) || 0,
+            stagesWithFilesCount: stagesWithFilesByClient.get(id) || 0,
+            lastCaseCreatedAt: lastCase || null,
+            lastEditingSentAt: lastEditing || null,
+            daysSinceLastUpdate: daysSince(lastActivity),
+            healthStatus: computeHealth(id),
           };
         });
 
