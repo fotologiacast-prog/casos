@@ -76,7 +76,7 @@ const RequestCover = ({ request }: { request: AdminEditingRequest }) => {
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
-      className="h-full w-full object-cover"
+      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
     />
   );
 };
@@ -86,7 +86,7 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
   const [selectedByRequestId, setSelectedByRequestId] = useState<Record<string, string[]>>({});
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'empty' | 'marked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'empty' | 'marked' | 'edited'>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +114,16 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
     const query = search.trim().toLowerCase();
     return requests.filter(request => {
       const selectedCount = selectedByRequestId[request.id]?.length || 0;
-      if (statusFilter === 'empty' && selectedCount > 0) return false;
-      if (statusFilter === 'marked' && selectedCount === 0) return false;
+      const isEdited = request.status === 'edited' || request.status === 'editado';
+
+      if (statusFilter === 'edited') {
+        if (!isEdited) return false;
+      } else {
+        if (isEdited) return false;
+        if (statusFilter === 'empty' && selectedCount > 0) return false;
+        if (statusFilter === 'marked' && selectedCount === 0) return false;
+      }
+
       if (!query) return true;
       return [
         request.patientName,
@@ -128,17 +136,21 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
   }, [requests, search, selectedByRequestId, statusFilter]);
 
   const totals = useMemo(() => {
-    const marked = requests.filter(request => (selectedByRequestId[request.id]?.length || 0) > 0).length;
+    const nonEdited = requests.filter(r => r.status !== 'edited' && r.status !== 'editado');
+    const editedCount = requests.length - nonEdited.length;
+    const markedCount = nonEdited.filter(r => (selectedByRequestId[r.id]?.length || 0) > 0).length;
+    const emptyCount = nonEdited.length - markedCount;
     return {
-      total: requests.length,
-      empty: requests.length - marked,
-      marked,
+      total: nonEdited.length,
+      empty: emptyCount,
+      marked: markedCount,
+      edited: editedCount,
     };
   }, [requests, selectedByRequestId]);
 
   const activeRequest = useMemo(
-    () => filteredRequests.find(request => request.id === activeRequestId) || null,
-    [activeRequestId, filteredRequests]
+    () => requests.find(request => request.id === activeRequestId) || null,
+    [activeRequestId, requests]
   );
 
   const toggleStage = (requestId: string, stageId: string) => {
@@ -191,23 +203,26 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { label: 'Pedidos recebidos', value: totals.total, tone: 'bg-[#eaf7ff] text-[#20a8f5]' },
-          { label: 'Aguardando marcação', value: totals.empty, tone: 'bg-amber-50 text-amber-600' },
-          { label: 'Materiais bloqueados', value: totals.marked, tone: 'bg-emerald-50 text-emerald-600' },
-        ].map(item => (
-          <div key={item.label} className="impact-soft-card rounded-[1.5rem] p-5">
-            <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${item.tone}`}>
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm5.28 10.03 4.5-4.5a.75.75 0 0 0-1.06-1.06L9 11.44 7.03 9.47a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0Z" clipRule="evenodd" />
-              </svg>
+      {!activeRequest && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Pedidos recebidos', value: totals.total, tone: 'bg-[#eaf7ff] text-[#20a8f5]' },
+            { label: 'Aguardando marcação', value: totals.empty, tone: 'bg-amber-50 text-amber-600' },
+            { label: 'Materiais bloqueados', value: totals.marked, tone: 'bg-emerald-50 text-emerald-600' },
+            { label: 'Pedidos editados', value: totals.edited, tone: 'bg-sky-50 text-sky-600' },
+          ].map(item => (
+            <div key={item.label} className="impact-soft-card rounded-[1.5rem] p-5 animate-fade-in">
+              <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${item.tone}`}>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                  <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm5.28 10.03 4.5-4.5a.75.75 0 0 0-1.06-1.06L9 11.44 7.03 9.47a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-3xl font-black text-[#082653]">{item.value}</p>
+              <p className="mt-1 text-xs font-black uppercase tracking-widest text-[#6d8db1]">{item.label}</p>
             </div>
-            <p className="text-3xl font-black text-[#082653]">{item.value}</p>
-            <p className="mt-1 text-xs font-black uppercase tracking-widest text-[#6d8db1]">{item.label}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
@@ -215,113 +230,77 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
         </div>
       )}
 
-      <div className="impact-glass rounded-[2rem] p-4 sm:p-5">
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-          <label className="relative block">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7d9bbd]" aria-hidden="true">
-              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
-            </svg>
-            <input
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Buscar por paciente, cliente, procedimento ou material..."
-              className="min-h-12 w-full rounded-[1.25rem] border border-[#cde8fb] bg-white/85 py-3 pl-11 pr-4 text-sm font-semibold text-[#174579] outline-none transition-colors placeholder:text-[#8aa8c6] focus:border-[#20a8f5] focus:ring-2 focus:ring-[#20a8f5]/15"
-            />
-          </label>
-          <div className="grid grid-cols-3 gap-2 rounded-[1.25rem] bg-white/70 p-1 ring-1 ring-[#d7ebfb]">
-            {[
-              { id: 'all', label: 'Todos' },
-              { id: 'empty', label: 'Vazios' },
-              { id: 'marked', label: 'Marcados' },
-            ].map(item => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setStatusFilter(item.id as typeof statusFilter)}
-                className={`rounded-2xl px-4 py-2 text-xs font-black transition-all ${
-                  statusFilter === item.id ? 'bg-white text-[#159de9] shadow-sm' : 'text-[#6d8db1] hover:text-[#174579]'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+      {!activeRequest && (
+        <div className="impact-glass rounded-[2rem] p-4 sm:p-5 animate-fade-in">
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <label className="relative block">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7d9bbd]" aria-hidden="true">
+                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clipRule="evenodd" />
+              </svg>
+              <input
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                placeholder="Buscar por paciente, cliente, procedimento ou material..."
+                className="min-h-12 w-full rounded-[1.25rem] border border-[#cde8fb] bg-white/85 py-3 pl-11 pr-4 text-sm font-semibold text-[#174579] outline-none transition-colors placeholder:text-[#8aa8c6] focus:border-[#20a8f5] focus:ring-2 focus:ring-[#20a8f5]/15"
+              />
+            </label>
+            <div className="grid grid-cols-4 gap-2 rounded-[1.25rem] bg-white/70 p-1 ring-1 ring-[#d7ebfb]">
+              {[
+                { id: 'all', label: 'Todos' },
+                { id: 'empty', label: 'Vazios' },
+                { id: 'marked', label: 'Marcados' },
+                { id: 'edited', label: 'Editados' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setStatusFilter(item.id as typeof statusFilter)}
+                  className={`rounded-2xl px-4 py-2 text-xs font-black transition-all ${
+                    statusFilter === item.id ? 'bg-white text-[#159de9] shadow-sm' : 'text-[#6d8db1] hover:text-[#174579]'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-9 w-9 rounded-full border-2 border-[#d7ecfb] border-t-[#20a8f5] animate-spin" />
         </div>
-      ) : filteredRequests.length === 0 ? (
-        <div className="impact-soft-card rounded-[2rem] p-10 text-center">
-          <p className="text-sm font-black text-[#082653]">Nenhum pedido encontrado.</p>
-          <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Quando um cliente mandar material para edição, ele aparece aqui.</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredRequests.map(request => {
-              const selectedCount = selectedByRequestId[request.id]?.length || 0;
-              const isActive = activeRequestId === request.id;
-              return (
+      ) : activeRequest ? (
+        (() => {
+          const selected = new Set(selectedByRequestId[activeRequest.id] || []);
+          const files = activeRequest.availableStages.flatMap(stage =>
+            stage.files.map(file => ({
+              ...file,
+              stageId: stage.id,
+              stageName: stage.name,
+              stageMoment: stage.moment,
+              selected: selected.has(stage.id),
+            }))
+          );
+
+          return (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex items-center gap-3">
                 <button
-                  key={request.id}
                   type="button"
-                  onClick={() => setActiveRequestId(request.id)}
-                  className={`group overflow-hidden rounded-[2rem] bg-white/82 p-3 text-left shadow-[0_16px_44px_rgba(8,38,83,0.08)] ring-1 transition-all hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(8,38,83,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#20a8f5] ${
-                    isActive ? 'ring-[#20a8f5]' : 'ring-[#d7ebfb]'
-                  }`}
+                  onClick={() => setActiveRequestId(null)}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-xs font-black text-[#5d7ca4] shadow-sm ring-1 ring-[#d7ebfb] transition-all hover:bg-[#eaf7ff] hover:text-[#159de9]"
                 >
-                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.45rem] bg-[#eaf7ff]">
-                    <RequestCover request={request} />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#06234f]/82 via-[#06234f]/34 to-transparent p-3">
-                      <p className="truncate text-sm font-black text-white">{request.patientName}</p>
-                      <p className="mt-0.5 truncate text-[11px] font-bold text-white/78">
-                        {[request.patientProcedure, request.patientAge ? `${request.patientAge}a` : null].filter(Boolean).join(' · ') || request.clientName}
-                      </p>
-                    </div>
-                    <span className={`absolute right-3 top-3 rounded-full px-3 py-1 text-[10px] font-black ring-1 ${getStatusTone(request.status)}`}>
-                      {getStatusLabel(request.status)}
-                    </span>
-                  </div>
-                  <div className="p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[#eaf7ff] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#159de9]">
-                        {request.clientName}
-                      </span>
-                      {request.creativeType && (
-                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black text-[#6d8db1] ring-1 ring-[#d7ebfb]">
-                          {request.creativeType}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-3 truncate text-xl font-black tracking-tight text-[#082653]">{request.patientName}</h3>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-[#42668f]">
-                      <span>{request.availableStages.length} materiais</span>
-                      <span>{selectedCount} selecionados</span>
-                      <span>{formatDate(request.sentAt)}</span>
-                      <span>{request.requestedStageName || 'Pedido geral'}</span>
-                    </div>
-                  </div>
+                  <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                    <path fillRule="evenodd" d="M9.78 4.22a.75.75 0 0 1 0 1.06L6.81 8l2.97 2.72a.75.75 0 1 1-1.06 1.06L5.22 8.53a.75.75 0 0 1 0-1.06l3.53-3.53a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                  </svg>
+                  Voltar para pedidos
                 </button>
-              );
-            })}
-          </div>
+                <span className="text-xs font-semibold text-[#8ca8c9]">/</span>
+                <span className="text-xs font-black text-[#082653] truncate max-w-[200px] sm:max-w-xs">{activeRequest.patientName}</span>
+              </div>
 
-          {activeRequest ? (() => {
-            const selected = new Set(selectedByRequestId[activeRequest.id] || []);
-            const files = activeRequest.availableStages.flatMap(stage =>
-              stage.files.map(file => ({
-                ...file,
-                stageId: stage.id,
-                stageName: stage.name,
-                stageMoment: stage.moment,
-                selected: selected.has(stage.id),
-              }))
-            );
-
-            return (
               <article className="impact-glass rounded-[2.35rem] p-4 sm:p-6">
                 <div className="flex flex-col gap-4 border-b border-[#d7ebfb] pb-5 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-center gap-4">
@@ -344,6 +323,15 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                   >
                     {savingRequestId === activeRequest.id ? 'Salvando...' : savedRequestId === activeRequest.id ? 'Salvo' : 'Salvar marcação'}
                   </button>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-[#cde8fb] bg-[#f4fafe] p-4 text-xs font-semibold leading-relaxed text-[#2c5f95] flex items-start gap-2.5">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 text-[#20a8f5] shrink-0 mt-0.5" aria-hidden="true">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <span className="font-black text-[#082653]">Nota do Editor:</span> As marcações abaixo indicam quais materiais foram utilizados e bloqueiam novos envios nessas etapas pelo cliente. A alteração de status para <strong className="font-black">Editado</strong> ocorre automaticamente quando o status é atualizado diretamente no Monday.com.
+                  </div>
                 </div>
 
                 <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
@@ -459,13 +447,114 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                   </div>
                 </div>
               </article>
-            );
-          })() : (
-            <div className="impact-soft-card rounded-[2rem] p-10 text-center">
-              <p className="text-sm font-black text-[#082653]">Selecione um pedido para revisar.</p>
-              <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Os checks e o mini drive aparecem somente depois de abrir um card.</p>
             </div>
-          )}
+          );
+        })()
+      ) : filteredRequests.length === 0 ? (
+        <div className="impact-soft-card rounded-[2rem] p-10 text-center">
+          <p className="text-sm font-black text-[#082653]">Nenhum pedido encontrado.</p>
+          <p className="mt-1 text-sm font-semibold text-[#6d8db1]">Quando um cliente mandar material para edição, ele aparece aqui.</p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 animate-fade-in">
+          {filteredRequests.map(request => {
+            const selectedCount = selectedByRequestId[request.id]?.length || 0;
+            const totalStages = request.availableStages.length;
+            const progressPercentage = totalStages > 0 ? (selectedCount / totalStages) * 100 : 0;
+            const statusCfgTone = getStatusTone(request.status);
+            const statusCfgLabel = getStatusLabel(request.status);
+
+            return (
+              <article
+                key={request.id}
+                onClick={() => setActiveRequestId(request.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setActiveRequestId(request.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Revisar pedido do paciente ${request.patientName}`}
+                className="impact-soft-card group w-full cursor-pointer overflow-hidden rounded-[1.55rem] p-2 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-[0_24px_65px_rgba(22,78,129,0.17)] ring-1 ring-transparent hover:ring-[#20a8f5]/20 focus:outline-none focus:ring-2 focus:ring-[#20a8f5]"
+              >
+                {/* Thumbnail Cover or Fallback */}
+                <div className="relative flex h-40 w-full items-center justify-center overflow-hidden rounded-[1.25rem] bg-[#d8edff] sm:h-44">
+                  <RequestCover request={request} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#082653]/20 via-transparent to-white/10" />
+                  {/* Production badge */}
+                  <span className={`absolute right-3 top-3 inline-flex items-center rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${statusCfgTone}`}>
+                    {statusCfgLabel}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-3.5 px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
+                      <h3 className="mt-1.5 truncate text-lg font-black leading-tight text-[#082653]">{request.patientName}</h3>
+                    </div>
+                  </div>
+
+                  {/* Info badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
+                      {request.clientName}
+                    </span>
+                    {request.patientProcedure && (
+                      <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
+                        {request.patientProcedure}
+                      </span>
+                    )}
+                    {request.creativeType && (
+                      <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
+                        {request.creativeType}
+                      </span>
+                    )}
+                    {request.requestedStageName && (
+                      <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb] truncate max-w-full">
+                        Etapa: {request.requestedStageName}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress Bar (Materiais bloqueados / usados) */}
+                  <div className="space-y-2.5">
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#6d8db1]">Materiais usados</span>
+                        <span className="text-xs font-black text-[#082653]">{selectedCount}/{totalStages}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#d7e8f4]">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#20a8f5] to-[#51d4ff] transition-all duration-500"
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Request Details Line */}
+                    <div className="flex items-center justify-between text-xs font-bold text-[#5277a2]">
+                      <span className="truncate">Enviado: {formatDate(request.sentAt)}</span>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-end gap-3 pt-1 border-t border-[#f0f8ff]">
+                    <span className="flex items-center gap-1 text-xs font-black text-[#6d91bb] transition-colors group-hover:text-[#159de9]">
+                      Revisar pedido
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3" aria-hidden="true">
+                        <path fillRule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L9.19 8 6.22 5.03a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
