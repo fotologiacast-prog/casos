@@ -274,15 +274,6 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
       ) : activeRequest ? (
         (() => {
           const selected = new Set(selectedByRequestId[activeRequest.id] || []);
-          const files = activeRequest.availableStages.flatMap(stage =>
-            stage.files.map(file => ({
-              ...file,
-              stageId: stage.id,
-              stageName: stage.name,
-              stageMoment: stage.moment,
-              selected: selected.has(stage.id),
-            }))
-          );
 
           return (
             <div className="space-y-6 animate-fade-in">
@@ -334,116 +325,65 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-                  <div className="rounded-[1.8rem] bg-white/78 p-4 ring-1 ring-[#d7ebfb]">
-                    <div className="mb-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Conteúdos do pedido</p>
-                      <h4 className="mt-1 text-lg font-black text-[#082653]">Marque o que entrou na edição</h4>
-                    </div>
-                    <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-                      {activeRequest.availableStages.map(stage => {
-                        const checked = selected.has(stage.id);
-                        const disabled = stage.lockedByOtherRequest;
-                        const openUrl = getStageOpenUrl(stage);
-                        return (
-                          <div
-                            key={stage.id}
-                            className={`rounded-[1.35rem] border p-4 transition-colors ${
-                              checked
-                                ? 'border-emerald-200 bg-emerald-50/85'
-                                : disabled
-                                  ? 'border-slate-200 bg-slate-50 opacity-70'
-                                  : 'border-[#d7ebfb] bg-white hover:border-[#9cddfb]'
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <label className="mt-0.5 flex shrink-0 cursor-pointer items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={disabled}
-                                  onChange={() => toggleStage(activeRequest.id, stage.id)}
-                                  className="mt-1 h-5 w-5 rounded border-[#b8d8ef] text-[#20a8f5] focus:ring-[#20a8f5]"
-                                />
-                                <span className="sr-only">Marcar {stage.name} como usado</span>
-                              </label>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-black text-[#082653]">{stage.name}</p>
-                                  {stage.moment && (
-                                    <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
-                                  )}
-                                  {disabled && (
-                                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
-                                  )}
-                                </div>
-                                <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
-                              </div>
-                              {openUrl ? (
-                                <a
-                                  href={openUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={event => event.stopPropagation()}
-                                  className="inline-flex min-h-10 shrink-0 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
-                                >
-                                  Abrir
-                                </a>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                <div className="mt-6 max-w-4xl mx-auto rounded-[1.8rem] bg-white/78 p-4 sm:p-6 ring-1 ring-[#d7ebfb]">
+                  <div className="mb-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Conteúdos do pedido</p>
+                    <h4 className="mt-1 text-lg font-black text-[#082653]">Marque o que entrou na edição</h4>
                   </div>
-
-                  <div className="rounded-[1.8rem] bg-white/78 p-4 ring-1 ring-[#d7ebfb]">
-                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Mini drive</p>
-                        <h4 className="mt-1 text-lg font-black text-[#082653]">Arquivos do pedido</h4>
-                      </div>
-                      <span className="rounded-full bg-[#eaf7ff] px-3 py-1 text-[10px] font-black text-[#159de9]">
-                        {files.filter(file => file.selected).length}/{files.length} selecionados
-                      </span>
-                    </div>
-                    <div className="grid max-h-[28rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-                      {files.map(file => (
-                        <a
-                          key={`${file.stageId}-${file.id}`}
-                          href={file.publicUrl && file.publicUrl !== '#' ? file.publicUrl : undefined}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-disabled={!file.publicUrl || file.publicUrl === '#'}
-                          className={`group flex min-h-28 flex-col justify-between rounded-[1.35rem] border p-3 transition-all ${
-                            file.selected
-                              ? 'border-emerald-200 bg-emerald-50 shadow-[0_14px_36px_rgba(16,185,129,0.12)]'
-                              : 'border-[#d7ebfb] bg-white hover:border-[#9cddfb] hover:bg-[#f4fbff]'
+                  <div className="max-h-[30rem] space-y-3 overflow-y-auto pr-1">
+                    {activeRequest.availableStages.map(stage => {
+                      const checked = selected.has(stage.id);
+                      const disabled = stage.lockedByOtherRequest;
+                      const openUrl = getStageOpenUrl(stage);
+                      return (
+                        <div
+                          key={stage.id}
+                          className={`rounded-[1.35rem] border p-4 transition-colors ${
+                            checked
+                              ? 'border-emerald-200 bg-emerald-50/85'
+                              : disabled
+                                ? 'border-slate-200 bg-slate-50 opacity-70'
+                                : 'border-[#d7ebfb] bg-white hover:border-[#9cddfb]'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                              file.selected ? 'bg-emerald-100 text-emerald-700' : 'bg-[#eaf7ff] text-[#159de9]'
-                            }`}>
-                              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                                <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm5.28 10.03 4.5-4.5a.75.75 0 0 0-1.06-1.06L9 11.44 7.03 9.47a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0Z" clipRule="evenodd" />
-                              </svg>
+                          <div className="flex items-start gap-3">
+                            <label className="mt-0.5 flex shrink-0 cursor-pointer items-center">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={disabled}
+                                onChange={() => toggleStage(activeRequest.id, stage.id)}
+                                className="mt-1 h-5 w-5 rounded border-[#b8d8ef] text-[#20a8f5] focus:ring-[#20a8f5]"
+                              />
+                              <span className="sr-only">Marcar {stage.name} como usado</span>
+                            </label>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-black text-[#082653]">{stage.name}</p>
+                                {stage.moment && (
+                                  <span className="rounded-full bg-[#eaf7ff] px-2 py-0.5 text-[10px] font-black text-[#159de9]">{stage.moment}</span>
+                                )}
+                                {disabled && (
+                                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-600">Bloqueado em outro pedido</span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
                             </div>
-                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
-                              file.selected ? 'bg-white text-emerald-700' : 'bg-[#eaf7ff] text-[#42668f]'
-                            }`}>
-                              {file.selected ? 'Selecionado' : getFileKind(file.type)}
-                            </span>
+                            {openUrl ? (
+                              <a
+                                href={openUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={event => event.stopPropagation()}
+                                className="inline-flex min-h-10 shrink-0 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
+                              >
+                                Abrir
+                              </a>
+                            ) : null}
                           </div>
-                          <div className="mt-4 min-w-0">
-                            <p className="truncate text-sm font-black text-[#082653]">{file.name}</p>
-                            <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-snug text-[#6d8db1]">
-                              {file.stageName}{file.stageMoment ? ` · ${file.stageMoment}` : ''}
-                            </p>
-                          </div>
-                        </a>
-                      ))}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </article>
