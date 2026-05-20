@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { CasePatient } from '../../types';
 import {
-  getProductionStatus,
+  getProductionBadges,
   getCaseThumbnail,
+  getProductionSignals,
+  getProductionStatus,
   ProductionStatus,
   productionStatusConfig,
 } from './caseUiUtils';
@@ -24,12 +26,17 @@ const filterConfig: { id: TrackingFilter; label: string }[] = [
   { id: 'done', label: 'Materiais Prontos' },
 ];
 
-const matchesFilter = (status: ProductionStatus, filter: TrackingFilter) => {
+const matchesFilter = (patient: CasePatient, readyCount: number, filter: TrackingFilter) => {
   if (filter === 'all') return true;
-  if (filter === 'awaiting') return status === 'sem_material' || status === 'material_parcial';
-  if (filter === 'ready') return status === 'pronto_para_edicao';
-  if (filter === 'editing') return status === 'em_edicao' || status === 'enviado_para_edicao';
-  if (filter === 'done') return status === 'material_pronto';
+  const signals = getProductionSignals(patient, readyCount);
+  if (filter === 'awaiting') {
+    return signals.readyToEditStagesCount === 0 &&
+      signals.pendingEditingRequestsCount === 0 &&
+      signals.readyMaterialsCount === 0;
+  }
+  if (filter === 'ready') return signals.readyToEditStagesCount > 0;
+  if (filter === 'editing') return signals.pendingEditingRequestsCount > 0;
+  if (filter === 'done') return signals.readyMaterialsCount > 0;
   return true;
 };
 
@@ -57,7 +64,7 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
         const lastRequest = (patient.editingRequests || [])[0];
         return { patient, status, lastRequest };
       })
-      .filter(item => matchesFilter(item.status, filter))
+      .filter(item => matchesFilter(item.patient, readyTestimonialCounts[item.patient.id] || 0, filter))
       .sort((a, b) => {
         const order: Record<ProductionStatus, number> = {
           material_pronto: 0,
@@ -74,12 +81,16 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
   const counts = useMemo(() => {
     const result = { all: 0, awaiting: 0, ready: 0, editing: 0, done: 0 };
     for (const patient of patients) {
-      const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
+      const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
       result.all++;
-      if (status === 'sem_material' || status === 'material_parcial') result.awaiting++;
-      else if (status === 'pronto_para_edicao') result.ready++;
-      else if (status === 'em_edicao' || status === 'enviado_para_edicao') result.editing++;
-      else if (status === 'material_pronto') result.done++;
+      if (
+        signals.readyToEditStagesCount === 0 &&
+        signals.pendingEditingRequestsCount === 0 &&
+        signals.readyMaterialsCount === 0
+      ) result.awaiting++;
+      if (signals.readyToEditStagesCount > 0) result.ready++;
+      if (signals.pendingEditingRequestsCount > 0) result.editing++;
+      if (signals.readyMaterialsCount > 0) result.done++;
     }
     return result;
   }, [patients, readyTestimonialCounts]);
@@ -131,6 +142,7 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
         <div className="mt-6 grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {items.map(({ patient, status, lastRequest }) => {
             const cfg = productionStatusConfig[status];
+            const badges = getProductionBadges(patient, readyTestimonialCounts[patient.id] || 0);
             const thumbnail = getCaseThumbnail(patient);
             const initials = patient.name
               .split(' ')
@@ -164,9 +176,18 @@ const ProductionTrackingTab: React.FC<ProductionTrackingTabProps> = ({
                     {patient.name}
                   </p>
                   
-                  <span className={`mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${cfg.className}`}>
-                    {cfg.shortLabel}
-                  </span>
+                  <div className="mt-2 flex w-full flex-wrap justify-center gap-1">
+                    {badges.slice(0, 2).map(badge => (
+                      <span key={badge.status} className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${productionStatusConfig[badge.status].className}`}>
+                        {badge.label}
+                      </span>
+                    ))}
+                    {badges.length > 2 && (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${cfg.className}`}>
+                        +{badges.length - 2}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="mt-2 text-[10px] font-bold text-[#6d8db1] truncate w-full space-y-0.5">
                     {patient.procedure && (

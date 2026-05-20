@@ -5,6 +5,7 @@ import {
   formatDate,
   getCaseThumbnail,
   getPatientProgress,
+  getProductionBadges,
   ProductionStatus,
   productionStatusConfig,
 } from './caseUiUtils';
@@ -54,6 +55,7 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
 const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0, onEdit, productionStatus }) => {
   const progress = getPatientProgress(patient);
   const statusCfg = productionStatusConfig[productionStatus];
+  const productionBadges = getProductionBadges(patient, readyTestimonialCount);
   const hasReadyTestimonials = readyTestimonialCount > 0;
   const thumbnail = getCaseThumbnail(patient);
 
@@ -76,8 +78,8 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
         <PatientThumbnail thumbnail={thumbnail} name={patient.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-[#082653]/20 via-transparent to-white/10" />
         {/* Production badge */}
-        <span className={`absolute right-3 top-3 inline-flex items-center rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${statusCfg.className}`}>
-          {statusCfg.shortLabel}
+        <span className={`absolute right-3 top-3 inline-flex max-w-[70%] items-center truncate rounded-full bg-white/88 px-3 py-1.5 text-[10px] font-black shadow-[0_8px_20px_rgba(22,78,129,0.12)] backdrop-blur ${statusCfg.className}`}>
+          {productionBadges[0]?.label || statusCfg.shortLabel}
         </span>
       </div>
 
@@ -148,10 +150,20 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
             </div>
           </div>
 
-          {/* Production status line */}
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusCfg.iconColor }} />
-            <span className="text-xs font-bold text-[#5277a2]">{statusCfg.label}</span>
+          {/* Production status badges */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {productionBadges.slice(0, 3).map(badge => {
+              const badgeCfg = productionStatusConfig[badge.status];
+              return (
+                <span
+                  key={badge.status}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-wide ${badgeCfg.className}`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: badgeCfg.iconColor }} />
+                  {badge.label}
+                </span>
+              );
+            })}
           </div>
         </div>
 

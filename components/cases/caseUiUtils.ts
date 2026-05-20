@@ -131,37 +131,83 @@ export type ProductionStatus =
 
 const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia']);
 
+const normalizeStatusText = (value?: string | null) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .toLowerCase();
+
+const EDITED_REQUEST_STATUSES = new Set([
+  'edited',
+  'editado',
+  'pronto',
+  'concluido',
+  'finalizado',
+  'entregue',
+  'pronto para enviar',
+  'pronto p enviar',
+  'pronto p enviar',
+]);
+
+const isEditedRequestStatus = (status?: string | null) =>
+  EDITED_REQUEST_STATUSES.has(normalizeStatusText(status));
+
+export interface ProductionSignals {
+  capturedCount: number;
+  totalStageCount: number;
+  readyMaterialsCount: number;
+  readyToEditStagesCount: number;
+  pendingEditingRequestsCount: number;
+  hasAnyMaterial: boolean;
+}
+
+export const getProductionSignals = (
+  patient: CasePatient,
+  readyTestimonialCount = 0,
+): ProductionSignals => {
+  const capturedCount = getCapturedCount(patient);
+  const totalStageCount = getTotalStageCount(patient);
+  const readyToEditStagesCount = patient.stages.filter(stage =>
+    EDITING_ELIGIBLE_MOMENTS.has(String(stage.moment || '')) &&
+    stage.files.length > 0 &&
+    !stage.usageLock?.editingRequestId
+  ).length;
+
+  const requestsById = new Map((patient.editingRequests || []).map(request => [request.id, request]));
+  const pendingRequestIds = new Set(
+    (patient.editingRequests || [])
+      .filter(request => !isEditedRequestStatus(request.status))
+      .map(request => request.id)
+  );
+
+  patient.stages.forEach(stage => {
+    const requestId = stage.usageLock?.editingRequestId;
+    if (!requestId) return;
+    const request = requestsById.get(requestId);
+    if (!request || !isEditedRequestStatus(request.status)) pendingRequestIds.add(requestId);
+  });
+
+  return {
+    capturedCount,
+    totalStageCount,
+    readyMaterialsCount: Math.max(0, readyTestimonialCount),
+    readyToEditStagesCount,
+    pendingEditingRequestsCount: pendingRequestIds.size,
+    hasAnyMaterial: capturedCount > 0,
+  };
+};
+
 export const getProductionStatus = (
   patient: CasePatient,
   readyTestimonialCount = 0,
 ): ProductionStatus => {
-  // 1. Check for usage locks (editing requests in progress)
-  const hasUsageLock = patient.stages.some(s => {
-    if (!s.usageLock?.editingRequestId) return false;
-    const req = patient.editingRequests?.find(r => r.id === s.usageLock.editingRequestId);
-    if (req && (req.status === 'edited' || req.status === 'editado')) {
-      return false;
-    }
-    return true;
-  });
-  if (hasUsageLock) return 'em_edicao';
-
-  // 2. Check editing-eligible stages for files that are not yet locked/sent to editing
-  const editableStages = patient.stages.filter(
-    s => EDITING_ELIGIBLE_MOMENTS.has(String(s.moment || '')),
-  );
-  const unlockedEditableWithFiles = editableStages.filter(
-    s => s.files.length > 0 && !s.usageLock?.editingRequestId
-  );
-
-  if (unlockedEditableWithFiles.length > 0) return 'pronto_para_edicao';
-
-  // 3. Material pronto (edited content available)
-  if (readyTestimonialCount > 0) return 'material_pronto';
-
-  // 4. Check material progress
-  const captured = getCapturedCount(patient);
-  if (captured === 0) return 'sem_material';
+  const signals = getProductionSignals(patient, readyTestimonialCount);
+  if (signals.pendingEditingRequestsCount > 0) return 'em_edicao';
+  if (signals.readyToEditStagesCount > 0) return 'pronto_para_edicao';
+  if (signals.readyMaterialsCount > 0) return 'material_pronto';
+  if (!signals.hasAnyMaterial) return 'sem_material';
 
   return 'material_parcial';
 };
@@ -228,24 +274,61 @@ export const getProductionSummary = (
   };
 
   for (const patient of patients) {
-    const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
-    switch (status) {
-      case 'sem_material':
-      case 'material_parcial':
-        summary.awaitingMaterial++;
-        break;
-      case 'pronto_para_edicao':
-        summary.readyToSend++;
-        break;
-      case 'enviado_para_edicao':
-      case 'em_edicao':
-        summary.inEditing++;
-        break;
-      case 'material_pronto':
-        summary.materialsReady++;
-        break;
+    const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
+    if (signals.readyToEditStagesCount > 0) summary.readyToSend++;
+    if (signals.pendingEditingRequestsCount > 0) summary.inEditing++;
+    summary.materialsReady += signals.readyMaterialsCount;
+
+    if (
+      signals.readyToEditStagesCount === 0 &&
+      signals.pendingEditingRequestsCount === 0 &&
+      signals.readyMaterialsCount === 0
+    ) {
+      summary.awaitingMaterial++;
     }
   }
 
   return summary;
+};
+
+export const getProductionBadges = (
+  patient: CasePatient,
+  readyTestimonialCount = 0,
+) => {
+  const signals = getProductionSignals(patient, readyTestimonialCount);
+  const badges: Array<{ status: ProductionStatus; label: string; count?: number }> = [];
+
+  if (signals.readyToEditStagesCount > 0) {
+    badges.push({
+      status: 'pronto_para_edicao',
+      label: `${signals.readyToEditStagesCount} p/ edição`,
+      count: signals.readyToEditStagesCount,
+    });
+  }
+
+  if (signals.pendingEditingRequestsCount > 0) {
+    badges.push({
+      status: 'em_edicao',
+      label: `${signals.pendingEditingRequestsCount} em edição`,
+      count: signals.pendingEditingRequestsCount,
+    });
+  }
+
+  if (signals.readyMaterialsCount > 0) {
+    badges.push({
+      status: 'material_pronto',
+      label: `${signals.readyMaterialsCount} pronto${signals.readyMaterialsCount === 1 ? '' : 's'}`,
+      count: signals.readyMaterialsCount,
+    });
+  }
+
+  if (badges.length === 0) {
+    const fallbackStatus: ProductionStatus = signals.hasAnyMaterial ? 'material_parcial' : 'sem_material';
+    badges.push({
+      status: fallbackStatus,
+      label: productionStatusConfig[fallbackStatus].shortLabel,
+    });
+  }
+
+  return badges;
 };

@@ -6,9 +6,9 @@ import ProductionSummaryBar from './ProductionSummaryBar';
 import {
   formatMonthLabel,
   getPatientStatus,
+  getProductionSignals,
   getProductionStatus,
   getProductionSummary,
-  ProductionStatus,
 } from './caseUiUtils';
 
 interface CasePatientListProps {
@@ -117,13 +117,17 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     [patients, readyTestimonialCounts],
   );
 
-  const matchesProductionFilter = (pStatus: ProductionStatus, filter: string | null) => {
+  const matchesProductionFilter = (patient: CasePatient, filter: string | null) => {
     if (!filter) return true;
+    const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
     switch (filter) {
-      case 'awaiting': return pStatus === 'sem_material' || pStatus === 'material_parcial';
-      case 'ready': return pStatus === 'pronto_para_edicao';
-      case 'editing': return pStatus === 'enviado_para_edicao' || pStatus === 'em_edicao';
-      case 'materialsReady': return pStatus === 'material_pronto';
+      case 'awaiting':
+        return signals.readyToEditStagesCount === 0 &&
+          signals.pendingEditingRequestsCount === 0 &&
+          signals.readyMaterialsCount === 0;
+      case 'ready': return signals.readyToEditStagesCount > 0;
+      case 'editing': return signals.pendingEditingRequestsCount > 0;
+      case 'materialsReady': return signals.readyMaterialsCount > 0;
       default: return true;
     }
   };
@@ -133,7 +137,6 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     return patients.filter(patient => {
       const patientMonth = patient.createdAt?.toISOString().slice(0, 7) || '';
       const patientStatus = getPatientStatus(patient);
-      const pStatus = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
       return (
         (!query || patient.name.toLowerCase().includes(query)) &&
         (month === 'all' || patientMonth === month) &&
@@ -141,7 +144,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         (gender === 'Todos' || patient.gender === gender) &&
         (procedure === 'Todos' || splitProcedures(patient.procedure).includes(procedure)) &&
         matchesAgeRange(patient.age, ageRange) &&
-        matchesProductionFilter(pStatus, productionFilter)
+        matchesProductionFilter(patient, productionFilter)
       );
     });
   }, [ageRange, deferredSearch, gender, month, patients, procedure, productionFilter, readyTestimonialCounts, status]);

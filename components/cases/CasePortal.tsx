@@ -11,7 +11,7 @@ import ProductionTrackingTab from './ProductionTrackingTab';
 import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
 import { fetchPortalNotifications, markPortalNotificationsRead, PortalNotification } from '../../services/portalNotificationService';
-import { getProductionStatus, getCaseThumbnail } from './caseUiUtils';
+import { getProductionSignals, getProductionStatus, getCaseThumbnail } from './caseUiUtils';
 
 interface CasePortalProps {
   token: string;
@@ -220,9 +220,10 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
 
     patients.forEach(patient => {
       const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
+      const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
 
       // 1. Ready to send
-      if (status === 'pronto_para_edicao') {
+      if (signals.readyToEditStagesCount > 0) {
         const editableStages = patient.stages.filter(
           s => EDITING_ELIGIBLE_MOMENTS.has(String(s.moment || ''))
         );
@@ -257,7 +258,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       }
 
       // 2. In editing
-      if (status === 'em_edicao' || status === 'enviado_para_edicao') {
+      if (signals.pendingEditingRequestsCount > 0) {
         let editingStartTime = patient.createdAt ? new Date(patient.createdAt).getTime() : 0;
         const lockStage = patient.stages.find(s => s.usageLock?.lockedAt);
         if (lockStage?.usageLock?.lockedAt) {
