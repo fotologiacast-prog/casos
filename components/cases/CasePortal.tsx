@@ -821,149 +821,131 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     <main className="impact-page">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-white/70 bg-white/60 backdrop-blur-2xl">
-        <div className="relative mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('cases');
-              setMode('list');
-              setSelectedPatientId(null);
-              setTestimonialSearch('');
-            }}
-            aria-label="Voltar para a lista de casos"
-            className="flex shrink-0 items-center gap-3 transition-opacity hover:opacity-80 active:scale-95"
-          >
-            <img
-              src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
-              alt="Impact Doctor"
-              width={180}
-              height={32}
-              className="h-5 w-auto max-w-[80px] shrink-0 object-contain sm:h-8 sm:max-w-[190px]"
-            />
-          </button>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="flex items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-0.5 sm:p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl">
-              <button
-                type="button"
-                onClick={() => handleSetTab('cases')}
-                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
-                  activeTab === 'cases'
-                    ? 'bg-white text-[#09315f] shadow-sm'
-                    : 'text-[#7894b7] hover:text-[#09315f]'
-                }`}
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
-                  <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
-                </svg>
-                Casos
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetTab('tracking')}
-                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
-                  activeTab === 'tracking'
-                    ? 'bg-white text-[#09315f] shadow-sm'
-                    : 'text-[#7894b7] hover:text-[#09315f]'
-                }`}
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
-                  <path fillRule="evenodd" d="M6 4.75A.75.75 0 0 1 6.75 4h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 4.75ZM6 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 10Zm0 5.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1-.75-.75ZM1.99 4.75a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 10a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V10Zm1 4.25a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Z" clipRule="evenodd" />
-                </svg>
-                <span className="hidden sm:inline">Acompanhamento</span>
-                <span className="sm:hidden">Status</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetTab('testimonials')}
-                className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
-                  activeTab === 'testimonials'
-                    ? 'bg-white text-[#09315f] shadow-sm'
-                    : 'text-[#7894b7] hover:text-[#09315f]'
-                }`}
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
-                  <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
-                </svg>
-                <span className="hidden sm:inline">Materiais Prontos</span>
-                <span className="sm:hidden">Materiais</span>
-              </button>
-            </div>
+        <div className="relative mx-auto flex max-w-6xl items-center justify-center px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center rounded-2xl border border-[#cfe7fb] bg-white/60 p-0.5 sm:p-1 shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => handleSetTab('cases')}
+              className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
+                activeTab === 'cases'
+                  ? 'bg-white text-[#09315f] shadow-sm'
+                  : 'text-[#7894b7] hover:text-[#09315f]'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
+                <path d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm0 1.5h11.5a.75.75 0 0 1 .75.75V7h-13V5.25a.75.75 0 0 1 .75-.75ZM3.5 8.5h13v6.25a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V8.5Z" />
+              </svg>
+              Casos
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetTab('tracking')}
+              className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
+                activeTab === 'tracking'
+                  ? 'bg-white text-[#09315f] shadow-sm'
+                  : 'text-[#7894b7] hover:text-[#09315f]'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
+                <path fillRule="evenodd" d="M6 4.75A.75.75 0 0 1 6.75 4h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 4.75ZM6 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75A.75.75 0 0 1 6 10Zm0 5.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H6.75a.75.75 0 0 1-.75-.75ZM1.99 4.75a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1v-.01ZM1.99 10a1 1 0 0 1 1-1h.01a1 1 0 0 1 1 1v.01a1 1 0 0 1-1 1h-.01a1 1 0 0 1-1-1V10Zm1 4.25a1 1 0 0 0-1 1v.01a1 1 0 0 0 1 1h.01a1 1 0 0 0 1-1v-.01a1 1 0 0 0-1-1h-.01Z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Acompanhamento</span>
+              <span className="sm:hidden">Status</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetTab('testimonials')}
+              className={`flex min-h-[1.8rem] sm:min-h-9 items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 text-[10px] sm:px-3 sm:py-1.5 sm:text-xs font-black transition-all ${
+                activeTab === 'testimonials'
+                  ? 'bg-white text-[#09315f] shadow-sm'
+                  : 'text-[#7894b7] hover:text-[#09315f]'
+              }`}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true">
+                <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h1.5l1.447-2.17A2 2 0 0 1 7.61 3h4.78a2 2 0 0 1 1.664.89L15.5 6H17a2 2 0 0 1 2 2v6a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V8Zm9 7a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Materiais Prontos</span>
+              <span className="sm:hidden">Materiais</span>
+            </button>
+          </div>
 
-            <div className="relative" ref={notificationsRef}>
-              <button
-                type="button"
-                onClick={() => setNotificationsOpen(prev => !prev)}
-                className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#cfe7fb] bg-white/70 text-[#0b3768] shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl transition-all hover:bg-white active:scale-95"
-                aria-label="Notificações"
-                aria-expanded={notificationsOpen}
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
-                  <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Zm0 16a3 3 0 0 0 2.83-2H7.17A3 3 0 0 0 10 18Z" />
-                </svg>
-                {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-black text-white ring-2 ring-white">
-                    {unreadNotificationCount}
-                  </span>
-                )}
-              </button>
+          <div className="absolute right-4 sm:right-6 lg:right-8" ref={notificationsRef}>
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen(prev => !prev)}
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[#cfe7fb] bg-white/70 text-[#0b3768] shadow-[0_8px_24px_rgba(22,78,129,0.08)] backdrop-blur-xl transition-all hover:bg-white active:scale-95"
+              aria-label="Notificações"
+              aria-expanded={notificationsOpen}
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                <path d="M10 2a6 6 0 0 0-6 6v2.65L2.52 13.6A1 1 0 0 0 3.42 15h13.16a1 1 0 0 0 .9-1.4L16 10.65V8a6 6 0 0 0-6-6Zm0 16a3 3 0 0 0 2.83-2H7.17A3 3 0 0 0 10 18Z" />
+              </svg>
+              {unreadNotificationCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-black text-white ring-2 ring-white">
+                  {unreadNotificationCount}
+                </span>
+              )}
+            </button>
 
-              {notificationsOpen && (
-                <div className="absolute right-0 top-[3.25rem] z-50 w-[min(21rem,calc(100vw-2rem))] overflow-hidden rounded-[1.35rem] border border-[#d6ebfb] bg-white/95 shadow-[0_24px_70px_rgba(22,78,129,0.18)] backdrop-blur-xl">
-                  <div className="flex items-center justify-between gap-3 border-b border-[#e4f1fb] px-4 py-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Notificações</p>
-                    {unreadNotificationCount > 0 && (
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
-                        {unreadNotificationCount} novas
-                      </span>
-                    )}
-                  </div>
-                  <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-                    {unifiedNotifications.length === 0 ? (
-                      <div className="rounded-2xl bg-[#f5fbff] px-4 py-6 text-center">
-                        <p className="text-sm font-black text-[#244f7f]">Nada novo por enquanto.</p>
-                        <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e atualizações aparecem aqui.</p>
-                      </div>
-                    ) : (
-                      unifiedNotifications.slice(0, 10).map(item => {
-                        let badgeText = '';
-                        let badgeClass = '';
-                        let borderLeftClass = '';
+            {notificationsOpen && (
+              <div className="absolute right-0 top-[3.25rem] z-50 w-[min(21rem,calc(100vw-2rem))] overflow-hidden rounded-[1.35rem] border border-[#d6ebfb] bg-white/95 shadow-[0_24px_70px_rgba(22,78,129,0.18)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3 border-b border-[#e4f1fb] px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Notificações</p>
+                  {unreadNotificationCount > 0 && (
+                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                      {unreadNotificationCount} novas
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto p-2 space-y-2.5">
+                  {unifiedNotifications.length === 0 ? (
+                    <div className="rounded-2xl bg-[#f5fbff] px-4 py-6 text-center">
+                      <p className="text-sm font-black text-[#244f7f]">Nada novo por enquanto.</p>
+                      <p className="mt-1 text-xs font-semibold text-[#7d9bbd]">Avisos do admin e atualizações aparecem aqui.</p>
+                    </div>
+                  ) : (
+                    unifiedNotifications.slice(0, 10).map(item => {
+                      let badgeText = '';
+                      let badgeClass = '';
+                      let borderLeftClass = '';
 
-                        if (item.type === 'testimonial') {
-                          badgeText = 'Material Pronto';
-                          badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-                          borderLeftClass = 'border-l-4 border-emerald-500 rounded-r-2xl rounded-l-md';
-                        } else if (item.type === 'admin') {
-                          badgeText = 'Aviso';
-                          badgeClass = 'bg-violet-50 text-violet-700 border border-violet-200';
-                          borderLeftClass = 'border-l-4 border-violet-500 rounded-r-2xl rounded-l-md';
-                        } else if (item.type === 'local') {
-                          if (item.localType === 'ready_to_send') {
-                            badgeText = 'Pronto p/ Enviar';
-                            badgeClass = 'bg-sky-50 text-sky-700 border border-sky-200';
-                            borderLeftClass = 'border-l-4 border-sky-500 rounded-r-2xl rounded-l-md';
-                          } else if (item.localType === 'in_editing') {
-                            badgeText = 'Em Edição';
-                            badgeClass = 'bg-rose-50 text-rose-700 border border-rose-200';
-                            borderLeftClass = 'border-l-4 border-rose-500 rounded-r-2xl rounded-l-md';
-                          } else if (item.localType === 'inactive') {
-                            badgeText = 'Aguardando';
-                            badgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
-                            borderLeftClass = 'border-l-4 border-amber-500 rounded-r-2xl rounded-l-md';
-                          } else {
-                            borderLeftClass = 'rounded-2xl';
-                          }
+                      if (item.type === 'testimonial') {
+                        badgeText = 'Material Pronto';
+                        badgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                        borderLeftClass = 'border-l-4 border-emerald-500 rounded-r-2xl rounded-l-md';
+                      } else if (item.type === 'admin') {
+                        badgeText = 'Aviso';
+                        badgeClass = 'bg-violet-50 text-violet-700 border border-violet-200';
+                        borderLeftClass = 'border-l-4 border-violet-500 rounded-r-2xl rounded-l-md';
+                      } else if (item.type === 'local') {
+                        if (item.localType === 'ready_to_send') {
+                          badgeText = 'Pronto p/ Enviar';
+                          badgeClass = 'bg-sky-50 text-sky-700 border border-sky-200';
+                          borderLeftClass = 'border-l-4 border-sky-500 rounded-r-2xl rounded-l-md';
+                        } else if (item.localType === 'in_editing') {
+                          badgeText = 'Em Edição';
+                          badgeClass = 'bg-rose-50 text-rose-700 border border-rose-200';
+                          borderLeftClass = 'border-l-4 border-rose-500 rounded-r-2xl rounded-l-md';
+                        } else if (item.localType === 'inactive') {
+                          badgeText = 'Aguardando';
+                          badgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+                          borderLeftClass = 'border-l-4 border-amber-500 rounded-r-2xl rounded-l-md';
                         } else {
                           borderLeftClass = 'rounded-2xl';
                         }
+                      } else {
+                        borderLeftClass = 'rounded-2xl';
+                      }
 
-                        return (
-                          <div
-                            key={item.id}
-                            className={`group relative flex w-full gap-3 p-3 text-left transition-colors hover:bg-[#f1f9ff] ${borderLeftClass} ${
-                              item.isUnread ? 'bg-[#f6fbff]/50' : 'bg-transparent'
-                            }`}
-                          >
+                      return (
+                        <div
+                          key={item.id}
+                          className={`group relative flex w-full gap-3 p-3.5 text-left transition-all ${borderLeftClass} ${
+                            item.isUnread
+                              ? 'bg-[#f4f9fe] hover:bg-[#ebf5fe] border border-[#cde6f9] shadow-sm'
+                              : 'bg-[#fafcfe] hover:bg-[#f1f8fe] border border-[#e8f3fd] shadow-[0_2px_6px_rgba(22,78,129,0.02)]'
+                          }`}
+                        >
                             {/* Avatar */}
                             <NotificationAvatar src={item.thumbnailSrc} name={item.patientName} type={item.type} />
 
@@ -1059,7 +1041,6 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               )}
             </div>
           </div>
-        </div>
       </header>
 
       <div className="impact-shell">
@@ -1132,23 +1113,35 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             }}
           />
         ) : (
-          <CasePatientList
-            patients={patients}
-            clientName={portalClient.displayName}
-            onCreate={() => setMode('create')}
-            onOpen={patient => setSelectedPatientId(patient.id)}
-            onOpenTestimonials={handleOpenTestimonialsForPatient}
-            readyTestimonialCounts={readyTestimonialCounts}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            productionFilter={productionFilter}
-            onProductionFilter={setProductionFilter}
-            onEdit={patient => {
-              setSelectedPatientId(patient.id);
-              setEditFromDetail(false);
-              setMode('edit');
-            }}
-          />
+          <div className="space-y-6">
+            {/* Center-aligned Logo only on the main dashboard */}
+            <div className="mt-2 mb-6 flex justify-center animate-fade-in">
+              <img
+                src="https://ik.imagekit.io/zslvvoal4/Logo%20Impact%20Blue.webp?updatedAt=1763034634122"
+                alt="Impact Doctor"
+                width={180}
+                height={40}
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+            <CasePatientList
+              patients={patients}
+              clientName={portalClient.displayName}
+              onCreate={() => setMode('create')}
+              onOpen={patient => setSelectedPatientId(patient.id)}
+              onOpenTestimonials={handleOpenTestimonialsForPatient}
+              readyTestimonialCounts={readyTestimonialCounts}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+              productionFilter={productionFilter}
+              onProductionFilter={setProductionFilter}
+              onEdit={patient => {
+                setSelectedPatientId(patient.id);
+                setEditFromDetail(false);
+                setMode('edit');
+              }}
+            />
+          </div>
         )}
       </div>
     </main>

@@ -272,9 +272,12 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
             <h1 className="mt-1 text-[1.55rem] font-black leading-[1.05] tracking-tight text-[#082653] sm:text-3xl lg:text-4xl">{patient.name}</h1>
             {chips.length > 0 && (
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-1.5 items-center">
                 {chips.slice(0, 4).map(chip => (
-                  <span key={chip as string} className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#5277a2] shadow-sm ring-1 ring-[#d7ebfb]">
+                  <span
+                    key={chip as string}
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white/80 px-2.5 py-1 text-[10px] sm:text-xs font-black text-[#5277a2] shadow-sm ring-1 ring-[#d7ebfb] h-7"
+                  >
                     {chip}
                   </span>
                 ))}

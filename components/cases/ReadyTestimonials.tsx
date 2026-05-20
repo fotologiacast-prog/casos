@@ -451,7 +451,7 @@ const FilterChip: React.FC<{ active: boolean; onClick: () => void; children: Rea
   <button
     type="button"
     onClick={onClick}
-    className={`min-h-11 rounded-2xl px-4 text-sm font-black transition-all active:scale-95 ${
+    className={`whitespace-nowrap min-h-11 rounded-2xl px-4 text-sm font-black transition-all active:scale-95 ${
       active ? `${tone} text-[#082653] ring-1 ring-[#9bd8f8]` : 'border border-[#d7ebfb] bg-white/70 text-[#174579] hover:bg-white'
     }`}
   >
