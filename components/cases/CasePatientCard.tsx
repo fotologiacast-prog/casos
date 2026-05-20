@@ -108,20 +108,26 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
         </div>
 
         {/* Info badges */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 -mx-1 px-1">
           {patient.procedure && (
-            <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
+            <span
+              title={patient.procedure}
+              className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-white/80 px-2.5 text-[10px] font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb] max-w-[110px] truncate"
+            >
               {patient.procedure}
             </span>
           )}
           {patient.age && (
-            <span className="inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
+            <span className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-white/80 px-2.5 text-[10px] font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
               {patient.age}a
             </span>
           )}
           {patient.dentistResponsible && (
-            <span className="inline-flex max-w-full items-center truncate rounded-full bg-white/80 px-3 py-1.5 text-xs font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb]">
-              DR. {patient.dentistResponsible}
+            <span
+              title={`DR. ${patient.dentistResponsible}`}
+              className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-white/80 px-2.5 text-[10px] font-black text-[#174579] shadow-sm ring-1 ring-[#d7ebfb] max-w-[90px] truncate"
+            >
+              DR. {patient.dentistResponsible.split(' ')[0]}
             </span>
           )}
         </div>

@@ -726,10 +726,6 @@ const GalleryAssetPreview: React.FC<{ asset: TestimonialAsset; className?: strin
       <div className={`relative h-full w-full bg-[#082653] ${className}`}>
         <VideoThumbnail asset={asset} />
         <span className="absolute inset-0 bg-black/16" />
-        <span className="absolute left-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/28 px-3 text-[11px] font-black text-white backdrop-blur">
-          <PlayIcon className="h-3.5 w-3.5" />
-          Vídeo
-        </span>
       </div>
     );
   }
@@ -1273,7 +1269,7 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                 onClick={() => setSelectedItem(item)}
                 className="group flex flex-col w-full overflow-hidden rounded-[1.35rem] border border-[#cfe7fb] bg-white text-left shadow-[0_10px_28px_rgba(22,78,129,0.06)] transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(22,78,129,0.12)]"
                 style={{ contentVisibility: 'auto', containIntrinsicSize: '340px' }}
-                aria-label={`Abrir ${item.testimonial.title} de ${item.testimonial.patientName}`}
+                aria-label={`Abrir ${item.testimonial.title || item.testimonial.mondayItemName} de ${item.testimonial.patientName}`}
               >
                 {/* Media Container */}
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#06182f]">
@@ -1286,33 +1282,25 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                       </span>
                     </span>
                   )}
-
-                  {/* Header Patient Info Overlay */}
-                  <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-gradient-to-b from-[#06182f]/60 to-transparent p-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/80 text-[#2b75bd] backdrop-blur">
-                        {isVideoAsset(item.primaryAsset) ? (
-                          <PlayIcon className="h-3 w-3" />
-                        ) : (
-                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3" aria-hidden="true">
-                            <path fillRule="evenodd" d="M4.25 3A2.25 2.25 0 0 0 2 5.25v9.5A2.25 2.25 0 0 0 4.25 17h11.5A2.25 2.25 0 0 0 18 14.75v-9.5A2.25 2.25 0 0 0 15.75 3H4.25Zm.28 10.72 2.47-2.47a1.5 1.5 0 0 1 2.12 0l.88.88 2.13-2.13a1.5 1.5 0 0 1 2.12 0l1.25 1.25v3.5a.25.25 0 0 1-.25.25H4.25a.25.25 0 0 1-.25-.25v-.5l.53-.53Z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </span>
-                      <div className="min-w-0 text-white">
-                        <p className="truncate text-[10px] font-black">{item.testimonial.patientName}</p>
-                      </div>
-                    </div>
-                    {procedure && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-black text-white backdrop-blur">
-                        {procedure}
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 {/* Text & Meta details container */}
                 <div className="flex flex-col flex-1 p-4 bg-white">
+                  {/* Patient Info Subtitle Row */}
+                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#5d7ca4]">
+                    <span className="truncate max-w-[130px] font-black text-[#082653] uppercase tracking-wider">
+                      {item.testimonial.patientName}
+                    </span>
+                    {procedure && (
+                      <>
+                        <span className="text-zinc-300">•</span>
+                        <span className="truncate max-w-[120px] rounded bg-[#f0f7fe] px-1.5 py-0.5 text-[9px] font-black text-[#2b75bd] border border-[#d7ebfb]">
+                          {procedure}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
                   <p className="line-clamp-2 text-sm font-black text-[#082653] leading-snug min-h-[2.5rem]">
                     {item.testimonial.title || item.testimonial.mondayItemName}
                   </p>
