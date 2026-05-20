@@ -136,7 +136,14 @@ export const getProductionStatus = (
   readyTestimonialCount = 0,
 ): ProductionStatus => {
   // 1. Check for usage locks (editing requests in progress)
-  const hasUsageLock = patient.stages.some(s => s.usageLock?.editingRequestId);
+  const hasUsageLock = patient.stages.some(s => {
+    if (!s.usageLock?.editingRequestId) return false;
+    const req = patient.editingRequests?.find(r => r.id === s.usageLock.editingRequestId);
+    if (req && (req.status === 'edited' || req.status === 'editado')) {
+      return false;
+    }
+    return true;
+  });
   if (hasUsageLock) return 'em_edicao';
 
   // 2. Check editing-eligible stages for files that are not yet locked/sent to editing

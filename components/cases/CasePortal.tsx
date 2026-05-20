@@ -167,10 +167,27 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     refresh: refreshReadyTestimonials,
   } = useReadyTestimonials(token, portalClient?.isDemo, Boolean(portalClient));
 
-  const editedTestimonials = useMemo(
-    () => readyTestimonials.filter(item => String(item.status || '').trim().toLowerCase() === 'editado'),
-    [readyTestimonials]
-  );
+  const editedTestimonials = useMemo(() => {
+    const readyStatuses = [
+      "editado",
+      "pronto",
+      "concluido",
+      "finalizado",
+      "entregue",
+      "pronto para enviar",
+      "pronto p enviar",
+      "pronto p/ enviar"
+    ];
+    return readyTestimonials.filter(item => {
+      const normalized = String(item.status || '')
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/gi, " ")
+        .trim()
+        .toLowerCase();
+      return readyStatuses.includes(normalized);
+    });
+  }, [readyTestimonials]);
 
   const unreadEditedTestimonials = useMemo(
     () => editedTestimonials.filter(item => !readNotificationIds.includes(item.id)),

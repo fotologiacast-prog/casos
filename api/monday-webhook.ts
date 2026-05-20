@@ -291,7 +291,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ ok: true, ignored: true, reason: "sem_pedido_de_edicao_vinculado" });
     }
 
-    if (normalizeKey(status || "") !== "editado") {
+    const normalizedStatus = normalizeKey(status || "");
+    const isReadyStatus = [
+      "editado",
+      "pronto",
+      "concluido",
+      "finalizado",
+      "entregue",
+      "pronto para enviar",
+      "pronto p enviar",
+      "pronto p/ enviar"
+    ].includes(normalizedStatus);
+
+    if (!isReadyStatus) {
       await supabase
         .from("monday_webhook_events")
         .update({ processed: true, processing_error: `status_ignorado:${status || "vazio"}` })

@@ -262,11 +262,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const assets = normalizeAssets(subitem.assets || []);
         if (assets.length === 0) return [];
         const status = pickStatus(subitem.column_values || []);
-        if (normalizeKey(status || "") !== "editado") return [];
+        const normalizedStatus = normalizeKey(status || "");
+        const isReadyStatus = [
+          "editado",
+          "pronto",
+          "concluido",
+          "finalizado",
+          "entregue",
+          "pronto para enviar",
+          "pronto p enviar",
+          "pronto p/ enviar"
+        ].includes(normalizedStatus);
+        
+        if (!isReadyStatus) return [];
 
         const creativeType = pickCreativeType(subitem.column_values || []);
         const rating = pickRating(subitem.column_values || []);
-        if (normalizeKey(subitem.name).startsWith("edicao") && normalizeKey(status || "") === "editado") {
+        if (normalizeKey(subitem.name).startsWith("edicao") && isReadyStatus) {
           editedRequestsToSync.push({
             mondaySubitemId: String(subitem.id),
             creativeType,
