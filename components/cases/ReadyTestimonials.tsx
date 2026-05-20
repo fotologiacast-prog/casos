@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ReadyTestimonial, TestimonialAsset } from '../../types';
 import { updateReadyTestimonialRating } from '../../services/testimonialService';
 import {
@@ -140,6 +140,51 @@ const VideoPreview: React.FC<{
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.85);
   const [isMuted, setIsMuted] = useState(false);
+
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetControlsTimeout = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    if (!isPlaying) {
+      return;
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 2500);
+  }, [isPlaying]);
+
+  useEffect(() => {
+    resetControlsTimeout();
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isPlaying, resetControlsTimeout]);
+
+  const handleVideoClick = () => {
+    if (!showControls) {
+      setShowControls(true);
+      resetControlsTimeout();
+    } else {
+      togglePlayback();
+    }
+  };
+
+  const handleControlsMouseEnter = () => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+  };
+
+  const handleControlsMouseLeave = () => {
+    resetControlsTimeout();
+  };
+
   const drivePreviewUrl = getDrivePreviewUrl(asset.public_url);
   const driveThumbnailUrl = getDriveThumbnailUrl(asset.public_url);
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -280,7 +325,11 @@ const VideoPreview: React.FC<{
   }
 
   return (
-    <div className="group/player relative flex h-full min-h-[260px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white">
+    <div
+      className={`group/player relative flex h-full min-h-[260px] w-full items-center justify-center overflow-hidden bg-zinc-950 text-white transition-all duration-300 ${isPlaying && !showControls ? 'cursor-none' : 'cursor-default'}`}
+      onMouseMove={resetControlsTimeout}
+      onTouchStart={resetControlsTimeout}
+    >
       {!hasPreviewFrame && !hasError && <ThumbnailSkeleton />}
       <video
         ref={videoRef}
@@ -288,7 +337,7 @@ const VideoPreview: React.FC<{
         className={`h-full w-full object-cover transition-opacity duration-500 ${hasPreviewFrame ? 'opacity-100' : 'opacity-0'}`}
         playsInline
         preload="metadata"
-        onClick={togglePlayback}
+        onClick={handleVideoClick}
         onLoadedMetadata={handleLoadedMetadata}
         onLoadedData={() => setHasPreviewFrame(true)}
         onCanPlay={() => setHasPreviewFrame(true)}
@@ -299,8 +348,12 @@ const VideoPreview: React.FC<{
         onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
         onError={() => setHasError(true)}
       />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-16 opacity-100 transition-opacity duration-200 sm:opacity-95 sm:group-hover/player:opacity-100">
-        <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/45 p-3 shadow-2xl backdrop-blur-md">
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pb-3 pt-16 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        <div
+          className={`rounded-2xl border border-white/10 bg-black/45 p-3 shadow-2xl backdrop-blur-md transition-all duration-300 ${showControls ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          onMouseEnter={handleControlsMouseEnter}
+          onMouseLeave={handleControlsMouseLeave}
+        >
           <input
             type="range"
             min={0}
@@ -725,6 +778,21 @@ const ReadyAssetModal: React.FC<{
   const formatLabel = getAssetFormatLabel(asset, testimonial.creativeType);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     setSelectedAssetIndex(0);
   }, [item.id]);
 
@@ -752,7 +820,7 @@ const ReadyAssetModal: React.FC<{
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-[73px] z-[90] overflow-y-auto bg-[#f4faff] px-3 py-4 sm:px-6"
+      className="fixed inset-x-0 bottom-0 top-[73px] z-[90] overflow-y-auto overscroll-contain bg-[#f4faff] px-3 py-4 sm:px-6"
       role="dialog"
       aria-modal="true"
       aria-label={`Visualizar ${testimonial.title}`}
