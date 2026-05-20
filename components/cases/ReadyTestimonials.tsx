@@ -1291,6 +1291,12 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                     <span className="truncate max-w-[130px] font-black text-[#082653] uppercase tracking-wider">
                       {item.testimonial.patientName}
                     </span>
+                    {item.testimonial.patientAge && (
+                      <>
+                        <span className="text-zinc-300">•</span>
+                        <span>{item.testimonial.patientAge}a</span>
+                      </>
+                    )}
                     {procedure && (
                       <>
                         <span className="text-zinc-300">•</span>
