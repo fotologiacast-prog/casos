@@ -1286,8 +1286,12 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
 
                 {/* Text & Meta details container */}
                 <div className="flex flex-col flex-1 p-4 bg-white">
-                  {/* Patient Info Subtitle Row */}
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#5d7ca4]">
+                  <p className="line-clamp-2 text-sm font-black text-[#082653] leading-snug">
+                    {item.testimonial.title || item.testimonial.mondayItemName}
+                  </p>
+
+                  {/* Patient Info Row (Below Title) */}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-[#5d7ca4]">
                     <span className="truncate max-w-[130px] font-black text-[#082653] uppercase tracking-wider">
                       {item.testimonial.patientName}
                     </span>
@@ -1306,19 +1310,12 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                       </>
                     )}
                   </div>
-
-                  <p className="line-clamp-2 text-sm font-black text-[#082653] leading-snug min-h-[2.5rem]">
-                    {item.testimonial.title || item.testimonial.mondayItemName}
-                  </p>
                   
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#f4faff] pt-3">
+                  <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-[#f4faff] pt-3">
                     <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[9px] font-black text-[#2b75bd]">
                       {item.isPhotoCatalog ? `${item.assets.length} fotos` : formatLabel}
                     </span>
                     <StarRating value={item.testimonial.rating} compact />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#20a8f5] group-hover:underline">
-                      Abrir
-                    </span>
                   </div>
                 </div>
               </button>
