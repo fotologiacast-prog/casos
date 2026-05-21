@@ -145,7 +145,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [comingFromTracking, setComingFromTracking] = useState(false);
   const [activeTab, setActiveTab] = useState<PortalTab>('cases');
   const [testimonialSearch, setTestimonialSearch] = useState('');
-  const [productionFilter, setProductionFilter] = useState<string | null>(null);
+  const [productionFilters, setProductionFilters] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -539,7 +539,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setActiveTab(tab);
     setNotificationsOpen(false);
     if (tab === 'testimonials') setTestimonialSearch('');
-    setProductionFilter(null);
+    setProductionFilters([]);
     setMode('list');
     setSelectedPatientId(null);
     setComingFromTracking(false);
@@ -617,7 +617,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           procedureDescription: null,
           dentistResponsible: payload.dentistResponsible || null,
           notes: payload.notes,
-          createdAt: new Date(),
+          createdAt: new Date(`${payload.planningDate || new Date().toISOString().slice(0, 10)}T12:00:00`),
           stages: CASE_STAGE_DEFINITIONS.map((stage, index) => ({
             id: `${patientId}-stage-${index + 1}`,
             boardId: portalClient.boardId,
@@ -664,6 +664,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           ...patient,
           name: payload.name,
           birthDate: payload.birthDate,
+          createdAt: new Date(`${payload.planningDate || new Date().toISOString().slice(0, 10)}T12:00:00`),
           gender: payload.gender,
           procedure: payload.procedure,
           dentistResponsible: payload.dentistResponsible || null,
@@ -723,13 +724,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     void refreshReadyTestimonials();
   };
 
-  const handleRequestStageEditing = async (stage: CaseStage) => {
+  const handleRequestStageEditing = async (stage: CaseStage, notes?: string) => {
     if (!portalClient || !selectedPatient) return;
     if (portalClient.isDemo) {
       await new Promise(resolve => setTimeout(resolve, 500));
       return;
     }
-    await requestCaseStageEditing(token, selectedPatient.id, stage.id);
+    await requestCaseStageEditing(token, selectedPatient.id, stage.id, notes);
     await loadPatients(portalClient, true);
     void refreshReadyTestimonials();
   };
@@ -1008,7 +1009,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                                         href={item.mediaUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        onClick={item.onClick}
+                                        onClick={() => persistReadNotifications([...readNotificationIds, item.id])}
                                         className="inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-sky-700 hover:bg-sky-100 transition-colors"
                                       >
                                         Ver mídia
@@ -1019,7 +1020,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                                         href={item.ctaUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        onClick={item.onClick}
+                                        onClick={() => persistReadNotifications([...readNotificationIds, item.id])}
                                         className="inline-flex rounded-full bg-[#e8f6ff] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0b3768] hover:bg-[#cfe7fb] transition-colors"
                                       >
                                         {item.ctaLabel || 'Abrir'}
@@ -1033,7 +1034,17 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                               {item.type !== 'admin' && (
                                 <button
                                   type="button"
-                                  onClick={item.onClick}
+                                  onClick={() => {
+                                    if (item.type === 'testimonial') {
+                                      handleOpenEditedMaterial(item.id, item.patientName);
+                                      return;
+                                    }
+                                    persistReadNotifications([...readNotificationIds, item.id]);
+                                    setNotificationsOpen(false);
+                                    setActiveTab('cases');
+                                    setMode('list');
+                                    if (item.patientId) setSelectedPatientId(item.patientId);
+                                  }}
                                   className="absolute inset-0 z-10 w-full h-full cursor-pointer focus:outline-none"
                                   aria-label="Abrir detalhes da notificação"
                                 />
@@ -1095,6 +1106,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             isEditing={true}
             initialData={{
               name: selectedPatient.name,
+              planningDate: selectedPatient.createdAt?.toISOString().slice(0, 10) || new Date().toISOString().slice(0, 10),
               birthDate: selectedPatient.birthDate || '',
               gender: selectedPatient.gender || '',
               procedure: selectedPatient.procedure || '',
@@ -1151,8 +1163,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               readyTestimonialCounts={readyTestimonialCounts}
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
-              productionFilter={productionFilter}
-              onProductionFilter={setProductionFilter}
+              productionFilters={productionFilters}
+              onToggleProductionFilter={(filter) => {
+                setProductionFilters(prev => prev.includes(filter)
+                  ? prev.filter(item => item !== filter)
+                  : [...prev, filter]);
+              }}
+              onClearProductionFilters={() => setProductionFilters([])}
               onEdit={patient => {
                 setSelectedPatientId(patient.id);
                 setEditFromDetail(false);

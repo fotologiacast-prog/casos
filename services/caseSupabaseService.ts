@@ -64,11 +64,11 @@ export const deleteSupabaseCasePatient = async (token: string, caseId: string): 
   await readApiResponse(response, 'Falha ao limpar caso.');
 };
 
-export const requestCaseStageEditing = async (token: string, caseId: string, stageId: string): Promise<any> => {
+export const requestCaseStageEditing = async (token: string, caseId: string, stageId: string, notes?: string): Promise<any> => {
   const response = await fetch('/api/cases', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'request_editing', token, caseId, stageId }),
+    body: JSON.stringify({ action: 'request_editing', token, caseId, stageId, notes }),
   });
   const data = await readApiResponse(response, 'Falha ao mandar para edição.');
   const failedColumns = Array.isArray(data?.columnUpdate?.failed) ? data.columnUpdate.failed : [];

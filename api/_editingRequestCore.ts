@@ -495,7 +495,7 @@ export const requestStageEditing = async (body: any) => {
 
   const { data: caseRow, error: caseError } = await supabase
     .from("cases")
-    .select("id, patient_name, client_id, monday_item_id")
+    .select("id, patient_name, client_id, monday_item_id, drive_folder_id")
     .eq("id", caseId)
     .eq("client_id", client.id)
     .maybeSingle();
@@ -568,12 +568,13 @@ export const requestStageEditing = async (body: any) => {
   });
 
   const materialUrl =
+    getDriveFolderUrl(caseRow.drive_folder_id) ||
     getDriveFolderUrl(stageRow.drive_folder_id) ||
     fileRows.map(getDriveFileUrl).find(Boolean) ||
     null;
   logInfo(context, "material_url_resolved", {
     hasMaterialUrl: Boolean(materialUrl),
-    materialUrlType: stageRow.drive_folder_id ? "folder" : "file",
+    materialUrlType: caseRow.drive_folder_id ? "case_folder" : stageRow.drive_folder_id ? "stage_folder" : "file",
   });
 
   const existingData = await mondayRequest(
@@ -586,7 +587,7 @@ export const requestStageEditing = async (body: any) => {
     context,
     "fetch_existing_subitems"
   );
-  const taskName = `Edição - ${stageRow.stage_name}`;
+  const taskName = `Edição Solicitada - ${client.name} - ${caseRow.patient_name}`;
   const subitems = existingData?.data?.items?.[0]?.subitems || [];
   const existingSubitem = subitems.find((subitem: any) => normalizeKey(subitem.name) === normalizeKey(taskName));
 

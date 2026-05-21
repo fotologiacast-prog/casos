@@ -59,7 +59,7 @@ const READY_TESTIMONIALS_POLL_INTERVAL_MS = 20_000;
 
 const getReadyTestimonialsCounts = (items: ReadyTestimonial[]) =>
   items.reduce<Record<string, number>>((counts, item) => {
-    counts[item.caseId] = (counts[item.caseId] || 0) + item.assets.length;
+    counts[item.caseId] = (counts[item.caseId] || 0) + (item.assets.length > 0 ? 1 : 0);
     return counts;
   }, {});
 

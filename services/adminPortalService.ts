@@ -73,6 +73,7 @@ export type AdminEditingRequestStage = {
   moment?: string | null;
   status?: string | null;
   sortOrder?: number | null;
+  folderUrl?: string | null;
   isUsed: boolean;
   lockedByOtherRequest: boolean;
   lock?: {

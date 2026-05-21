@@ -153,6 +153,9 @@ const getDirectDriveFileUrl = (fileId: string) =>
 const getDriveThumbnailUrl = (fileId: string) =>
   `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w800`;
 
+const getDriveFolderUrl = (folderId?: string | null) =>
+  folderId ? `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}` : null;
+
 const getAdminFileUrl = (file: any) =>
   file?.web_content_link || (file?.drive_file_id ? getDirectDriveFileUrl(file.drive_file_id) : file?.web_view_link || "#");
 
@@ -182,7 +185,7 @@ const fetchAdminEditingRequests = async (supabase: any) => {
   const [clientsResult, casesResult, stagesResult, filesResult, locksResult] = await Promise.all([
     clientIds.length ? supabase.from("clients").select("id, name").in("id", clientIds) : { data: [], error: null },
     caseIds.length ? supabase.from("cases").select("id, patient_name, birth_date, age, gender, procedure, created_at, client_id").in("id", caseIds) : { data: [], error: null },
-    caseIds.length ? supabase.from("case_stages").select("id, case_id, stage_name, moment, sort_order, status").in("case_id", caseIds).order("sort_order", { ascending: true }) : { data: [], error: null },
+    caseIds.length ? supabase.from("case_stages").select("id, case_id, stage_name, moment, sort_order, status, drive_folder_id").in("case_id", caseIds).order("sort_order", { ascending: true }) : { data: [], error: null },
     caseIds.length ? supabase.from("case_files").select("id, case_id, stage_id, file_name, mime_type, size_bytes, drive_file_id, web_view_link, web_content_link, created_at").in("case_id", caseIds) : { data: [], error: null },
     caseIds.length ? supabase.from("case_stage_usage_locks").select("*").in("case_id", caseIds) : { data: [], error: null },
   ]);
@@ -223,6 +226,7 @@ const fetchAdminEditingRequests = async (supabase: any) => {
           moment: stage.moment,
           status: stage.status,
           sortOrder: stage.sort_order,
+          folderUrl: getDriveFolderUrl(stage.drive_folder_id),
           isUsed: Boolean(lock && String(lock.editing_request_id || "") === String(request.id)),
           lockedByOtherRequest: Boolean(lock && String(lock.editing_request_id || "") !== String(request.id)),
           lock: lock ? {

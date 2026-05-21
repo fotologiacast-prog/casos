@@ -47,7 +47,7 @@ const getStageSummary = (stage: AdminEditingRequestStage) => {
 };
 
 const getStageOpenUrl = (stage: AdminEditingRequestStage) =>
-  stage.files.find(file => file.publicUrl && file.publicUrl !== '#')?.publicUrl || null;
+  stage.folderUrl || stage.files.find(file => file.publicUrl && file.publicUrl !== '#')?.publicUrl || null;
 
 const getFileKind = (type?: string | null) => {
   const value = String(type || '').toLowerCase();
@@ -178,6 +178,21 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
       setError(err instanceof AdminApiError || err instanceof Error ? err.message : 'Falha ao salvar materiais usados.');
     } finally {
       setSavingRequestId(null);
+    }
+  };
+
+  const handleDownloadStage = async (request: AdminEditingRequest, stage: AdminEditingRequestStage) => {
+    if (stage.lockedByOtherRequest) return;
+    const nextSelected = Array.from(new Set([...(selectedByRequestId[request.id] || []), stage.id]));
+    setSavedRequestId(null);
+    setSelectedByRequestId(prev => ({ ...prev, [request.id]: nextSelected }));
+    try {
+      const usedStageIds = await updateAdminEditingRequestMaterials(password, request.id, nextSelected);
+      setSelectedByRequestId(prev => ({ ...prev, [request.id]: usedStageIds }));
+      setRequests(prev => prev.map(item => item.id === request.id ? { ...item, usedStageIds, usedCount: usedStageIds.length } : item));
+      setSavedRequestId(request.id);
+    } catch (err) {
+      setError(err instanceof AdminApiError || err instanceof Error ? err.message : 'Falha ao marcar material como baixado.');
     }
   };
 
@@ -334,7 +349,7 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                     {activeRequest.availableStages.map(stage => {
                       const checked = selected.has(stage.id);
                       const disabled = stage.lockedByOtherRequest;
-                      const openUrl = getStageOpenUrl(stage);
+                      const downloadUrl = getStageOpenUrl(stage);
                       return (
                         <div
                           key={stage.id}
@@ -369,15 +384,22 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
                               </div>
                               <p className="mt-1 text-xs font-bold text-[#6d8db1]">{getStageSummary(stage)}</p>
                             </div>
-                            {openUrl ? (
+                            {checked ? (
+                              <span className="inline-flex min-h-10 shrink-0 items-center rounded-2xl bg-emerald-100 px-4 text-xs font-black text-emerald-700 ring-1 ring-emerald-200">
+                                Baixado
+                              </span>
+                            ) : downloadUrl ? (
                               <a
-                                href={openUrl}
+                                href={downloadUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                onClick={event => event.stopPropagation()}
+                                onClick={event => {
+                                  event.stopPropagation();
+                                  void handleDownloadStage(activeRequest, stage);
+                                }}
                                 className="inline-flex min-h-10 shrink-0 items-center rounded-2xl bg-white px-4 text-xs font-black text-[#159de9] ring-1 ring-[#cde8fb] transition-colors hover:bg-[#eaf7ff]"
                               >
-                                Abrir
+                                Baixar
                               </a>
                             ) : null}
                           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { getCaseThumbnail } from './caseUiUtils';
 import { CasePatient, CaseStage } from '../../types';
 import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS, getCanonicalCaseStageTitle } from '../../utils/caseConstants';
 import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
@@ -14,7 +15,7 @@ interface CasePatientDetailProps {
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   readyTestimonialCount?: number;
   onOpenTestimonials?: (patient: CasePatient) => void;
-  onRequestStageEditing?: (stage: CaseStage) => Promise<void>;
+  onRequestStageEditing?: (stage: CaseStage, notes?: string) => Promise<void>;
   onEdit?: () => void;
 }
 
@@ -158,13 +159,15 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   };
 
   const chips = [
-    formatDate(patient.createdAt),
-    patient.age ? `${patient.age} anos` : null,
-    patient.birthDate ? `Nasc. ${formatDate(new Date(`${patient.birthDate}T00:00:00`))}` : null,
-    patient.gender || null,
-    patient.procedure || null,
+    patient.createdAt ? `Planejamento: ${formatDate(patient.createdAt)}` : null,
+    patient.age ? `Idade: ${patient.age} anos` : null,
+    patient.birthDate ? `Nascimento: ${formatDate(new Date(`${patient.birthDate}T00:00:00`))}` : null,
+    patient.gender ? `Sexo: ${patient.gender}` : null,
+    patient.procedure ? `Procedimento: ${patient.procedure}` : null,
     patient.dentistResponsible ? `DR: ${patient.dentistResponsible}` : null,
   ].filter(Boolean);
+
+  const thumbnail = getCaseThumbnail(patient);
 
   const handleDelete = async () => {
     if (deleteConfirm !== 'Certeza') return;
@@ -207,7 +210,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     setEditingError(null);
     setIsRequestingEditing(true);
     try {
-      await onRequestStageEditing(selectedEditingStage);
+      await onRequestStageEditing(selectedEditingStage, notes);
       const sentAt = Date.now();
       setLastEditingRequestAt(sentAt);
       window.localStorage.setItem(editingStorageKey, String(sentAt));
@@ -267,47 +270,72 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
 
       <div className="mx-auto max-w-5xl px-4 pt-6 space-y-6 sm:pt-8 sm:space-y-8 lg:px-8 lg:pt-10 lg:space-y-10">
         {/* Patient Minimal Info */}
-        <div className="impact-glass flex items-start justify-between gap-4 rounded-[1.8rem] p-6 sm:p-8 lg:rounded-[2.4rem]">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
-            <h1 className="mt-1 text-[1.55rem] font-black leading-[1.05] tracking-tight text-[#082653] sm:text-3xl lg:text-4xl">{patient.name}</h1>
-            {chips.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-1.5 items-center">
-                {chips.slice(0, 4).map(chip => (
-                  <span
-                    key={chip as string}
-                    className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white/80 px-2.5 py-1 text-[10px] sm:text-xs font-black text-[#5277a2] shadow-sm ring-1 ring-[#d7ebfb] h-7"
-                  >
-                    {chip}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex gap-2 shrink-0">
-            {onEdit && (
+        <div className="impact-glass relative overflow-hidden rounded-[1.8rem] p-6 sm:p-8 lg:rounded-[2.4rem]">
+          {/* Thumbnail hero fade on the right */}
+          {thumbnail && (
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 w-2/5 sm:w-1/3"
+              aria-hidden="true"
+            >
+              <img
+                src={thumbnail.src}
+                alt=""
+                className="h-full w-full object-cover object-center"
+                loading="lazy"
+                decoding="async"
+              />
+              {/* Gradient fade to white */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(248,252,255,1) 0%, rgba(248,252,255,0.85) 40%, rgba(248,252,255,0) 100%)' }} />
+            </div>
+          )}
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#20a8f5]">Paciente</p>
+              <h1 className="mt-1 text-[1.55rem] font-black leading-[1.05] tracking-tight text-[#082653] sm:text-3xl lg:text-4xl">{patient.name}</h1>
+              {chips.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-1.5 items-center">
+                  {chips.map(chip => (
+                    <span
+                      key={chip as string}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-white/80 px-2.5 py-1 text-[10px] sm:text-xs font-black text-[#5277a2] shadow-sm ring-1 ring-[#d7ebfb] h-7"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {patient.notes && (
+                <div className="mt-4 rounded-2xl border border-amber-100/60 bg-amber-50/50 px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Observação</p>
+                  <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-900">{patient.notes}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-[#20a8f5] hover:ring-[#20a8f5]/20 active:scale-95"
+                  aria-label="Editar caso"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.313.313-.689.544-1.107.676l-3.155 1.262a.5.5 0 0 1-.645-.645Z" />
+                    <path d="M2 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5a.5.5 0 0 0-.5-.5h-15a.5.5 0 0 0-.5.5V18Z" />
+                  </svg>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onEdit}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-[#20a8f5] hover:ring-[#20a8f5]/20 active:scale-95"
-                aria-label="Editar caso"
+                onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-red-500 hover:ring-red-100 active:scale-95"
+                aria-label="Excluir caso"
               >
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.313.313-.689.544-1.107.676l-3.155 1.262a.5.5 0 0 1-.645-.645Z" />
-                  <path d="M2 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5a.5.5 0 0 0-.5-.5h-15a.5.5 0 0 0-.5.5V18Z" />
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => { setDeleteOpen(true); setDeleteConfirm(''); }}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/80 text-[#6d91bb] shadow-[0_10px_24px_rgba(22,78,129,0.1)] ring-1 ring-white/80 transition-all hover:text-red-500 hover:ring-red-100 active:scale-95"
-              aria-label="Excluir caso"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
+            </div>
           </div>
         </div>
 

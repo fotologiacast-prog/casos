@@ -3,8 +3,8 @@ import { ProductionSummary } from './caseUiUtils';
 
 interface ProductionSummaryBarProps {
   summary: ProductionSummary;
-  activeFilter: string | null;
-  onFilter: (filter: string | null) => void;
+  activeFilters: string[];
+  onToggleFilter: (filter: string) => void;
 }
 
 const items = [
@@ -62,18 +62,18 @@ const items = [
   },
 ] as const;
 
-const ProductionSummaryBar: React.FC<ProductionSummaryBarProps> = ({ summary, activeFilter, onFilter }) => {
+const ProductionSummaryBar: React.FC<ProductionSummaryBarProps> = ({ summary, activeFilters, onToggleFilter }) => {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map(item => {
         const count = summary[item.key as keyof ProductionSummary];
-        const isActive = activeFilter === item.filterValue;
+        const isActive = activeFilters.includes(item.filterValue);
 
         return (
           <button
             key={item.key}
             type="button"
-            onClick={() => onFilter(isActive ? null : item.filterValue)}
+            onClick={() => onToggleFilter(item.filterValue)}
             className={`impact-soft-card group relative cursor-pointer overflow-hidden rounded-[1.4rem] p-4 text-left transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] sm:p-5 ${
               isActive
                 ? `ring-2 ${item.accentRing} shadow-[0_22px_50px_rgba(22,78,129,0.18)]`

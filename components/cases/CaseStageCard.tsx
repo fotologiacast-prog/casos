@@ -14,7 +14,7 @@ interface CaseStageCardProps {
 
 const isImageFile = (file: CaseStage['files'][number]) => {
   if (file.type?.startsWith('image/')) return true;
-  return /\.(png|jpe?g|jfif|gif|webp|bmp|tiff?|svg|heic|heif|avif|raw|dng|cr2|nef|arw)$/i.test(file.name);
+  return /\.(png|jpe?g|jfif|gif|webp|bmp|tiff?|svg|heic|heif|avif|raw|dng|cr2|cr3|nef|arw|raf|orf|rw2|pef|srw|x3f|iiq|kdc|dcr|mrw)$/i.test(file.name);
 };
 
 const isBrowserImageFile = (file: CaseStage['files'][number]) => {
@@ -104,8 +104,19 @@ const UPLOAD_ACCEPT = [
   '.raw',
   '.dng',
   '.cr2',
+  '.cr3',
   '.nef',
   '.arw',
+  '.raf',
+  '.orf',
+  '.rw2',
+  '.pef',
+  '.srw',
+  '.x3f',
+  '.iiq',
+  '.kdc',
+  '.dcr',
+  '.mrw',
 ].join(',');
 
 const momentCapturedTheme: Record<CaseStageMoment, {
@@ -406,6 +417,14 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   };
 
   const isCaptured = stage.status === 'Capturado' || stage.files.length > 0;
+  const stageNumber = index >= 0 ? index + 1 : null;
+  const lightboxIndex = lightboxFile ? stage.files.findIndex(file => file.id === lightboxFile.id) : -1;
+  const canNavigateLightbox = lightboxIndex >= 0 && stage.files.length > 1;
+  const goToLightboxFile = (direction: -1 | 1) => {
+    if (!canNavigateLightbox) return;
+    const nextIndex = (lightboxIndex + direction + stage.files.length) % stage.files.length;
+    setLightboxFile(stage.files[nextIndex]);
+  };
   const isUsageLocked = Boolean(stage.usageLock);
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
@@ -510,7 +529,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="truncate text-[0.95rem] font-black tracking-tight text-[#082653] sm:text-base lg:text-lg">{stage.title}</h3>
+          <h3 className="truncate text-[0.95rem] font-black tracking-tight text-[#082653] sm:text-base lg:text-lg">
+            {stageNumber ? `${stageNumber}. ` : ''}{stage.title}
+          </h3>
           {isUsageLocked ? (
             <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500 lg:text-[11px]">Utilizado pela edição · bloqueado</p>
           ) : isCaptured ? (
@@ -638,6 +659,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                         <MediaFallback file={file} label="Arquivo" />
                       </button>
                     )}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#082653]/85 via-[#082653]/45 to-transparent px-2.5 pb-2.5 pt-8">
+                      <p className="truncate text-[10px] font-black text-white drop-shadow-sm" title={file.name}>{file.name}</p>
+                    </div>
                     {!isUsageLocked && (
                       <button
                         type="button"
@@ -789,6 +813,36 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
                 <div className="flex flex-col items-center justify-center gap-4 p-12 text-white">
                   <AttachmentIcon className="h-14 w-14" />
                 </div>
+              )}
+            </div>
+            {canNavigateLightbox && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => goToLightboxFile(-1)}
+                  className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+                  aria-label="Arquivo anterior"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 0 1-.02 1.06L9.06 10l3.71 3.71a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.08.02Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToLightboxFile(1)}
+                  className="absolute right-14 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+                  aria-label="Proximo arquivo"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L10.94 10 7.23 6.29a.75.75 0 1 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.08-.02Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </>
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-10">
+              <p className="truncate text-xs font-black text-white">{lightboxFile.name}</p>
+              {canNavigateLightbox && (
+                <p className="mt-0.5 text-[10px] font-bold text-white/60">{lightboxIndex + 1} de {stage.files.length}</p>
               )}
             </div>
           </div>

@@ -21,8 +21,9 @@ interface CasePatientListProps {
   onRefresh: () => void;
   isRefreshing: boolean;
   onEdit?: (patient: CasePatient) => void;
-  productionFilter?: string | null;
-  onProductionFilter?: (filter: string | null) => void;
+  productionFilters?: string[];
+  onToggleProductionFilter?: (filter: string) => void;
+  onClearProductionFilters?: () => void;
 }
 
 const ageRanges = [
@@ -72,8 +73,9 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   onRefresh,
   isRefreshing,
   onEdit,
-  productionFilter = null,
-  onProductionFilter,
+  productionFilters = [],
+  onToggleProductionFilter,
+  onClearProductionFilters,
 }) => {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -87,7 +89,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Reset visible count when filters change
-  useEffect(() => { setVisibleCount(12); }, [search, month, status, gender, procedure, ageRange]);
+  useEffect(() => { setVisibleCount(12); }, [search, month, status, gender, procedure, ageRange, productionFilters]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -117,19 +119,21 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     [patients, readyTestimonialCounts],
   );
 
-  const matchesProductionFilter = (patient: CasePatient, filter: string | null) => {
-    if (!filter) return true;
+  const matchesProductionFilter = (patient: CasePatient, filters: string[]) => {
+    if (filters.length === 0) return true;
     const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
-    switch (filter) {
-      case 'awaiting':
-        return signals.readyToEditStagesCount === 0 &&
-          signals.pendingEditingRequestsCount === 0 &&
-          signals.readyMaterialsCount === 0;
-      case 'ready': return signals.readyToEditStagesCount > 0;
-      case 'editing': return signals.pendingEditingRequestsCount > 0;
-      case 'materialsReady': return signals.readyMaterialsCount > 0;
-      default: return true;
-    }
+    return filters.some(filter => {
+      switch (filter) {
+        case 'awaiting':
+          return signals.readyToEditStagesCount === 0 &&
+            signals.pendingEditingRequestsCount === 0 &&
+            signals.readyMaterialsCount === 0;
+        case 'ready': return signals.readyToEditStagesCount > 0;
+        case 'editing': return signals.pendingEditingRequestsCount > 0;
+        case 'materialsReady': return signals.readyMaterialsCount > 0;
+        default: return true;
+      }
+    });
   };
 
   const filteredPatients = useMemo(() => {
@@ -144,10 +148,10 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
         (gender === 'Todos' || patient.gender === gender) &&
         (procedure === 'Todos' || splitProcedures(patient.procedure).includes(procedure)) &&
         matchesAgeRange(patient.age, ageRange) &&
-        matchesProductionFilter(patient, productionFilter)
+        matchesProductionFilter(patient, productionFilters)
       );
     });
-  }, [ageRange, deferredSearch, gender, month, patients, procedure, productionFilter, readyTestimonialCounts, status]);
+  }, [ageRange, deferredSearch, gender, month, patients, procedure, productionFilters, readyTestimonialCounts, status]);
 
   const hasActiveFilters = month !== 'all' || status !== 'Todos' || gender !== 'Todos' || procedure !== 'Todos' || ageRange !== 'all';
 
@@ -156,8 +160,8 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
       {/* Production summary bar */}
       <ProductionSummaryBar
         summary={productionSummary}
-        activeFilter={productionFilter}
-        onFilter={(f) => onProductionFilter?.(f)}
+        activeFilters={productionFilters}
+        onToggleFilter={(f) => onToggleProductionFilter?.(f)}
       />
 
       {/* Header */}
@@ -169,12 +173,12 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
             <p className="text-sm font-semibold text-[#5d7ca4]">
               {filteredPatients.length} de {patients.length} caso{patients.length === 1 ? '' : 's'}
             </p>
-            {productionFilter && (
+            {productionFilters.length > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f5ff] px-2.5 py-0.5 text-xs font-black text-[#20a8f5] ring-1 ring-[#cde6f9] shadow-sm animate-fade-in">
-                Filtro: {productionFilter === 'awaiting' ? 'Aguardando material' : productionFilter === 'ready' ? 'Prontos para enviar' : productionFilter === 'editing' ? 'Em edição' : 'Materiais prontos'}
+                Filtros: {productionFilters.map(filter => filter === 'awaiting' ? 'Aguardando material' : filter === 'ready' ? 'Prontos para enviar' : filter === 'editing' ? 'Em edição' : 'Materiais prontos').join(' + ')}
                 <button
                   type="button"
-                  onClick={() => onProductionFilter?.(null)}
+                  onClick={() => onClearProductionFilters?.()}
                   className="ml-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#20a8f5] text-white hover:bg-[#1594de] transition-colors"
                   aria-label="Limpar filtro de produção"
                 >

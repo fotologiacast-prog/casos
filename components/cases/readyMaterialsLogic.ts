@@ -33,23 +33,13 @@ export const isPhotographyCreative = (creativeType?: string | null) =>
 export const buildReadyGalleryItems = (testimonials: ReadyTestimonial[]): ReadyGalleryItem[] =>
   testimonials.flatMap<ReadyGalleryItem>(testimonial => {
     if (testimonial.assets.length === 0) return [];
-    if (isPhotographyCreative(testimonial.creativeType)) {
-      return [{
-        id: testimonial.id,
-        testimonial,
-        assets: testimonial.assets,
-        primaryAsset: testimonial.assets[0],
-        isPhotoCatalog: true,
-      }];
-    }
-
-    return testimonial.assets.map(asset => ({
-      id: `${testimonial.id}-${asset.id}`,
+    return [{
+      id: testimonial.id,
       testimonial,
-      assets: [asset],
-      primaryAsset: asset,
-      isPhotoCatalog: false,
-    }));
+      assets: testimonial.assets,
+      primaryAsset: testimonial.assets[0],
+      isPhotoCatalog: isPhotographyCreative(testimonial.creativeType) || testimonial.assets.length > 1,
+    }];
   });
 
 export const scoreReadyRecommendation = (current: ReadyGalleryItem, candidate: ReadyGalleryItem) => {

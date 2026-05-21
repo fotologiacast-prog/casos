@@ -1313,7 +1313,9 @@ const ReadyTestimonials: React.FC<ReadyTestimonialsProps> = ({ token, clientName
                   
                   <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-[#f4faff] pt-3">
                     <span className="rounded-full bg-[#eaf6ff] px-2.5 py-1 text-[9px] font-black text-[#2b75bd]">
-                      {item.isPhotoCatalog ? `${item.assets.length} fotos` : formatLabel}
+                      {item.isPhotoCatalog
+                        ? `${item.testimonial.creativeType || 'Fotografia'} · ${item.assets.length} arquivo${item.assets.length === 1 ? '' : 's'}`
+                        : formatLabel}
                     </span>
                     <StarRating value={item.testimonial.rating} compact />
                   </div>

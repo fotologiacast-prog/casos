@@ -3,6 +3,7 @@ import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 
 export interface NewCasePatientPayload {
   name: string;
+  planningDate: string;
   birthDate: string;
   gender: string;
   procedure: string;
@@ -27,6 +28,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
+    planningDate: initialData?.planningDate || new Date().toISOString().slice(0, 10),
     birthDate: initialData?.birthDate || '',
     gender: initialData?.gender || CASE_GENDERS[0],
     procedures: initialData?.procedure
@@ -61,6 +63,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
     try {
       await onSubmit({
         name: formData.name.trim(),
+        planningDate: formData.planningDate,
         birthDate: formData.birthDate,
         gender: formData.gender,
         procedure: formData.procedures.join(', '),
@@ -119,33 +122,48 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
             />
           </div>
 
-          {/* Birth date + Gender */}
+          {/* Planning date + Birth date */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="patient-birth-date" className="section-label block mb-1.5">Data de nascimento</label>
+              <label htmlFor="patient-planning-date" className="section-label block mb-1.5">Data de planejamento *</label>
+              <input
+                id="patient-planning-date"
+                name="patient-planning-date"
+                type="date"
+                required
+                value={formData.planningDate}
+                onChange={set('planningDate')}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label htmlFor="patient-birth-date" className="section-label block mb-1.5">Data de nascimento *</label>
               <input
                 id="patient-birth-date"
                 name="patient-birth-date"
                 type="date"
+                required
                 value={formData.birthDate}
                 onChange={set('birthDate')}
                 autoComplete="bday"
                 className="input-field"
               />
             </div>
-            <div>
-              <label htmlFor="patient-gender" className="section-label block mb-1.5">Sexo</label>
-              <select
-                id="patient-gender"
-                name="patient-gender"
-                value={formData.gender}
-                onChange={set('gender')}
-                autoComplete="off"
-                className="select-field"
-              >
-                {CASE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </div>
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label htmlFor="patient-gender" className="section-label block mb-1.5">Sexo</label>
+            <select
+              id="patient-gender"
+              name="patient-gender"
+              value={formData.gender}
+              onChange={set('gender')}
+              autoComplete="off"
+              className="select-field"
+            >
+              {CASE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
+            </select>
           </div>
 
           {/* Procedures */}

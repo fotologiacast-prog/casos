@@ -178,6 +178,7 @@ const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: 
 
 const normalizeCasePayload = (body: any) => ({
   patient_name: String(body.name || body.patient_name || "").trim(),
+  planning_date: toDateString(body.planningDate || body.planning_date || body.created_at || null),
   birth_date: toDateString(body.birthDate || body.birth_date || null),
   gender: body.gender ? String(body.gender).trim() : null,
   procedure: body.procedure ? String(body.procedure).trim() : null,
@@ -270,7 +271,7 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -328,6 +329,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
+      if (!payload.birth_date) return res.status(400).json({ error: "Data de nascimento e obrigatoria." });
+      const planningDate = payload.planning_date || new Date().toISOString().slice(0, 10);
 
       let caseDriveFolderId: string | null = null;
       if (client.drive_folder_id && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
@@ -345,7 +348,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from("cases")
         .insert([{
           client_id: client.id,
-          ...payload,
+          patient_name: payload.patient_name,
+          birth_date: payload.birth_date,
+          gender: payload.gender,
+          procedure: payload.procedure,
+          dentist_responsible: payload.dentist_responsible,
+          notes: payload.notes,
+          created_at: `${planningDate}T12:00:00.000Z`,
           age: calculateAge(payload.birth_date),
           drive_folder_id: caseDriveFolderId,
           status: "em_andamento",
@@ -583,7 +592,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           set(["Cliente", "#Cliente"], clientLabel, ["status", "color", "dropdown", "text"]);
           set(["Tipo", "#Tipo"], MONDAY_CASE_TYPE_LABEL, ["status", "color", "dropdown", "text"]);
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
-          set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], new Date().toISOString().slice(0, 10));
+          set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], planningDate);
           set(["Idade", "#Idade"], calculateAge(payload.birth_date));
           if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender, ["status", "color", "dropdown", "text"]);
           if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure, ["dropdown", "status", "color", "text"]);
@@ -886,6 +895,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const payload = normalizeCasePayload(req.body);
       if (!payload.patient_name) return res.status(400).json({ error: "Nome do paciente e obrigatorio." });
+      if (!payload.birth_date) return res.status(400).json({ error: "Data de nascimento e obrigatoria." });
+      const planningDate = payload.planning_date || (existingCase.created_at ? String(existingCase.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10));
 
       // Rename Google Drive folder if name changed
       if (existingCase.drive_folder_id && existingCase.patient_name !== payload.patient_name && (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_REFRESH_TOKEN)) {
@@ -912,6 +923,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           procedure: payload.procedure,
           dentist_responsible: payload.dentist_responsible,
           notes: payload.notes,
+          created_at: `${planningDate}T12:00:00.000Z`,
           age: calculateAge(payload.birth_date),
         })
         .eq("id", caseId)
@@ -1025,6 +1037,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           const dentistResponsible = String(payload.dentist_responsible || "").trim();
           set(["Nascimento", "#Nascimento", "Data de nascimento"], payload.birth_date);
+          set(["Data do Planejamento", "#Data do Planejamento", "Data de planejamento"], planningDate);
           set(["Idade", "#Idade"], calculateAge(payload.birth_date));
           if (payload.gender) set(["Sexo", "#Sexo", "Genero", "Gênero"], payload.gender, ["status", "color", "dropdown", "text"]);
           if (payload.procedure) set(["Procedimentos", "#Procedimentos", "Procedimento"], payload.procedure, ["dropdown", "status", "color", "text"]);
