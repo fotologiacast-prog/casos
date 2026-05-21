@@ -188,6 +188,11 @@ const pickCreativeType = (columns: MondayColumnValue[] = []) =>
     "#Tipo do criativo",
   ]);
 
+const getEditingRequestStatusFromMonday = (normalizedStatus: string) => {
+  if (["revisao", "em revisao", "review", "em review"].includes(normalizedStatus)) return "review";
+  return "sent";
+};
+
 const fetchMondayItemDetails = async (itemId: string): Promise<MondayItemDetails | null> => {
   const data = await mondayFetch(
     `query ($itemIds: [ID!]) {
@@ -303,15 +308,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "pronto p/ enviar"
     ].includes(normalizedStatus);
 
+    const now = new Date().toISOString();
+
     if (!isReadyStatus) {
+      const nextStatus = getEditingRequestStatusFromMonday(normalizedStatus);
+      const { error: updateError } = await supabase
+        .from("case_editing_requests")
+        .update({
+          status: nextStatus,
+          edited_at: null,
+          creative_type: creativeType,
+          edited_material_count: assetCount,
+          monday_webhook_event_id: auditId,
+          last_webhook_at: now,
+        })
+        .eq("id", editingRequest.id);
+
+      if (updateError) throw updateError;
+
       await supabase
         .from("monday_webhook_events")
-        .update({ processed: true, processing_error: `status_ignorado:${status || "vazio"}` })
+        .update({ processed: true, processing_error: null })
         .eq("id", auditId);
-      return res.status(200).json({ ok: true, ignored: true, reason: "status_nao_editado", status });
+
+      logWebhook("info", "editing_request_status_synced", {
+        auditId,
+        editingRequestId: editingRequest.id,
+        itemId: item.id,
+        status,
+        nextStatus,
+      });
+
+      return res.status(200).json({
+        ok: true,
+        synced: true,
+        editingRequestId: editingRequest.id,
+        status: nextStatus,
+      });
     }
 
-    const now = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("case_editing_requests")
       .update({
