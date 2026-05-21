@@ -187,6 +187,7 @@ const updateEditingSubitemColumns = async (
   subitemId: string,
   boardId: string | null | undefined,
   materialUrl: string | null | undefined,
+  adminEditingRequestUrl: string | null | undefined,
   context: EditingLogContext
 ) => {
   if (!boardId) return { skipped: true, reason: "subitem_board_id_ausente" };
@@ -224,6 +225,10 @@ const updateEditingSubitemColumns = async (
   const deadlineColumn = findColumn(["Prazo do criativo", "Prazo", "Data", "Deadline"], ["date"]);
   const materialColumn = findColumn(
     ["Material para Edição", "Material para Edicao", "#Material para Edição", "#Material para Edicao", "Material", "Link do Drive", "Drive"],
+    ["link", "long_text", "long-text", "text"]
+  );
+  const rawMaterialColumn = findColumn(
+    ["Material Bruto", "#Material Bruto", "Materiais Brutos", "#Materiais Brutos"],
     ["link", "long_text", "long-text", "text"]
   );
 
@@ -310,9 +315,33 @@ const updateEditingSubitemColumns = async (
     });
   }
 
+  if (rawMaterialColumn && adminEditingRequestUrl && isSupportedMaterialColumnType(rawMaterialColumn.type)) {
+    let value: unknown;
+    if (rawMaterialColumn.type === "link") {
+      value = { url: adminEditingRequestUrl, text: "Abrir no editor" };
+    } else if (rawMaterialColumn.type === "long_text" || rawMaterialColumn.type === "long-text") {
+      value = { text: adminEditingRequestUrl };
+    } else {
+      value = adminEditingRequestUrl;
+    }
+    updates.push({
+      role: "raw_material",
+      id: rawMaterialColumn.id,
+      title: rawMaterialColumn.title,
+      type: rawMaterialColumn.type,
+      value,
+      createLabels: false,
+    });
+  } else if (!rawMaterialColumn && adminEditingRequestUrl) {
+    logInfo(context, "raw_material_column_not_found", {
+      adminEditingRequestUrl,
+      expectedColumn: "#Material Bruto",
+    });
+  }
+
   if (updates.length === 0) {
     logInfo(context, "no_columns_found", {
-      expectedColumns: ["Priority", "Responsável", "Prazo do criativo", "Material para Edição"],
+      expectedColumns: ["Priority", "Responsável", "Prazo do criativo", "Material para Edição", "#Material Bruto"],
     });
     return { skipped: true, reason: "colunas_nao_encontradas" };
   }
@@ -433,6 +462,24 @@ const getDriveFileUrl = (file: any) => {
   if (file?.drive_file_id) return `https://drive.google.com/file/d/${encodeURIComponent(file.drive_file_id)}/view`;
   if (file?.web_content_link) return file.web_content_link;
   return null;
+};
+
+const withProtocol = (value: string) => {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+
+const buildAdminEditingRequestUrl = (subitemId: string) => {
+  const baseUrl = withProtocol(String(
+    process.env.PUBLIC_APP_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    process.env.VERCEL_URL ||
+    ""
+  ));
+
+  if (!baseUrl) return null;
+  return `${baseUrl}/#/admin/pedidos-edicao?subitemId=${encodeURIComponent(subitemId)}`;
 };
 
 const persistEditingRequest = async (
@@ -613,7 +660,8 @@ export const requestStageEditing = async (body: any) => {
     taskName,
   });
 
-  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl, context);
+  const adminEditingRequestUrl = buildAdminEditingRequestUrl(String(subitemId));
+  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl, adminEditingRequestUrl, context);
   const persistWarning = await persistEditingRequest(supabase, {
     clientId: Number(client.id),
     caseId: String(caseRow.id),

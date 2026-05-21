@@ -57,6 +57,12 @@ const getFileKind = (type?: string | null) => {
   return 'Arquivo';
 };
 
+const getAdminHashParams = () => {
+  if (typeof window === 'undefined') return new URLSearchParams();
+  const search = window.location.hash.split('?')[1] || '';
+  return new URLSearchParams(search);
+};
+
 const RequestCover = ({ request }: { request: AdminEditingRequest }) => {
   const [failed, setFailed] = useState(false);
   if (!request.coverUrl || failed) {
@@ -109,6 +115,18 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
   useEffect(() => {
     void loadRequests();
   }, [password]);
+
+  useEffect(() => {
+    if (activeRequestId || requests.length === 0) return;
+    const params = getAdminHashParams();
+    const requestId = params.get('requestId');
+    const subitemId = params.get('subitemId') || params.get('mondaySubitemId');
+    const match = requests.find(request =>
+      (requestId && request.id === requestId) ||
+      (subitemId && String(request.mondaySubitemId || '') === subitemId)
+    );
+    if (match) setActiveRequestId(match.id);
+  }, [activeRequestId, requests]);
 
   const filteredRequests = useMemo(() => {
     const query = search.trim().toLowerCase();

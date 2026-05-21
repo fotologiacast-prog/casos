@@ -97,6 +97,7 @@ export type AdminEditingRequest = {
   patientProcedure?: string | null;
   requestedStageId?: string | null;
   requestedStageName?: string | null;
+  mondaySubitemId?: string | null;
   materialUrl?: string | null;
   status?: string | null;
   creativeType?: string | null;

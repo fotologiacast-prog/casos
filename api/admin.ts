@@ -262,6 +262,7 @@ const fetchAdminEditingRequests = async (supabase: any) => {
       patientProcedure: caseRow?.procedure || null,
       requestedStageId: request.stage_id,
       requestedStageName: request.stage_name,
+      mondaySubitemId: request.monday_subitem_id,
       materialUrl: request.material_url,
       status: request.status,
       creativeType: request.creative_type,
