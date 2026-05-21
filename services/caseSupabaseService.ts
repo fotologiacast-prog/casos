@@ -71,6 +71,9 @@ export const requestCaseStageEditing = async (token: string, caseId: string, sta
     body: JSON.stringify({ action: 'request_editing', token, caseId, stageId, notes }),
   });
   const data = await readApiResponse(response, 'Falha ao mandar para edição.');
+  if (data?.persistWarning) {
+    throw new Error(`Tarefa criada no Monday, mas não apareceu no painel do editor. requestId=${data.requestId || 'sem-id'} ${data.persistWarning}`);
+  }
   const failedColumns = Array.isArray(data?.columnUpdate?.failed) ? data.columnUpdate.failed : [];
   if (failedColumns.length > 0) {
     const fields = failedColumns

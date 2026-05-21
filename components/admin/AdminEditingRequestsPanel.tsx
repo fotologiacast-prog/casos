@@ -118,7 +118,7 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
 
       if (statusFilter === 'edited') {
         if (!isEdited) return false;
-      } else {
+      } else if (statusFilter !== 'all') {
         if (isEdited) return false;
         if (statusFilter === 'empty' && selectedCount > 0) return false;
         if (statusFilter === 'marked' && selectedCount === 0) return false;
@@ -141,7 +141,7 @@ const AdminEditingRequestsPanel: React.FC<AdminEditingRequestsPanelProps> = ({ p
     const markedCount = nonEdited.filter(r => (selectedByRequestId[r.id]?.length || 0) > 0).length;
     const emptyCount = nonEdited.length - markedCount;
     return {
-      total: nonEdited.length,
+      total: requests.length,
       empty: emptyCount,
       marked: markedCount,
       edited: editedCount,
