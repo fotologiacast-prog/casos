@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { CasePatient } from '../../types';
+import { CasePatient, CaseProcedure } from '../../types';
 import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
 import CasePatientCard from './CasePatientCard';
 import ProductionSummaryBar from './ProductionSummaryBar';
@@ -24,6 +24,7 @@ interface CasePatientListProps {
   productionFilters?: string[];
   onToggleProductionFilter?: (filter: string) => void;
   onClearProductionFilters?: () => void;
+  procedureOptions?: CaseProcedure[];
 }
 
 const ageRanges = [
@@ -46,6 +47,12 @@ const matchesAgeRange = (age: number | null, range: string) => {
 const splitProcedures = (value?: string | null) =>
   String(value || '')
     .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+const splitTextTags = (value?: string | null) =>
+  String(value || '')
+    .split(/[,;|]/)
     .map(item => item.trim())
     .filter(Boolean);
 
@@ -76,6 +83,7 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   productionFilters = [],
   onToggleProductionFilter,
   onClearProductionFilters,
+  procedureOptions = CASE_PROCEDURES,
 }) => {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -84,12 +92,14 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
   const [gender, setGender] = useState('Todos');
   const [procedure, setProcedure] = useState('Todos');
   const [ageRange, setAgeRange] = useState('all');
+  const [keyword, setKeyword] = useState('Todos');
+  const [objection, setObjection] = useState('Todos');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Reset visible count when filters change
-  useEffect(() => { setVisibleCount(12); }, [search, month, status, gender, procedure, ageRange, productionFilters]);
+  useEffect(() => { setVisibleCount(12); }, [search, month, status, gender, procedure, ageRange, keyword, objection, productionFilters]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -119,6 +129,14 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     [patients, readyTestimonialCounts],
   );
 
+  const keywordOptions = useMemo(() => (
+    Array.from(new Set<string>(patients.flatMap(patient => splitTextTags(patient.keywords)))).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  ), [patients]);
+
+  const objectionOptions = useMemo(() => (
+    Array.from(new Set<string>(patients.map(patient => String(patient.objectionMain || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  ), [patients]);
+
   const matchesProductionFilter = (patient: CasePatient, filters: string[]) => {
     if (filters.length === 0) return true;
     const signals = getProductionSignals(patient, readyTestimonialCounts[patient.id] || 0);
@@ -141,19 +159,29 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
     return patients.filter(patient => {
       const patientMonth = patient.createdAt?.toISOString().slice(0, 7) || '';
       const patientStatus = getPatientStatus(patient);
+      const patientKeywords = splitTextTags(patient.keywords);
+      const searchableText = [
+        patient.name,
+        patient.procedure,
+        patient.dentistResponsible,
+        patient.keywords,
+        patient.objectionMain,
+      ].filter(Boolean).join(' ').toLowerCase();
       return (
-        (!query || patient.name.toLowerCase().includes(query)) &&
+        (!query || searchableText.includes(query)) &&
         (month === 'all' || patientMonth === month) &&
         (status === 'Todos' || patientStatus === status) &&
         (gender === 'Todos' || patient.gender === gender) &&
         (procedure === 'Todos' || splitProcedures(patient.procedure).includes(procedure)) &&
+        (keyword === 'Todos' || patientKeywords.includes(keyword)) &&
+        (objection === 'Todos' || patient.objectionMain === objection) &&
         matchesAgeRange(patient.age, ageRange) &&
         matchesProductionFilter(patient, productionFilters)
       );
     });
-  }, [ageRange, deferredSearch, gender, month, patients, procedure, productionFilters, readyTestimonialCounts, status]);
+  }, [ageRange, deferredSearch, gender, keyword, month, objection, patients, procedure, productionFilters, readyTestimonialCounts, status]);
 
-  const hasActiveFilters = month !== 'all' || status !== 'Todos' || gender !== 'Todos' || procedure !== 'Todos' || ageRange !== 'all';
+  const hasActiveFilters = month !== 'all' || status !== 'Todos' || gender !== 'Todos' || procedure !== 'Todos' || ageRange !== 'all' || keyword !== 'Todos' || objection !== 'Todos';
 
   return (
     <div className="animate-fade-in">
@@ -288,14 +316,34 @@ const CasePatientList: React.FC<CasePatientListProps> = ({
                 label="Procedimento"
                 value={procedure}
                 onChange={setProcedure}
-                options={[{ value: 'Todos', label: 'Todos' }, ...CASE_PROCEDURES.map(v => ({ value: v, label: v }))]}
+                options={[{ value: 'Todos', label: 'Todos' }, ...procedureOptions.map(v => ({ value: v, label: v }))]}
               />
             </div>
+            {keywordOptions.length > 0 && (
+              <div className="col-span-2 sm:col-span-3 lg:col-span-2">
+                <SelectChip
+                  label="Palavra-chave"
+                  value={keyword}
+                  onChange={setKeyword}
+                  options={[{ value: 'Todos', label: 'Todas' }, ...keywordOptions.map(v => ({ value: v, label: `"${v}"` }))]}
+                />
+              </div>
+            )}
+            {objectionOptions.length > 0 && (
+              <div className="col-span-2 sm:col-span-3 lg:col-span-2">
+                <SelectChip
+                  label="Objeção principal"
+                  value={objection}
+                  onChange={setObjection}
+                  options={[{ value: 'Todos', label: 'Todas' }, ...objectionOptions.map(v => ({ value: v, label: `"${v}"` }))]}
+                />
+              </div>
+            )}
           </div>
           {hasActiveFilters && (
             <button
               type="button"
-              onClick={() => { setMonth('all'); setStatus('Todos'); setGender('Todos'); setProcedure('Todos'); setAgeRange('all'); }}
+              onClick={() => { setMonth('all'); setStatus('Todos'); setGender('Todos'); setProcedure('Todos'); setAgeRange('all'); setKeyword('Todos'); setObjection('Todos'); }}
               className="mt-4 text-xs font-black text-[#5d7ca4] underline underline-offset-2 transition-colors hover:text-[#082653]"
             >
               Limpar filtros

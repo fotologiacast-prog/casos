@@ -52,12 +52,19 @@ const PatientThumbnail: React.FC<{ thumbnail: CaseThumbnail | null; name: string
   );
 };
 
+const splitTextTags = (value?: string | null) =>
+  String(value || '')
+    .split(/[,;|]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+
 const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOpenTestimonials, readyTestimonialCount = 0, onEdit, productionStatus }) => {
   const progress = getPatientProgress(patient);
   const statusCfg = productionStatusConfig[productionStatus];
   const productionBadges = getProductionBadges(patient, readyTestimonialCount);
   const hasReadyTestimonials = readyTestimonialCount > 0;
   const thumbnail = getCaseThumbnail(patient);
+  const keywordTags = splitTextTags(patient.keywords).slice(0, 2);
 
   return (
     <article
@@ -133,6 +140,28 @@ const CasePatientCard: React.FC<CasePatientCardProps> = ({ patient, onOpen, onOp
             </span>
           )}
         </div>
+
+        {(keywordTags.length > 0 || patient.objectionMain) && (
+          <div className="flex flex-wrap gap-1.5">
+            {keywordTags.map(tag => (
+              <span
+                key={tag}
+                title={`Palavra-chave: ${tag}`}
+                className="inline-flex h-6 max-w-[130px] items-center rounded-full bg-[#eaf7ff] px-2.5 text-[10px] font-black text-[#159de9] ring-1 ring-[#cde8fb]"
+              >
+                <span className="truncate">"{tag}"</span>
+              </span>
+            ))}
+            {patient.objectionMain && (
+              <span
+                title={`Objeção principal: ${patient.objectionMain}`}
+                className="inline-flex h-6 max-w-[150px] items-center rounded-full bg-amber-50 px-2.5 text-[10px] font-black text-amber-700 ring-1 ring-amber-100"
+              >
+                <span className="truncate">"{patient.objectionMain}"</span>
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Dual progress: Material sent + Production status */}
         <div className="space-y-2.5">

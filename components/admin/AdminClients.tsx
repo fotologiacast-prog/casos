@@ -9,13 +9,14 @@ import {
   listAdminClients,
   updateAdminClient,
 } from '../../services/adminClientService';
-import { CASE_STAGE_TITLES } from '../../utils/caseConstants';
+import { ALL_CASE_STAGE_TITLES, CLIENT_PORTAL_TYPES, DEFAULT_CLIENT_PORTAL_TYPE } from '../../utils/caseConstants';
 import AdminDashboardPanel from './AdminDashboardPanel';
 import AdminEditingRequestsPanel from './AdminEditingRequestsPanel';
+import AdminManagementPanel from './AdminManagementPanel';
 import AdminNotificationsPanel from './AdminNotificationsPanel';
 import AdminRadarPanel from './AdminRadarPanel';
 
-type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'editingRequests' | 'notifications' | 'radar';
+type AdminTab = 'home' | 'clients' | 'faqs' | 'dashboard' | 'editingRequests' | 'management' | 'notifications' | 'radar';
 
 interface AdminClientsProps {
   initialTab?: AdminTab;
@@ -33,6 +34,7 @@ type AdminFaq = {
 const emptyForm: ClientPayload = {
   name: '',
   boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
+  portal_type: DEFAULT_CLIENT_PORTAL_TYPE,
   case_public_token: '',
   case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_client_label: '',
@@ -82,6 +84,13 @@ const adminCards: Array<{
   meta: string;
   tone: string;
 }> = [
+  {
+    id: 'management',
+    title: 'Gerência por Clínica',
+    description: 'Selecione uma clínica e acompanhe pacientes, pedidos, materiais, alertas e histórico interno.',
+    meta: 'Operação completa',
+    tone: 'from-[#e8f6ff] to-white text-[#0ea5e9]',
+  },
   {
     id: 'clients',
     title: 'Cadastro de Clientes',
@@ -149,6 +158,10 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
   const [previewFaq, setPreviewFaq] = useState<AdminFaq | null>(null);
   const [faqSaving, setFaqSaving] = useState(false);
   const [faqError, setFaqError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAdminTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     if (!previewFaq) return;
@@ -269,6 +282,7 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
     setForm({
       name: client.name,
       boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
+      portal_type: client.portal_type || DEFAULT_CLIENT_PORTAL_TYPE,
       case_public_token: client.case_public_token || '',
       case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
       case_client_label: client.case_client_label || '',
@@ -481,6 +495,10 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
         <div className="impact-shell">
           <AdminEditingRequestsPanel password={password} />
         </div>
+      ) : adminTab === 'management' ? (
+        <div className="impact-shell">
+          <AdminManagementPanel password={password} />
+        </div>
       ) : adminTab === 'notifications' ? (
         <div className="impact-shell">
           <AdminNotificationsPanel password={password} clients={clients} />
@@ -511,7 +529,7 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
                   className={inputClass}
                 >
                   <option value="">Selecione a etapa...</option>
-                  {CASE_STAGE_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {ALL_CASE_STAGE_TITLES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
               <label className="block">
@@ -635,6 +653,35 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
                         required
                       />
                     </label>
+                    <div className="md:col-span-2">
+                      <span className={labelSpanClass}>Tipo de portal</span>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {CLIENT_PORTAL_TYPES.map(option => {
+                          const checked = (form.portal_type || DEFAULT_CLIENT_PORTAL_TYPE) === option.value;
+                          return (
+                            <label
+                              key={option.value}
+                              className={`cursor-pointer rounded-2xl border px-4 py-3 transition-all ${
+                                checked
+                                  ? 'border-[#20a8f5] bg-[#e8f6ff] shadow-[0_12px_34px_rgba(32,168,245,0.16)]'
+                                  : 'border-zinc-200 bg-white hover:border-[#b7e2fb] hover:bg-[#f7fcff]'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="client-portal-type"
+                                value={option.value}
+                                checked={checked}
+                                onChange={() => setForm(prev => ({ ...prev, portal_type: option.value }))}
+                                className="sr-only"
+                              />
+                              <span className="text-sm font-black text-[#082653]">{option.label}</span>
+                              <span className="mt-1 block text-xs font-semibold leading-relaxed text-[#6d8db1]">{option.description}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <label className="block">
                       <span className={labelSpanClass}>Board ID Monday</span>
                       <input
@@ -843,6 +890,12 @@ const AdminClients: React.FC<AdminClientsProps> = ({ initialTab = 'home' }) => {
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Token</p>
                         <p className="mt-1 truncate font-mono text-xs font-bold text-[#174579]">{client.case_public_token || 'sem-token'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Tipo de portal</p>
+                        <p className="mt-1 truncate text-xs font-black text-[#174579]">
+                          {(client.portal_type || DEFAULT_CLIENT_PORTAL_TYPE) === 'head_neck' ? 'Cabeça e pescoço' : 'Dentista'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#8aa8c6]">Drive</p>

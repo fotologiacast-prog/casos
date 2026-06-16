@@ -33,6 +33,7 @@ export interface Client {
   id: number;
   name: string;
   boardId: string;
+  portal_type?: ClientPortalType | string | null;
   critical_days_threshold?: number;
   case_board_id?: string;
   case_public_token?: string;
@@ -44,19 +45,35 @@ export interface Client {
   portal_password?: string | null;
 }
 
+export type ClientPortalType = 'dental' | 'head_neck';
 export type CaseGender = 'Feminino' | 'Masculino' | 'Pref. não informar';
 
 export type CaseProcedure =
   | 'Implantes'
   | 'Protocolo'
-  | 'Facetas'
+  | 'Facetas / Porcelana'
+  | 'Facetas / Resina'
   | 'Próteses'
   | 'Orto'
-  | 'Estética';
+  | 'Harmonização Facial'
+  | 'Consulta'
+  | 'Cirurgia'
+  | 'Biópsia'
+  | 'Retorno'
+  | 'Pós-operatório'
+  | 'Exames / Imagens';
 
 export type CaseStageStatus = 'Fazer' | 'Capturado';
 
-export type CaseStageMoment = 'Planejamento' | 'Procedimento' | 'Entrega' | 'Evento' | 'Agência';
+export type CaseStageMoment =
+  | 'Planejamento'
+  | 'Procedimento'
+  | 'Entrega'
+  | 'Evento'
+  | 'Agência'
+  | 'Triagem'
+  | 'Consulta'
+  | 'Pós-operatório';
 
 export interface CaseStage {
   id: string;
@@ -90,10 +107,13 @@ export interface CasePatient {
   gender: CaseGender | string | null;
   procedure: CaseProcedure | string | null;
   procedureDescription: string | null;
+  keywords?: string | null;
+  objectionMain?: string | null;
   dentistResponsible?: string | null;
   notes: string | null;
   mondayItemId?: string | null;
   driveFolderId?: string | null;
+  portalType?: ClientPortalType | string | null;
   createdAt: Date | null;
   stages: CaseStage[];
   editingRequests?: CaseEditingRequest[];

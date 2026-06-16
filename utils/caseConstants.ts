@@ -1,4 +1,22 @@
-import { CaseColumnConfig, CaseGender, CaseProcedure, CaseStageMoment } from '../types';
+import { CaseColumnConfig, CaseGender, CaseProcedure, CaseStageMoment, ClientPortalType } from '../types';
+
+export const CLIENT_PORTAL_TYPES: Array<{ value: ClientPortalType; label: string; description: string }> = [
+  {
+    value: 'dental',
+    label: 'Dentista',
+    description: 'Casos odontológicos com etapas completas de antes, procedimento, entrega e evento.',
+  },
+  {
+    value: 'head_neck',
+    label: 'Cirurgião cabeça e pescoço',
+    description: 'Consultas médicas com etapas simplificadas para exames, consulta, procedimento e pós-operatório.',
+  },
+];
+
+export const DEFAULT_CLIENT_PORTAL_TYPE: ClientPortalType = 'dental';
+
+export const normalizeClientPortalType = (value?: string | null): ClientPortalType =>
+  value === 'head_neck' ? 'head_neck' : DEFAULT_CLIENT_PORTAL_TYPE;
 
 export const CASE_STAGE_MOMENTS: CaseStageMoment[] = [
   'Planejamento',
@@ -8,7 +26,7 @@ export const CASE_STAGE_MOMENTS: CaseStageMoment[] = [
   'Agência',
 ];
 
-export const CASE_STAGE_DEFINITIONS = [
+export const DENTAL_CASE_STAGE_DEFINITIONS = [
   { title: 'Fotos Intraorais do Antes', moment: 'Planejamento', legacyTitles: ['01. (CADEIRA) Fotos intraorais do antes (4 fotos)'] },
   { title: 'Vídeo Panorâmico do Antes', moment: 'Planejamento', legacyTitles: ['02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes', '02. (ESTUDIO) Video panoramico do antes'] },
   { title: 'Retrato Extraoral do Antes', moment: 'Planejamento', legacyTitles: ['03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)'] },
@@ -31,23 +49,63 @@ export const CASE_STAGE_DEFINITIONS = [
   { title: 'Vídeo de Explicação Técnica', moment: 'Agência', legacyTitles: ['10. Explicação do caso com dr.'] },
 ] as const;
 
-export const CASE_STAGE_TITLES = CASE_STAGE_DEFINITIONS.map(stage => stage.title);
+export const HEAD_NECK_CASE_STAGE_MOMENTS = [
+  'Triagem',
+  'Consulta',
+  'Procedimento',
+  'Pós-operatório',
+] as const;
 
-const getLegacyTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
-  'legacyTitles' in stage ? stage.legacyTitles : [];
+export const HEAD_NECK_CASE_STAGE_DEFINITIONS = [
+  { title: 'Fotos e Exames Iniciais', moment: 'Triagem', legacyTitles: [] },
+  { title: 'Queixa Principal', moment: 'Triagem', legacyTitles: [] },
+  { title: 'Arquivos da Consulta', moment: 'Consulta', legacyTitles: [] },
+  { title: 'Conduta e Observações', moment: 'Consulta', legacyTitles: [] },
+  { title: 'Arquivos do Procedimento', moment: 'Procedimento', legacyTitles: [] },
+  { title: 'Fotos de Evolução', moment: 'Pós-operatório', legacyTitles: [] },
+  { title: 'Relato ou Depoimento', moment: 'Pós-operatório', legacyTitles: [] },
+] as const;
 
-export const getCaseStageMoment = (title: string): CaseStageMoment => {
-  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
-  return (definition?.moment || 'Planejamento') as CaseStageMoment;
+export const CASE_STAGE_DEFINITIONS = DENTAL_CASE_STAGE_DEFINITIONS;
+
+export const getCaseStageDefinitionsForPortalType = (portalType?: string | null) =>
+  normalizeClientPortalType(portalType) === 'head_neck'
+    ? HEAD_NECK_CASE_STAGE_DEFINITIONS
+    : DENTAL_CASE_STAGE_DEFINITIONS;
+
+export const getCaseStageMomentsForPortalType = (portalType?: string | null): string[] =>
+  normalizeClientPortalType(portalType) === 'head_neck'
+    ? [...HEAD_NECK_CASE_STAGE_MOMENTS]
+    : CASE_STAGE_MOMENTS;
+
+export const CASE_STAGE_TITLES = DENTAL_CASE_STAGE_DEFINITIONS.map(stage => stage.title);
+export const ALL_CASE_STAGE_TITLES = [
+  ...DENTAL_CASE_STAGE_DEFINITIONS.map(stage => stage.title),
+  ...HEAD_NECK_CASE_STAGE_DEFINITIONS.map(stage => stage.title),
+];
+
+type CaseStageDefinition = ReturnType<typeof getCaseStageDefinitionsForPortalType>[number];
+
+const getLegacyTitles = (stage: CaseStageDefinition) =>
+  'legacyTitles' in stage ? stage.legacyTitles as readonly string[] : [];
+
+const getAllCaseStageDefinitions = (): CaseStageDefinition[] => [
+  ...DENTAL_CASE_STAGE_DEFINITIONS,
+  ...HEAD_NECK_CASE_STAGE_DEFINITIONS,
+];
+
+export const getCaseStageMoment = (title: string): string => {
+  const definition = getAllCaseStageDefinitions().find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
+  return definition?.moment || 'Planejamento';
 };
 
 export const getCanonicalCaseStageTitle = (title: string): string => {
-  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
+  const definition = getAllCaseStageDefinitions().find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
   return definition?.title || title;
 };
 
 export const getCaseStageFaqTypes = (title: string): string[] => {
-  const definition = CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
+  const definition = getAllCaseStageDefinitions().find(stage => stage.title === title || getLegacyTitles(stage).includes(title));
   return definition ? [definition.title, ...getLegacyTitles(definition)] : [title];
 };
 
@@ -64,11 +122,26 @@ export const CASE_GENDERS: CaseGender[] = [
 export const CASE_PROCEDURES: CaseProcedure[] = [
   'Implantes',
   'Protocolo',
-  'Facetas',
+  'Facetas / Porcelana',
+  'Facetas / Resina',
   'Próteses',
   'Orto',
-  'Estética',
+  'Harmonização Facial',
 ];
+
+export const HEAD_NECK_CASE_PROCEDURES: CaseProcedure[] = [
+  'Consulta',
+  'Cirurgia',
+  'Biópsia',
+  'Retorno',
+  'Pós-operatório',
+  'Exames / Imagens',
+];
+
+export const getCaseProceduresForPortalType = (portalType?: string | null): CaseProcedure[] =>
+  normalizeClientPortalType(portalType) === 'head_neck'
+    ? HEAD_NECK_CASE_PROCEDURES
+    : CASE_PROCEDURES;
 
 export const DEFAULT_CASE_COLUMN_CONFIG: CaseColumnConfig = {
   clientColumn: 'Cliente',

@@ -9,6 +9,9 @@ create table if not exists public.clients (
   -- Nome exibido no admin e no portal.
   name text not null,
 
+  -- Modalidade do portal: dental ou head_neck.
+  portal_type text not null default 'dental',
+
   -- Board principal/fallback do Monday. Mantemos camelCase porque o app ja usa boardId.
   "boardId" text not null,
 
@@ -38,6 +41,7 @@ create table if not exists public.clients (
 
 alter table public.clients add column if not exists monday_board_id text;
 alter table public.clients add column if not exists monday_client_label text;
+alter table public.clients add column if not exists portal_type text not null default 'dental';
 
 create index if not exists clients_case_public_token_idx
   on public.clients (case_public_token);
@@ -75,11 +79,14 @@ create policy "No public direct access to clients"
   using (false)
   with check (false);
 
+drop function if exists public.get_client_by_case_token(text);
+
 create or replace function public.get_client_by_case_token(p_token text)
 returns table (
   id bigint,
   name text,
   "boardId" text,
+  portal_type text,
   case_public_token text,
   case_board_id text,
   case_client_label text,
@@ -97,6 +104,7 @@ as $$
     c.id,
     c.name,
     c."boardId",
+    coalesce(c.portal_type, 'dental') as portal_type,
     c.case_public_token,
     c.case_board_id,
     c.case_client_label,
@@ -136,6 +144,7 @@ create table if not exists public.cases (
 
 alter table public.cases add column if not exists birth_date date;
 alter table public.cases add column if not exists keywords text;
+alter table public.cases add column if not exists objection_main text;
 
 create index if not exists cases_client_id_idx
   on public.cases (client_id);

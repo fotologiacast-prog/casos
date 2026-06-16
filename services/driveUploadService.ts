@@ -168,7 +168,7 @@ const uploadDriveChunk = async (
     xhr.send(chunk);
   });
 
-const putFileDirectlyToDrive = async (
+export const putFileDirectlyToDrive = async (
   uploadUrl: string,
   file: File,
   onProgress?: (info: UploadProgressInfo) => void,
@@ -236,4 +236,49 @@ export const uploadStageFilesToDrive = async (stage: CaseStage, files: File[], o
     });
     await requestDriveUploadComplete(stage.id, uploadedFile.id);
   }
+};
+
+export const uploadFaqExampleMediaToDrive = async (
+  stageType: string,
+  file: File,
+  adminPassword: string,
+  onProgress?: (info: UploadProgressInfo) => void
+) => {
+  onProgress?.({
+    percentage: 0,
+    loaded: 0,
+    total: file.size,
+    fileName: file.name,
+    fileIndex: 1,
+    fileCount: 1,
+    phase: 'preparing',
+  });
+
+  const startResponse = await fetch('/api/faq', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword },
+    body: JSON.stringify({
+      action: 'media_start',
+      stage_type: stageType,
+      fileName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+    }),
+  });
+  const startData = await startResponse.json().catch(() => ({}));
+  if (!startResponse.ok) throw new Error(startData.details || startData.error || 'Falha ao preparar exemplo no Drive.');
+
+  const uploadedFile = await putFileDirectlyToDrive(startData.uploadUrl, file, onProgress, {
+    fileIndex: 1,
+    fileCount: 1,
+  });
+
+  const completeResponse = await fetch('/api/faq', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword },
+    body: JSON.stringify({ action: 'media_complete', driveFileId: uploadedFile.id }),
+  });
+  const completeData = await completeResponse.json().catch(() => ({}));
+  if (!completeResponse.ok) throw new Error(completeData.details || completeData.error || 'Falha ao salvar exemplo do FAQ.');
+  return completeData as { mediaUrl: string; file?: { id: string; name: string; mimeType?: string } };
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CASE_GENDERS, CASE_PROCEDURES } from '../../utils/caseConstants';
+import { CASE_GENDERS, getCaseProceduresForPortalType, normalizeClientPortalType } from '../../utils/caseConstants';
 
 export interface NewCasePatientPayload {
   name: string;
@@ -13,6 +13,7 @@ export interface NewCasePatientPayload {
 
 interface NewCasePatientFormProps {
   clientName: string;
+  portalType?: string | null;
   onCancel: () => void;
   onSubmit: (payload: NewCasePatientPayload) => Promise<void>;
   initialData?: NewCasePatientPayload;
@@ -21,11 +22,15 @@ interface NewCasePatientFormProps {
 
 const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
   clientName,
+  portalType,
   onCancel,
   onSubmit,
   initialData,
   isEditing = false,
 }) => {
+  const normalizedPortalType = normalizeClientPortalType(portalType);
+  const procedureOptions = getCaseProceduresForPortalType(normalizedPortalType);
+  const isMedicalPortal = normalizedPortalType === 'head_neck';
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     planningDate: initialData?.planningDate || new Date().toISOString().slice(0, 10),
@@ -33,7 +38,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
     gender: initialData?.gender || CASE_GENDERS[0],
     procedures: initialData?.procedure
       ? initialData.procedure.split(',').map(s => s.trim())
-      : [CASE_PROCEDURES[0]],
+      : [procedureOptions[0]],
     dentistResponsible: initialData?.dentistResponsible || '',
     notes: initialData?.notes || '',
   });
@@ -102,7 +107,9 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
           <p className="mt-1 text-sm font-semibold text-[#6d8db1]">
             {isEditing
               ? 'Edite os dados abaixo e salve as alterações.'
-              : 'Preencha os dados para cadastrar o caso clínico.'}
+              : isMedicalPortal
+                ? 'Preencha os dados para cadastrar a consulta médica.'
+                : 'Preencha os dados para cadastrar o caso clínico.'}
           </p>
         </div>
 
@@ -170,7 +177,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
           <div>
             <label className="section-label block mb-2">Procedimentos</label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {CASE_PROCEDURES.map(option => {
+              {procedureOptions.map(option => {
                 const checked = formData.procedures.includes(option);
                 return (
                   <label
@@ -206,14 +213,16 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
 
           {/* Dentist */}
           <div>
-            <label htmlFor="dentist-responsible" className="section-label block mb-1.5">Dentista responsável</label>
+            <label htmlFor="dentist-responsible" className="section-label block mb-1.5">
+              {isMedicalPortal ? 'Cirurgião responsável' : 'Dentista responsável'}
+            </label>
             <input
               id="dentist-responsible"
               name="dentist-responsible"
               value={formData.dentistResponsible}
               onChange={set('dentistResponsible')}
               autoComplete="off"
-              placeholder="Ex: Dra. Ana Silva..."
+              placeholder={isMedicalPortal ? 'Ex: Dr. Carlos Silva...' : 'Ex: Dra. Ana Silva...'}
               className="input-field"
             />
           </div>

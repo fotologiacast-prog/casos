@@ -4,7 +4,12 @@ const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
 const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
 const MONDAY_CASE_TYPE_LABEL = "Caso";
 
-const CASE_STAGE_DEFINITIONS = [
+const DEFAULT_CLIENT_PORTAL_TYPE = "dental";
+
+const normalizeClientPortalType = (value?: string | null) =>
+  value === "head_neck" ? "head_neck" : DEFAULT_CLIENT_PORTAL_TYPE;
+
+const DENTAL_CASE_STAGE_DEFINITIONS = [
   { title: "Fotos Intraorais do Antes", moment: "Planejamento", legacyTitles: ["01. (CADEIRA) Fotos intraorais do antes (4 fotos)"] },
   { title: "Vídeo Panorâmico do Antes", moment: "Planejamento", legacyTitles: ["02. (CADEIRA OU ESTÚDIO) Vídeo Panorâmico do Antes", "02. (ESTUDIO) Video panoramico do antes"] },
   { title: "Retrato Extraoral do Antes", moment: "Planejamento", legacyTitles: ["03. (ESTUDIO) Fotos EXTRAORAIS do antes (2 fotos)"] },
@@ -27,11 +32,35 @@ const CASE_STAGE_DEFINITIONS = [
   { title: "Vídeo de Explicação Técnica", moment: "Agência", legacyTitles: ["10. Explicação do caso com dr."] },
 ] as const;
 
-const getLegacyStageTitles = (stage: typeof CASE_STAGE_DEFINITIONS[number]) =>
-  "legacyTitles" in stage ? stage.legacyTitles : [];
+const HEAD_NECK_CASE_STAGE_DEFINITIONS = [
+  { title: "Fotos e Exames Iniciais", moment: "Triagem", legacyTitles: [] },
+  { title: "Queixa Principal", moment: "Triagem", legacyTitles: [] },
+  { title: "Arquivos da Consulta", moment: "Consulta", legacyTitles: [] },
+  { title: "Conduta e Observações", moment: "Consulta", legacyTitles: [] },
+  { title: "Arquivos do Procedimento", moment: "Procedimento", legacyTitles: [] },
+  { title: "Fotos de Evolução", moment: "Pós-operatório", legacyTitles: [] },
+  { title: "Relato ou Depoimento", moment: "Pós-operatório", legacyTitles: [] },
+] as const;
+
+const CASE_STAGE_DEFINITIONS = DENTAL_CASE_STAGE_DEFINITIONS;
+
+const getCaseStageDefinitionsForPortalType = (portalType?: string | null) =>
+  normalizeClientPortalType(portalType) === "head_neck"
+    ? HEAD_NECK_CASE_STAGE_DEFINITIONS
+    : DENTAL_CASE_STAGE_DEFINITIONS;
+
+type CaseStageDefinition = ReturnType<typeof getCaseStageDefinitionsForPortalType>[number];
+
+const getAllCaseStageDefinitions = (): CaseStageDefinition[] => [
+  ...DENTAL_CASE_STAGE_DEFINITIONS,
+  ...HEAD_NECK_CASE_STAGE_DEFINITIONS,
+];
+
+const getLegacyStageTitles = (stage: CaseStageDefinition) =>
+  "legacyTitles" in stage ? stage.legacyTitles as readonly string[] : [];
 
 const getCaseStageDefinition = (title: string) =>
-  CASE_STAGE_DEFINITIONS.find(stage => stage.title === title || getLegacyStageTitles(stage).includes(title));
+  getAllCaseStageDefinitions().find(stage => stage.title === title || getLegacyStageTitles(stage).includes(title));
 
 const getCaseStageMoment = (title: string) =>
   getCaseStageDefinition(title)?.moment || "Planejamento";
@@ -139,13 +168,14 @@ const getClientByToken = async (supabase: any, token: string) => {
   return data;
 };
 
-const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: any[]) => {
+const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: any[], portalType?: string | null) => {
+  const stageDefinitions = getCaseStageDefinitionsForPortalType(portalType);
   const missingRows = caseRows.flatMap(caseRow => {
     const caseStages = existingStages.filter(stage => stage.case_id === caseRow.id);
     const existingKeys = new Set(caseStages.map(stage => stage.stage_key));
     const existingNames = new Set(caseStages.map(stage => stage.stage_name));
 
-    return CASE_STAGE_DEFINITIONS
+    return stageDefinitions
       .filter(stage => {
         const names = [stage.title, ...getLegacyStageTitles(stage)];
         return !existingKeys.has(makeStageKey(stage.title)) && !names.some(name => existingNames.has(name));
@@ -192,6 +222,115 @@ const getDirectDriveFileUrl = (fileId: string) =>
 const isMissingSupabaseSchema = (error: any) => {
   const text = [error?.code, error?.message, error?.details].filter(Boolean).join(" ");
   return /PGRST204|PGRST205|42P01|case_stage_usage_locks/i.test(text);
+};
+
+const isMissingOptionalCaseTextSchema = (error: any) => {
+  const text = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
+  return /PGRST204|PGRST205|42P01|schema cache|objection_main|keywords/i.test(text);
+};
+
+const normalizeMondayColumnTitle = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/^#+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const findMondayColumnText = (columnValues: any[] = [], aliases: string[]) => {
+  const normalizedAliases = aliases.map(normalizeMondayColumnTitle);
+  const column = columnValues.find(value => {
+    const title = String(value?.column?.title || "");
+    return normalizedAliases.includes(normalizeMondayColumnTitle(title));
+  });
+  const text = String(column?.text || "").trim();
+  return text || null;
+};
+
+const chunk = <T,>(items: T[], size: number) => {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
+};
+
+const syncMondayCaseTextFields = async (supabase: any, caseRows: any[]) => {
+  const mondayToken = process.env.MONDAY_TOKEN;
+  const mondayItemIds = Array.from(new Set(
+    caseRows
+      .map(caseRow => String(caseRow.monday_item_id || "").trim())
+      .filter(Boolean)
+  ));
+  if (!mondayToken || mondayItemIds.length === 0) return caseRows;
+
+  const casesByMondayItemId = new Map(caseRows.map(caseRow => [String(caseRow.monday_item_id || ""), caseRow]));
+  const query = `query ($itemIds: [ID!]) {
+    items(ids: $itemIds) {
+      id
+      column_values {
+        id
+        text
+        column { title }
+      }
+    }
+  }`;
+
+  for (const itemIdChunk of chunk(mondayItemIds, 50)) {
+    const response = await fetch("https://api.monday.com/v2", {
+      method: "POST",
+      headers: {
+        Authorization: mondayToken.trim(),
+        "Content-Type": "application/json",
+        "API-Version": "2024-10",
+      },
+      body: JSON.stringify({ query, variables: { itemIds: itemIdChunk } }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.errors) {
+      console.warn("[Cases] Falha ao sincronizar textos do Monday:", data.errors || response.status);
+      continue;
+    }
+
+    for (const item of data?.data?.items || []) {
+      const caseRow = casesByMondayItemId.get(String(item.id));
+      if (!caseRow) continue;
+
+      const keywords = findMondayColumnText(item.column_values || [], ["#Palavras - Chave", "Palavras - Chave", "Palavras-chave", "Keywords"]);
+      const objectionMain = findMondayColumnText(item.column_values || [], ["#Objeção principal", "Objeção principal", "#Objecao principal", "Objecao principal"]);
+      const nextPatch: Record<string, string | null> = {
+        keywords,
+        objection_main: objectionMain,
+      };
+
+      const changed =
+        String(caseRow.keywords || "") !== String(keywords || "") ||
+        String(caseRow.objection_main || "") !== String(objectionMain || "");
+      caseRow.keywords = keywords;
+      caseRow.objection_main = objectionMain;
+      if (!changed) continue;
+
+      const { error } = await supabase
+        .from("cases")
+        .update(nextPatch)
+        .eq("id", caseRow.id);
+      if (error) {
+        if (isMissingOptionalCaseTextSchema(error)) {
+          const { error: keywordOnlyError } = await supabase
+            .from("cases")
+            .update({ keywords })
+            .eq("id", caseRow.id);
+          if (keywordOnlyError && !isMissingOptionalCaseTextSchema(keywordOnlyError)) {
+            console.warn("[Cases] Falha ao salvar palavras-chave do Monday:", keywordOnlyError);
+          }
+        } else {
+          console.warn("[Cases] Falha ao salvar textos do Monday:", error);
+        }
+      }
+    }
+  }
+
+  return caseRows;
 };
 
 const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[] = [], usageLockRows: any[] = [], editingRequestRows: any[] = []) =>
@@ -260,9 +399,12 @@ const mapCaseRows = (caseRows: any[] = [], stageRows: any[] = [], fileRows: any[
       procedure: caseRow.procedure,
       procedureDescription: caseRow.procedure_description,
       dentistResponsible: caseRow.dentist_responsible,
+      keywords: caseRow.keywords,
+      objectionMain: caseRow.objection_main,
       notes: caseRow.notes,
       mondayItemId: caseRow.monday_item_id,
       driveFolderId: caseRow.drive_folder_id,
+      portalType: caseRow.clients?.portal_type || DEFAULT_CLIENT_PORTAL_TYPE,
       createdAt: caseRow.created_at,
       stages,
       editingRequests,
@@ -286,18 +428,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "GET") {
       const { data: cases, error: casesError } = await supabase
         .from("cases")
-        .select("*, clients(name)")
+        .select("*, clients(name, portal_type)")
         .eq("client_id", client.id)
         .order("created_at", { ascending: false });
       if (casesError) throw casesError;
 
-      const caseIds = (cases || []).map(item => item.id);
+      const syncedCases = await syncMondayCaseTextFields(supabase, cases || []);
+      const caseIds = syncedCases.map(item => item.id);
       let { data: stages, error: stagesError } = caseIds.length
         ? await supabase.from("case_stages").select("*").in("case_id", caseIds)
         : { data: [], error: null };
       if (stagesError) throw stagesError;
-      if ((cases || []).length > 0) {
-        stages = await ensureCaseStages(supabase, cases || [], stages || []);
+      if (syncedCases.length > 0) {
+        stages = await ensureCaseStages(supabase, syncedCases, stages || [], client.portal_type);
       }
 
       const { data: files, error: filesError } = caseIds.length
@@ -317,7 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.warn("[Cases] Falha ao buscar editing requests (tabela pode nao existir):", editingReqError);
       }
 
-      return res.status(200).json({ cases: mapCaseRows(cases || [], stages || [], files || [], usageLocksError ? [] : usageLocks || [], editingReqError ? [] : editingRequests || []) });
+      return res.status(200).json({ cases: mapCaseRows(syncedCases, stages || [], files || [], usageLocksError ? [] : usageLocks || [], editingReqError ? [] : editingRequests || []) });
     }
 
     if (req.method === "POST") {
@@ -363,7 +506,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
       if (caseError) throw caseError;
 
-      const stageRows = CASE_STAGE_DEFINITIONS.map((stage, index) => ({
+      const stageRows = getCaseStageDefinitionsForPortalType(client.portal_type).map((stage, index) => ({
         case_id: createdCase.id,
         stage_key: makeStageKey(stage.title),
         stage_name: stage.title,

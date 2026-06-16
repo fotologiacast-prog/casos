@@ -129,7 +129,7 @@ export type ProductionStatus =
   | 'em_edicao'
   | 'material_pronto';
 
-const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia']);
+const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia', 'Procedimento', 'Pós-operatório']);
 
 const normalizeStatusText = (value?: string | null) =>
   String(value || '')

@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CasePatient, CaseStage, Client } from '../../types';
 import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients, requestCaseStageEditing, updateSupabaseCasePatient } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
-import { CASE_STAGE_DEFINITIONS } from '../../utils/caseConstants';
+import {
+  getCaseProceduresForPortalType,
+  getCaseStageDefinitionsForPortalType,
+  normalizeClientPortalType,
+} from '../../utils/caseConstants';
 import { MOCK_CASE_PATIENTS } from '../../utils/mockCaseData';
 import CasePatientDetail from './CasePatientDetail';
 import CasePatientList from './CasePatientList';
@@ -21,6 +25,7 @@ type PortalClient = {
   boardId: string;
   clientName: string;
   displayName: string;
+  portalType?: string | null;
   driveFolderId?: string;
   portalPassword?: string | null;
   isDemo?: boolean;
@@ -39,6 +44,7 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: 'demo-board',
       clientName: 'Clínica Demo',
       displayName: 'Clínica Demo',
+      portalType: 'dental',
       driveFolderId: 'demo-drive-folder',
       isDemo: true,
     };
@@ -68,6 +74,7 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: client.case_board_id || client.boardId,
       clientName: client.case_client_label || client.name,
       displayName: client.name,
+      portalType: normalizeClientPortalType(client.portal_type),
       driveFolderId: client.drive_folder_id,
       portalPassword: client.portal_password || null,
     };
@@ -78,6 +85,7 @@ const resolveClientFromToken = async (token: string): Promise<PortalClient | nul
       boardId: fallbackBoardId,
       clientName: fallbackClientName,
       displayName: fallbackClientName,
+      portalType: normalizeClientPortalType(params.get('portalType')),
       driveFolderId: params.get('driveFolderId') || undefined,
     };
   }
@@ -161,6 +169,9 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     () => patients.find(patient => patient.id === selectedPatientId) || null,
     [patients, selectedPatientId]
   );
+  const portalType = normalizeClientPortalType(portalClient?.portalType);
+  const stageDefinitions = useMemo(() => getCaseStageDefinitionsForPortalType(portalType), [portalType]);
+  const procedureOptions = useMemo(() => getCaseProceduresForPortalType(portalType), [portalType]);
   const {
     testimonials: readyTestimonials,
     countsByCaseId: readyTestimonialCounts,
@@ -216,7 +227,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       thumbnailSrc: string | null;
     }> = [];
     const nowMs = Date.now();
-    const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia']);
+    const EDITING_ELIGIBLE_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Agencia', 'Procedimento', 'Pós-operatório']);
 
     patients.forEach(patient => {
       const status = getProductionStatus(patient, readyTestimonialCounts[patient.id] || 0);
@@ -618,7 +629,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
           dentistResponsible: payload.dentistResponsible || null,
           notes: payload.notes,
           createdAt: new Date(`${payload.planningDate || new Date().toISOString().slice(0, 10)}T12:00:00`),
-          stages: CASE_STAGE_DEFINITIONS.map((stage, index) => ({
+          stages: stageDefinitions.map((stage, index) => ({
             id: `${patientId}-stage-${index + 1}`,
             boardId: portalClient.boardId,
             parentItemId: patientId,
@@ -630,6 +641,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             filesColumnId: 'demo-files',
             files: [],
           })),
+          portalType,
         },
         ...prev,
       ]);
@@ -1097,12 +1109,14 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         ) : mode === 'create' ? (
           <NewCasePatientForm
             clientName={portalClient.displayName}
+            portalType={portalType}
             onCancel={() => setMode('list')}
             onSubmit={handleCreatePatient}
           />
         ) : mode === 'edit' && selectedPatient ? (
           <NewCasePatientForm
             clientName={portalClient.displayName}
+            portalType={portalType}
             isEditing={true}
             initialData={{
               name: selectedPatient.name,
@@ -1137,6 +1151,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             readyTestimonialCount={selectedPatient ? readyTestimonialCounts[selectedPatient.id] || 0 : 0}
             onOpenTestimonials={handleOpenTestimonialsForPatient}
             onRequestStageEditing={handleRequestStageEditing}
+            portalType={portalType}
             onEdit={() => {
               setEditFromDetail(true);
               setMode('edit');
@@ -1170,6 +1185,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                   : [...prev, filter]);
               }}
               onClearProductionFilters={() => setProductionFilters([])}
+              procedureOptions={procedureOptions}
               onEdit={patient => {
                 setSelectedPatientId(patient.id);
                 setEditFromDetail(false);

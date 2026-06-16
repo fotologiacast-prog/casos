@@ -13,6 +13,7 @@ export class AdminApiError extends Error {
 export type ClientPayload = {
   name: string;
   boardId: string;
+  portal_type?: string | null;
   case_public_token: string;
   case_board_id?: string;
   case_client_label?: string;

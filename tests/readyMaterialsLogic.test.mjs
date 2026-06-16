@@ -48,7 +48,7 @@ const makeMaterial = overrides => ({
     makeMaterial({
       id: 'current',
       patientGender: 'Feminino',
-      patientProcedure: 'Facetas, Implantes',
+      patientProcedure: 'Facetas / Porcelana, Implantes',
       patientAge: 42,
     }),
   ])[0];
@@ -56,13 +56,13 @@ const makeMaterial = overrides => ({
     makeMaterial({
       id: 'same-gender-procedure',
       patientGender: 'Feminino',
-      patientProcedure: 'Facetas',
+      patientProcedure: 'Facetas / Porcelana',
       patientAge: 60,
     }),
     makeMaterial({
       id: 'other-gender-same-procedure-close-age',
       patientGender: 'Masculino',
-      patientProcedure: 'Facetas',
+      patientProcedure: 'Facetas / Porcelana',
       patientAge: 43,
     }),
     makeMaterial({

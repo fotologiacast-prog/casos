@@ -15,6 +15,17 @@ const isAdmin = (req: VercelRequest) => {
   return configured && req.headers["x-admin-password"] === configured;
 };
 
+const ensureFaqExampleFolder = async (stageType: string) => {
+  const rootFolderId = process.env.DRIVE_ROOT_FOLDER_ID || process.env.VITE_DRIVE_ROOT_FOLDER_ID;
+  if (!rootFolderId) throw new Error("DRIVE_ROOT_FOLDER_ID ausente.");
+
+  const { findOrCreateDriveFolder, getGoogleAccessToken, sanitizeDriveFolderName } = await import("./_googleDrive.js");
+  const accessToken = await getGoogleAccessToken({ preferOAuth: true });
+  const faqFolder = await findOrCreateDriveFolder(accessToken, rootFolderId, "FAQ");
+  const stageFolder = await findOrCreateDriveFolder(accessToken, faqFolder.id, sanitizeDriveFolderName(stageType || "Geral"));
+  return { accessToken, folderId: stageFolder.id };
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -48,6 +59,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // POST — create
     if (req.method === "POST") {
+      const action = String(req.body?.action || "").trim();
+      if (action === "media_start") {
+        const stageType = String(req.body?.stage_type || "").trim();
+        const fileName = String(req.body?.fileName || "").trim();
+        const mimeType = String(req.body?.mimeType || "application/octet-stream").trim();
+        const sizeBytes = req.body?.sizeBytes ? Number(req.body.sizeBytes) : undefined;
+        if (!stageType) return res.status(400).json({ error: "Etapa ausente para o exemplo." });
+        if (!fileName) return res.status(400).json({ error: "Nome do arquivo ausente." });
+
+        const { accessToken, folderId } = await ensureFaqExampleFolder(stageType);
+        const { startDriveResumableUpload } = await import("./_googleDrive.js");
+        const origin = req.headers.origin || (req.headers.host ? `https://${req.headers.host}` : "*");
+        const uploadUrl = await startDriveResumableUpload({
+          accessToken,
+          folderId,
+          fileName,
+          mimeType,
+          sizeBytes,
+          origin,
+        });
+
+        return res.status(200).json({ uploadUrl, folderId });
+      }
+
+      if (action === "media_complete") {
+        const driveFileId = String(req.body?.driveFileId || "").trim();
+        if (!driveFileId) return res.status(400).json({ error: "driveFileId ausente." });
+
+        const { getGoogleAccessToken, ensureDriveFilePublic, getDriveFile, getDirectDriveFileUrl } = await import("./_googleDrive.js");
+        const accessToken = await getGoogleAccessToken({ preferOAuth: true });
+        await ensureDriveFilePublic(accessToken, driveFileId);
+        const driveFile = await getDriveFile(accessToken, driveFileId);
+        return res.status(200).json({
+          mediaUrl: getDirectDriveFileUrl(driveFile.id),
+          file: {
+            id: driveFile.id,
+            name: driveFile.name,
+            mimeType: driveFile.mimeType,
+            webViewLink: driveFile.webViewLink,
+            webContentLink: driveFile.webContentLink,
+          },
+        });
+      }
+
       const { stage_type, title, content, image_url, order } = req.body || {};
       if (!stage_type || !title) return res.status(400).json({ error: "stage_type e title são obrigatórios." });
 

@@ -43,7 +43,7 @@ export const MOCK_CASE_PATIENTS: CasePatient[] = [
     clientName: 'Clínica Demo',
     age: 42,
     gender: 'Feminino',
-    procedure: 'Lentes / Facetas',
+    procedure: 'Facetas / Porcelana',
     procedureDescription: 'Reabilitação estética com lentes superiores e ajuste de proporção do sorriso.',
     notes: 'Paciente autorizou uso do caso e topou gravar depoimento curto.',
     createdAt: new Date('2026-04-11T00:00:00'),

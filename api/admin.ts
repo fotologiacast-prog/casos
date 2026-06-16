@@ -86,6 +86,7 @@ const buildMondayWebhookUrl = (req: VercelRequest, body: any) => {
 const normalizeClientPayload = (body: any) => ({
   name: String(body.name || "").trim(),
   boardId: DEFAULT_MONDAY_CASE_BOARD_ID,
+  portal_type: body.portal_type === "head_neck" ? "head_neck" : "dental",
   case_public_token: String(body.case_public_token || "").trim(),
   case_board_id: DEFAULT_MONDAY_CASE_BOARD_ID,
   case_client_label: body.case_client_label || body.monday_client_label ? String(body.case_client_label || body.monday_client_label).trim() : null,
@@ -363,6 +364,301 @@ const updateEditingRequestUsedStages = async (supabase: any, requestId: string, 
   }
 
   return { status: 200, body: { ok: true, usedStageIds } };
+};
+
+const isMissingAdminManagementTable = (error: unknown) => {
+  const text = serializeApiError(error);
+  return /PGRST204|PGRST205|42P01|schema cache|does not exist|case_stage_admin_flags|case_admin_history/i.test(text);
+};
+
+const normalizeAdminStageStatus = (value: unknown) => {
+  const status = String(value || "").trim();
+  if (!status) return null;
+  if (["utilizado", "fora_do_padrao", "errado"].includes(status)) return status;
+  return null;
+};
+
+const fetchOptionalAdminRows = async (queryPromise: PromiseLike<any>) => {
+  const result = await queryPromise;
+  if (result.error) {
+    if (isMissingAdminManagementTable(result.error)) return [];
+    throw result.error;
+  }
+  return toArray<any>(result.data);
+};
+
+const buildAdminManagementPayload = async (supabase: any) => {
+  const [clientsResult, casesResult, stagesResult, filesResult, locksResult, requestsResult] = await Promise.all([
+    supabase.from("clients").select("id, name, active, case_public_token, drive_folder_id").order("name"),
+    supabase.from("cases").select("id, client_id, patient_name, birth_date, age, gender, procedure, notes, status, drive_folder_id, created_at, updated_at").order("created_at", { ascending: false }).limit(1000),
+    supabase.from("case_stages").select("id, case_id, stage_key, stage_name, moment, sort_order, status, drive_folder_id, updated_at").order("sort_order", { ascending: true }).limit(25000),
+    supabase.from("case_files").select("id, client_id, case_id, stage_id, drive_file_id, file_name, mime_type, size_bytes, web_view_link, web_content_link, created_at").order("created_at", { ascending: false }).limit(50000),
+    supabase.from("case_stage_usage_locks").select("*").limit(25000),
+    supabase.from("case_editing_requests").select("id, client_id, case_id, stage_id, stage_name, status, creative_type, sent_at, edited_at, material_url, monday_subitem_id").order("sent_at", { ascending: false }).limit(5000),
+  ]);
+
+  if (clientsResult.error) throw clientsResult.error;
+  if (casesResult.error) throw casesResult.error;
+  if (stagesResult.error) throw stagesResult.error;
+  if (filesResult.error) throw filesResult.error;
+  if (locksResult.error && !isMissingAdminManagementTable(locksResult.error)) throw locksResult.error;
+  if (requestsResult.error) throw requestsResult.error;
+
+  const flags = await fetchOptionalAdminRows(
+    supabase.from("case_stage_admin_flags").select("*").limit(25000)
+  );
+  const history = await fetchOptionalAdminRows(
+    supabase.from("case_admin_history").select("*").order("created_at", { ascending: false }).limit(300)
+  );
+
+  const clients = toArray<any>(clientsResult.data);
+  const cases = toArray<any>(casesResult.data);
+  const stages = toArray<any>(stagesResult.data);
+  const files = toArray<any>(filesResult.data);
+  const locks = locksResult.error ? [] : toArray<any>(locksResult.data);
+  const requests = toArray<any>(requestsResult.data);
+
+  const stagesByCaseId = new Map<string, any[]>();
+  stages.forEach(stage => {
+    const caseId = String(stage.case_id);
+    stagesByCaseId.set(caseId, [...(stagesByCaseId.get(caseId) || []), stage]);
+  });
+
+  const filesByStageId = new Map<string, any[]>();
+  files.forEach(file => {
+    const stageId = String(file.stage_id);
+    filesByStageId.set(stageId, [...(filesByStageId.get(stageId) || []), file]);
+  });
+
+  const locksByStageId = new Map(locks.map(lock => [String(lock.stage_id), lock]));
+  const flagsByStageId = new Map(flags.map(flag => [String(flag.stage_id), flag]));
+  const requestsByCaseId = new Map<string, any[]>();
+  requests.forEach(request => {
+    const caseId = String(request.case_id);
+    requestsByCaseId.set(caseId, [...(requestsByCaseId.get(caseId) || []), request]);
+  });
+
+  const historyByCaseId = new Map<string, any[]>();
+  history.forEach(item => {
+    const caseId = String(item.case_id || "");
+    if (!caseId) return;
+    historyByCaseId.set(caseId, [...(historyByCaseId.get(caseId) || []), item]);
+  });
+
+  const mapFile = (file: any) => ({
+    id: file.id,
+    name: file.file_name,
+    type: file.mime_type,
+    sizeBytes: file.size_bytes,
+    publicUrl: getAdminFileUrl(file),
+    previewUrl: getAdminPreviewUrl(file),
+    driveFileId: file.drive_file_id,
+    createdAt: file.created_at,
+  });
+
+  const managementCases = cases.map(caseRow => {
+    const caseStages = (stagesByCaseId.get(String(caseRow.id)) || []).map(stage => {
+      const stageFiles = (filesByStageId.get(String(stage.id)) || []).map(mapFile);
+      const lock = locksByStageId.get(String(stage.id));
+      const flag = flagsByStageId.get(String(stage.id));
+      const adminStatus = lock ? "utilizado" : (flag?.status || null);
+      return {
+        id: stage.id,
+        name: stage.stage_name,
+        key: stage.stage_key,
+        moment: stage.moment,
+        sortOrder: stage.sort_order,
+        status: stage.status,
+        folderUrl: getDriveFolderUrl(stage.drive_folder_id),
+        fileCount: stageFiles.length,
+        files: stageFiles,
+        adminStatus,
+        adminNote: lock?.note || flag?.note || null,
+        adminUpdatedAt: lock?.locked_at || flag?.updated_at || null,
+        usageLock: lock ? {
+          id: lock.id,
+          editingRequestId: lock.editing_request_id,
+          lockedAt: lock.locked_at,
+          lockedBy: lock.locked_by,
+        } : null,
+      };
+    });
+
+    const stagesWithFiles = caseStages.filter(stage => stage.fileCount > 0);
+    const coverFile = stagesWithFiles.flatMap(stage => stage.files).find(isImageFile) || stagesWithFiles.flatMap(stage => stage.files)[0] || null;
+    const lastFile = stagesWithFiles.flatMap(stage => stage.files).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0] || null;
+    const caseRequests = requestsByCaseId.get(String(caseRow.id)) || [];
+    const readyCount = caseRequests.filter(request => ["edited", "editado"].includes(String(request.status || "").trim().toLowerCase())).length;
+    const pendingEditingCount = caseRequests.length - readyCount;
+    const alertCount = caseStages.filter(stage => ["fora_do_padrao", "errado"].includes(String(stage.adminStatus || ""))).length;
+    const usedCount = caseStages.filter(stage => stage.adminStatus === "utilizado").length;
+
+    return {
+      id: caseRow.id,
+      clientId: caseRow.client_id,
+      patientName: caseRow.patient_name,
+      birthDate: caseRow.birth_date,
+      age: caseRow.age,
+      gender: caseRow.gender,
+      procedure: caseRow.procedure,
+      notes: caseRow.notes,
+      status: caseRow.status,
+      driveFolderUrl: getDriveFolderUrl(caseRow.drive_folder_id),
+      createdAt: caseRow.created_at,
+      updatedAt: caseRow.updated_at,
+      coverUrl: coverFile?.previewUrl || coverFile?.publicUrl || null,
+      lastUploadAt: lastFile?.createdAt || null,
+      totalStages: caseStages.length,
+      stagesWithFiles: stagesWithFiles.length,
+      alertCount,
+      usedCount,
+      pendingEditingCount,
+      readyCount,
+      currentMoment: stagesWithFiles.at(-1)?.moment || caseStages[0]?.moment || null,
+      stages: caseStages,
+      requests: caseRequests.map(request => ({
+        id: request.id,
+        stageId: request.stage_id,
+        stageName: request.stage_name,
+        status: request.status,
+        creativeType: request.creative_type,
+        sentAt: request.sent_at,
+        editedAt: request.edited_at,
+        materialUrl: request.material_url,
+        mondaySubitemId: request.monday_subitem_id,
+      })),
+      history: historyByCaseId.get(String(caseRow.id)) || [],
+    };
+  });
+
+  const casesByClientId = new Map<number, any[]>();
+  managementCases.forEach(caseRow => {
+    const clientId = Number(caseRow.clientId);
+    casesByClientId.set(clientId, [...(casesByClientId.get(clientId) || []), caseRow]);
+  });
+
+  const editingRequestsByClientId = new Map<number, any[]>();
+  requests.forEach(request => {
+    const clientId = Number(request.client_id);
+    editingRequestsByClientId.set(clientId, [...(editingRequestsByClientId.get(clientId) || []), request]);
+  });
+
+  const managementClients = clients.map(client => {
+    const clientCases = casesByClientId.get(Number(client.id)) || [];
+    const clientRequests = editingRequestsByClientId.get(Number(client.id)) || [];
+    return {
+      id: Number(client.id),
+      name: client.name,
+      active: client.active !== false,
+      casePublicToken: client.case_public_token,
+      driveFolderUrl: getDriveFolderUrl(client.drive_folder_id),
+      patientsCount: clientCases.length,
+      editingPendingCount: clientRequests.filter(request => !["edited", "editado"].includes(String(request.status || "").trim().toLowerCase())).length,
+      readyMaterialsCount: clientRequests.filter(request => ["edited", "editado"].includes(String(request.status || "").trim().toLowerCase())).length,
+      materialAlertsCount: clientCases.reduce((sum, item) => sum + item.alertCount, 0),
+      usedStagesCount: clientCases.reduce((sum, item) => sum + item.usedCount, 0),
+    };
+  });
+
+  return {
+    clients: managementClients,
+    patients: managementCases,
+  };
+};
+
+const updateManagementStageStatus = async (supabase: any, body: any) => {
+  const stageId = String(body?.stageId || "").trim();
+  const status = normalizeAdminStageStatus(body?.status);
+  const note = cleanText(body?.note);
+  const actor = cleanText(body?.actor) || "Admin";
+  if (!stageId) return { status: 400, body: { error: "Etapa ausente." } };
+
+  const { data: stage, error: stageError } = await supabase
+    .from("case_stages")
+    .select("id, case_id, stage_name, cases(id, client_id)")
+    .eq("id", stageId)
+    .maybeSingle();
+  if (stageError) throw stageError;
+  if (!stage) return { status: 404, body: { error: "Etapa nao encontrada." } };
+
+  const clientId = stage.cases?.client_id;
+  const caseId = stage.case_id;
+
+  const previousFlagResult = await supabase
+    .from("case_stage_admin_flags")
+    .select("*")
+    .eq("stage_id", stageId)
+    .maybeSingle();
+  if (previousFlagResult.error && !isMissingAdminManagementTable(previousFlagResult.error)) throw previousFlagResult.error;
+
+  const previousLockResult = await supabase
+    .from("case_stage_usage_locks")
+    .select("*")
+    .eq("stage_id", stageId)
+    .maybeSingle();
+  if (previousLockResult.error && !isMissingAdminManagementTable(previousLockResult.error)) throw previousLockResult.error;
+
+  const previousStatus = previousLockResult.data ? "utilizado" : previousFlagResult.data?.status || null;
+
+  if (!status) {
+    const [deleteFlagResult, deleteLockResult] = await Promise.all([
+      supabase.from("case_stage_admin_flags").delete().eq("stage_id", stageId),
+      supabase.from("case_stage_usage_locks").delete().eq("stage_id", stageId),
+    ]);
+    if (deleteFlagResult.error) throw deleteFlagResult.error;
+    if (deleteLockResult.error) throw deleteLockResult.error;
+  } else {
+    const flagRow = {
+      client_id: clientId,
+      case_id: caseId,
+      stage_id: stageId,
+      stage_name: stage.stage_name,
+      status,
+      note,
+      updated_by: actor,
+      updated_at: new Date().toISOString(),
+    };
+    const { error: flagError } = await supabase
+      .from("case_stage_admin_flags")
+      .upsert(flagRow, { onConflict: "stage_id" });
+    if (flagError) throw flagError;
+
+    if (status === "utilizado") {
+      const { error: lockError } = await supabase
+        .from("case_stage_usage_locks")
+        .upsert({
+          client_id: clientId,
+          case_id: caseId,
+          stage_id: stageId,
+          editing_request_id: null,
+          stage_name: stage.stage_name,
+          locked_by: actor,
+          locked_at: new Date().toISOString(),
+          note,
+        }, { onConflict: "case_id,stage_id" });
+      if (lockError) throw lockError;
+    } else {
+      const { error: deleteLockError } = await supabase
+        .from("case_stage_usage_locks")
+        .delete()
+        .eq("stage_id", stageId);
+      if (deleteLockError) throw deleteLockError;
+    }
+  }
+
+  const historyPayload = {
+    client_id: clientId,
+    case_id: caseId,
+    stage_id: stageId,
+    action: "stage_admin_status_changed",
+    previous_value: { status: previousStatus, note: previousFlagResult.data?.note || previousLockResult.data?.note || null },
+    next_value: { status, note },
+    actor,
+  };
+  const { error: historyError } = await supabase.from("case_admin_history").insert([historyPayload]);
+  if (historyError && !isMissingAdminManagementTable(historyError)) throw historyError;
+
+  return { status: 200, body: { ok: true } };
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -648,6 +944,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const result = await updateEditingRequestUsedStages(supabase, id, req.body);
         return res.status(result.status).json(result.body);
+      }
+    }
+
+    // --- MANAGEMENT MODULE ---
+    if (module === "management") {
+      if (req.method === "GET") {
+        const management = await buildAdminManagementPayload(supabase);
+        return res.status(200).json({ management });
+      }
+
+      if (req.method === "PUT") {
+        const action = String(req.body?.action || "").trim();
+        if (action === "stage-status") {
+          const result = await updateManagementStageStatus(supabase, req.body);
+          return res.status(result.status).json(result.body);
+        }
+
+        return res.status(400).json({ error: "Acao de gerencia invalida." });
       }
     }
 

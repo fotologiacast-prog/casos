@@ -76,6 +76,8 @@ export type AdminEditingRequestStage = {
   folderUrl?: string | null;
   isUsed: boolean;
   lockedByOtherRequest: boolean;
+  adminStatus?: 'utilizado' | 'fora_do_padrao' | 'errado' | null;
+  adminNote?: string | null;
   lock?: {
     id: string;
     editingRequestId?: string | null;
@@ -107,6 +109,107 @@ export type AdminEditingRequest = {
   usedCount: number;
   coverUrl?: string | null;
   availableStages: AdminEditingRequestStage[];
+};
+
+export type AdminManagementStageStatus = 'utilizado' | 'fora_do_padrao' | 'errado';
+
+export type AdminManagementFile = {
+  id: string;
+  name: string;
+  type?: string | null;
+  sizeBytes?: number | null;
+  publicUrl: string;
+  previewUrl?: string | null;
+  driveFileId?: string | null;
+  createdAt?: string | null;
+};
+
+export type AdminManagementStage = {
+  id: string;
+  name: string;
+  key?: string | null;
+  moment?: string | null;
+  sortOrder?: number | null;
+  status?: string | null;
+  folderUrl?: string | null;
+  fileCount: number;
+  files: AdminManagementFile[];
+  adminStatus?: AdminManagementStageStatus | null;
+  adminNote?: string | null;
+  adminUpdatedAt?: string | null;
+  usageLock?: {
+    id: string;
+    editingRequestId?: string | null;
+    lockedAt?: string | null;
+    lockedBy?: string | null;
+  } | null;
+};
+
+export type AdminManagementPatientRequest = {
+  id: string;
+  stageId?: string | null;
+  stageName?: string | null;
+  status?: string | null;
+  creativeType?: string | null;
+  sentAt?: string | null;
+  editedAt?: string | null;
+  materialUrl?: string | null;
+  mondaySubitemId?: string | null;
+};
+
+export type AdminManagementHistoryItem = {
+  id: string;
+  action: string;
+  actor?: string | null;
+  stage_id?: string | null;
+  previous_value?: Record<string, unknown> | null;
+  next_value?: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type AdminManagementPatient = {
+  id: string;
+  clientId: number;
+  patientName: string;
+  birthDate?: string | null;
+  age?: number | null;
+  gender?: string | null;
+  procedure?: string | null;
+  notes?: string | null;
+  status?: string | null;
+  driveFolderUrl?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  coverUrl?: string | null;
+  lastUploadAt?: string | null;
+  totalStages: number;
+  stagesWithFiles: number;
+  alertCount: number;
+  usedCount: number;
+  pendingEditingCount: number;
+  readyCount: number;
+  currentMoment?: string | null;
+  stages: AdminManagementStage[];
+  requests: AdminManagementPatientRequest[];
+  history: AdminManagementHistoryItem[];
+};
+
+export type AdminManagementClient = {
+  id: number;
+  name: string;
+  active: boolean;
+  casePublicToken?: string | null;
+  driveFolderUrl?: string | null;
+  patientsCount: number;
+  editingPendingCount: number;
+  readyMaterialsCount: number;
+  materialAlertsCount: number;
+  usedStagesCount: number;
+};
+
+export type AdminManagementSummary = {
+  clients: AdminManagementClient[];
+  patients: AdminManagementPatient[];
 };
 
 const requestAdmin = async (
@@ -197,6 +300,29 @@ export const updateAdminEditingRequestMaterials = async (
     body: JSON.stringify({ usedStageIds }),
   });
   return data.usedStageIds || usedStageIds;
+};
+
+export const fetchAdminManagement = async (password: string): Promise<AdminManagementSummary> => {
+  const data = await requestAdmin('/api/admin?module=management', password, { method: 'GET' });
+  return data.management || { clients: [], patients: [] };
+};
+
+export const updateAdminManagementStageStatus = async (
+  password: string,
+  stageId: string,
+  status: AdminManagementStageStatus | null,
+  note?: string | null
+): Promise<void> => {
+  await requestAdmin('/api/admin?module=management', password, {
+    method: 'PUT',
+    body: JSON.stringify({
+      action: 'stage-status',
+      stageId,
+      status,
+      note: note || null,
+      actor: 'Admin',
+    }),
+  });
 };
 
 export const resolveNotificationClientName = (notification: AdminNotification, clients: Client[]) => {

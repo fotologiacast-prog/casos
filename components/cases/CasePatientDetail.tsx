@@ -1,7 +1,12 @@
 import React from 'react';
 import { getCaseThumbnail } from './caseUiUtils';
 import { CasePatient, CaseStage } from '../../types';
-import { CASE_STAGE_DEFINITIONS, CASE_STAGE_MOMENTS, getCanonicalCaseStageTitle } from '../../utils/caseConstants';
+import {
+  getCanonicalCaseStageTitle,
+  getCaseStageDefinitionsForPortalType,
+  getCaseStageMomentsForPortalType,
+  normalizeClientPortalType,
+} from '../../utils/caseConstants';
 import { uploadStageFilesToDrive, UploadProgressInfo } from '../../services/driveUploadService';
 import { formatDate, getPatientProgress } from './caseUiUtils';
 import CaseStageCard from './CaseStageCard';
@@ -16,6 +21,7 @@ interface CasePatientDetailProps {
   readyTestimonialCount?: number;
   onOpenTestimonials?: (patient: CasePatient) => void;
   onRequestStageEditing?: (stage: CaseStage, notes?: string) => Promise<void>;
+  portalType?: string | null;
   onEdit?: () => void;
 }
 
@@ -50,6 +56,24 @@ const momentVisuals: Record<string, { bar: string; badge: string; panel: string;
     panel: 'border-violet-200 bg-violet-50/30',
     label: 'Edição e técnica',
   },
+  Triagem: {
+    bar: 'bg-cyan-400',
+    badge: 'bg-cyan-100 text-cyan-900 ring-1 ring-cyan-200',
+    panel: 'border-cyan-200 bg-cyan-50/30',
+    label: 'Arquivos iniciais',
+  },
+  Consulta: {
+    bar: 'bg-blue-500',
+    badge: 'bg-blue-100 text-blue-900 ring-1 ring-blue-200',
+    panel: 'border-blue-200 bg-blue-50/30',
+    label: 'Avaliação médica',
+  },
+  'Pós-operatório': {
+    bar: 'bg-teal-500',
+    badge: 'bg-teal-100 text-teal-900 ring-1 ring-teal-200',
+    panel: 'border-teal-200 bg-teal-50/30',
+    label: 'Evolução e retorno',
+  },
 };
 
 const phaseHeaderThemes: Record<string, { gradient: string; accent: string; muted: string }> = {
@@ -78,10 +102,31 @@ const phaseHeaderThemes: Record<string, { gradient: string; accent: string; mute
     accent: '#8b5cf6',
     muted: '#5b3f96',
   },
+  Triagem: {
+    gradient: 'from-[#f2fdff] via-[#d8f5ff] to-[#8bdaf5]',
+    accent: '#06b6d4',
+    muted: '#146579',
+  },
+  Consulta: {
+    gradient: 'from-[#f5f9ff] via-[#dbeafe] to-[#8bbcff]',
+    accent: '#3b82f6',
+    muted: '#1d4f91',
+  },
+  'Pós-operatório': {
+    gradient: 'from-[#f2fffb] via-[#d7fbef] to-[#7ddfc8]',
+    accent: '#14b8a6',
+    muted: '#176b62',
+  },
 };
 
+const splitTextTags = (value?: string | null) =>
+  String(value || '')
+    .split(/[,;|]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+
 const EDITING_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const EDITING_MOMENTS = new Set(['Entrega', 'Evento', 'Agência']);
+const EDITING_MOMENTS = new Set(['Entrega', 'Evento', 'Agência', 'Procedimento', 'Pós-operatório']);
 
 const formatCooldown = (ms: number) => {
   const safeMs = Math.max(0, ms);
@@ -100,8 +145,12 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   readyTestimonialCount = 0,
   onOpenTestimonials,
   onRequestStageEditing,
+  portalType,
   onEdit,
 }) => {
+  const normalizedPortalType = normalizeClientPortalType(portalType || patient.portalType);
+  const stageDefinitions = React.useMemo(() => getCaseStageDefinitionsForPortalType(normalizedPortalType), [normalizedPortalType]);
+  const stageMoments = React.useMemo(() => getCaseStageMomentsForPortalType(normalizedPortalType), [normalizedPortalType]);
   const progress = getPatientProgress(patient);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState('');
@@ -119,7 +168,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     return Number(window.localStorage.getItem(editingStorageKey) || 0);
   });
 
-  const orderedStages = CASE_STAGE_DEFINITIONS.map(definition => {
+  const orderedStages = stageDefinitions.map(definition => {
     return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
       id: `missing-${definition.title}`,
       boardId: patient.boardId,
@@ -164,8 +213,9 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     patient.birthDate ? `Nascimento: ${formatDate(new Date(`${patient.birthDate}T00:00:00`))}` : null,
     patient.gender ? `Sexo: ${patient.gender}` : null,
     patient.procedure ? `Procedimento: ${patient.procedure}` : null,
-    patient.dentistResponsible ? `DR: ${patient.dentistResponsible}` : null,
+    patient.dentistResponsible ? `${normalizedPortalType === 'head_neck' ? 'Médico' : 'DR'}: ${patient.dentistResponsible}` : null,
   ].filter(Boolean);
+  const keywordTags = splitTextTags(patient.keywords);
 
   const thumbnail = getCaseThumbnail(patient);
 
@@ -310,6 +360,28 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
                   <p className="mt-1 text-sm font-semibold leading-relaxed text-amber-900">{patient.notes}</p>
                 </div>
               )}
+              {(keywordTags.length > 0 || patient.objectionMain) && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {keywordTags.length > 0 && (
+                    <div className="rounded-2xl border border-[#cde8fb] bg-[#eaf7ff]/65 px-4 py-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#159de9]">Palavras-chave</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {keywordTags.map(tag => (
+                          <span key={tag} className="rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-black text-[#174579] ring-1 ring-[#d7ebfb]">
+                            "{tag}"
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {patient.objectionMain && (
+                    <div className="rounded-2xl border border-amber-100/70 bg-amber-50/60 px-4 py-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Objeção principal</p>
+                      <p className="mt-1 text-sm font-black text-amber-900">"{patient.objectionMain}"</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               {onEdit && (
@@ -399,7 +471,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
 
         {/* Stages */}
         <div className="space-y-8 sm:space-y-12 lg:space-y-14">
-          {CASE_STAGE_MOMENTS.map((moment, mIdx) => {
+          {stageMoments.map((moment, mIdx) => {
             const stages = orderedStages
               .filter(stage => stage.moment === moment)
               .filter(stage => {
@@ -488,7 +560,9 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
               <p className="mt-2 text-sm font-semibold leading-relaxed text-[#6d8db1]">
                 {selectedEditingStage
                   ? `Disponível porque já existe material em ${selectedEditingStage.moment}.`
-                  : 'Libera quando houver ao menos um arquivo nas fases Entrega, Evento ou Agência.'}
+                  : normalizedPortalType === 'head_neck'
+                    ? 'Libera quando houver ao menos um arquivo nas fases Procedimento ou Pós-operatório.'
+                    : 'Libera quando houver ao menos um arquivo nas fases Entrega, Evento ou Agência.'}
               </p>
               {isEditingBlockedByCooldown && (
                 <p className="mt-2 text-xs font-black text-amber-700">

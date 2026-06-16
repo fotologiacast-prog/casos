@@ -29,6 +29,10 @@ const App: React.FC = () => {
     return <AdminClients initialTab="editingRequests" />;
   }
 
+  if (route === '#/admin/gerencia') {
+    return <AdminClients initialTab="management" />;
+  }
+
   if (route === '#/admin/monday') {
     return <MondayPlayground />;
   }

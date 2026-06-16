@@ -1,4 +1,4 @@
-const ALLOWED_EDITING_MOMENTS = new Set(["Entrega", "Evento", "Agência", "Agencia"]);
+const ALLOWED_EDITING_MOMENTS = new Set(["Entrega", "Evento", "Agência", "Agencia", "Procedimento", "Pós-operatório", "Pos-operatorio"]);
 const EDITING_RESPONSIBLE_USER_ID = 68685168;
 const EDITING_PRIORITY_LABEL = "Critical ⚠️";
 const EDITING_REQUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -159,14 +159,21 @@ const isSupportedMaterialColumnType = (type: string) =>
 
 const createMaterialUpdate = async (
   subitemId: string,
-  materialUrl: string,
+  materialUrl: string | null | undefined,
+  editingNotes: string | null | undefined,
   context: EditingLogContext,
   reason: string
 ) => {
-  const body = [
-    "Material para edição:",
-    materialUrl,
-  ].join("\n");
+  const bodyParts = [];
+  if (materialUrl) {
+    bodyParts.push("Material para edição:", materialUrl);
+  }
+  if (editingNotes) {
+    if (bodyParts.length > 0) bodyParts.push("");
+    bodyParts.push("Observação do pedido:", editingNotes);
+  }
+  const body = bodyParts.join("\n");
+  if (!body.trim()) return;
 
   logInfo(context, "material_update_body_prepared", { reason });
 
@@ -188,6 +195,7 @@ const updateEditingSubitemColumns = async (
   boardId: string | null | undefined,
   materialUrl: string | null | undefined,
   adminEditingRequestUrl: string | null | undefined,
+  editingNotes: string | null | undefined,
   context: EditingLogContext
 ) => {
   if (!boardId) return { skipped: true, reason: "subitem_board_id_ausente" };
@@ -370,11 +378,12 @@ const updateEditingSubitemColumns = async (
   for (const update of updates) {
     try {
       if (update.role === "material" && update.type === "update" && typeof update.value === "string") {
-        await createMaterialUpdate(subitemId, update.value, context, "coluna Material para Edição não encontrada");
+        await createMaterialUpdate(subitemId, update.value, editingNotes, context, "coluna Material para Edição não encontrada");
       } else if (update.role === "material" && !isSupportedMaterialColumnType(update.type) && typeof update.value === "string") {
         await createMaterialUpdate(
           subitemId,
           update.value,
+          editingNotes,
           context,
           `coluna "${update.title}" tem tipo incompatível: ${update.type}`
         );
@@ -409,6 +418,7 @@ const updateEditingSubitemColumns = async (
           await createMaterialUpdate(
             subitemId,
             String((update.value as { url: string }).url),
+            editingNotes,
             context,
             `erro ao preencher coluna "${update.title}": ${serializeEditingRequestError(error)}`
           );
@@ -518,6 +528,7 @@ export const requestStageEditing = async (body: any) => {
   const token = String(body?.token || "").trim();
   const caseId = String(body?.caseId || "").trim();
   const stageId = String(body?.stageId || "").trim();
+  const editingNotes = String(body?.notes || body?.observation || body?.observacao || "").trim() || null;
   const context: EditingLogContext = {
     requestId: createRequestId(),
     caseId,
@@ -593,7 +604,7 @@ export const requestStageEditing = async (body: any) => {
   if (stageError) throw stageError;
   if (!stageRow) return { status: 404, body: { error: "Etapa nao encontrada." } };
   if (!ALLOWED_EDITING_MOMENTS.has(String(stageRow.moment || ""))) {
-    return { status: 400, body: { error: "A edição só pode ser solicitada a partir da fase Entrega." } };
+    return { status: 400, body: { error: "A edição só pode ser solicitada quando houver material suficiente para a agência." } };
   }
   logInfo(context, "stage_loaded", {
     stageName: stageRow.stage_name,
@@ -661,7 +672,12 @@ export const requestStageEditing = async (body: any) => {
   });
 
   const adminEditingRequestUrl = buildAdminEditingRequestUrl(String(subitemId));
-  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl, adminEditingRequestUrl, context);
+  const columnUpdate = await updateEditingSubitemColumns(subitemId, subitem?.board?.id, materialUrl, adminEditingRequestUrl, editingNotes, context);
+  const materialUpdateAlreadyCreated = Array.isArray((columnUpdate as any)?.results) &&
+    (columnUpdate as any).results.some((result: any) => result?.role === "material" && result?.fallback === "update" && result?.ok);
+  if ((materialUrl || editingNotes) && !materialUpdateAlreadyCreated) {
+    await createMaterialUpdate(subitemId, materialUrl, editingNotes, context, "registro do pedido de edição");
+  }
   const persistWarning = await persistEditingRequest(supabase, {
     clientId: Number(client.id),
     caseId: String(caseRow.id),

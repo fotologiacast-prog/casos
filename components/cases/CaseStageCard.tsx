@@ -119,7 +119,7 @@ const UPLOAD_ACCEPT = [
   '.mrw',
 ].join(',');
 
-const momentCapturedTheme: Record<CaseStageMoment, {
+const momentCapturedTheme: Record<string, {
   border: string;
   hoverBorder: string;
   ring: string;
@@ -453,10 +453,27 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     await handleFiles(files);
   };
 
+  const handleDragOver = (event: React.DragEvent) => {
+    if (isPlaceholder) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isUsageLocked) setIsDragging(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.stopPropagation();
+    setIsDragging(false);
+  };
+
   const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     setIsDragging(false);
-    if (isPlaceholder || isUsageLocked) return;
+    if (isPlaceholder) return;
+    if (isUsageLocked) {
+      setError('Este material ja foi utilizado pela edicao e nao aceita novos uploads.');
+      return;
+    }
     const files = Array.from(event.dataTransfer.files) as File[];
     await handleFiles(files);
   };
@@ -493,6 +510,9 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   return (
     <div
       id={`stage-${stage.id}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       className={`relative overflow-hidden rounded-[1.35rem] transition-all duration-300 sm:rounded-[1.55rem] lg:rounded-[1.75rem] ${
         isCaptured
           ? `bg-white/80 border-2 ${capturedTheme.border} ${capturedTheme.shadow} ring-1 ${capturedTheme.ring}`
@@ -591,8 +611,8 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
           {/* Upload Area */}
           {!isCaptured && !isUsageLocked ? (
             <div 
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={`group relative rounded-[1.5rem] border-2 border-dashed p-6 text-center transition-all sm:rounded-3xl sm:p-10 lg:rounded-[2rem] lg:p-12 ${
                 isDragging ? `${capturedTheme.border} bg-white/70` : 'border-[#d7ebfb] bg-white/50 hover:border-[#7bcdfb] hover:bg-white/60'
@@ -626,7 +646,16 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`space-y-4 rounded-[1.5rem] border-2 border-dashed p-3 transition-all sm:p-4 ${
+                isDragging && !isUsageLocked
+                  ? `${capturedTheme.border} bg-white/65`
+                  : 'border-transparent'
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase tracking-widest text-[#7d9bbd]">Arquivos enviados</h4>
                 {!isUsageLocked && (
