@@ -460,7 +460,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.warn("[Cases] Falha ao buscar editing requests (tabela pode nao existir):", editingReqError);
       }
 
-      return res.status(200).json({ cases: mapCaseRows(syncedCases, stages || [], files || [], usageLocksError ? [] : usageLocks || [], editingReqError ? [] : editingRequests || []) });
+      return res.status(200).json({
+        client: {
+          id: client.id,
+          name: client.name,
+          portal_type: normalizeClientPortalType(client.portal_type),
+          portalType: normalizeClientPortalType(client.portal_type),
+        },
+        cases: mapCaseRows(syncedCases, stages || [], files || [], usageLocksError ? [] : usageLocks || [], editingReqError ? [] : editingRequests || []),
+      });
     }
 
     if (req.method === "POST") {

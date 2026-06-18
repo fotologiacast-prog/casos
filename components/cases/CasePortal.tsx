@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CasePatient, CaseStage, Client } from '../../types';
-import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePatients, requestCaseStageEditing, updateSupabaseCasePatient } from '../../services/caseSupabaseService';
+import { createSupabaseCasePatient, deleteSupabaseCasePatient, fetchSupabaseCasePortalData, requestCaseStageEditing, updateSupabaseCasePatient } from '../../services/caseSupabaseService';
 import { getClientByBoardId, getClientByCaseToken } from '../../services/supabaseService';
 import {
   getCaseProceduresForPortalType,
@@ -413,8 +413,13 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         setPatients(MOCK_CASE_PATIENTS);
         return;
       }
-      const loaded = await fetchSupabaseCasePatients(token);
-      setPatients(loaded);
+      const data = await fetchSupabaseCasePortalData(token);
+      const apiPortalType = normalizeClientPortalType(data.client?.portal_type || data.client?.portalType);
+      setPortalClient(previous => {
+        if (!previous || previous.portalType === apiPortalType) return previous;
+        return { ...previous, portalType: apiPortalType };
+      });
+      setPatients(data.cases);
     } finally {
       if (refreshing) setIsRefreshing(false);
     }

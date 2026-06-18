@@ -30,9 +30,25 @@ const readApiResponse = async (response: Response, fallbackMessage: string) => {
 };
 
 export const fetchSupabaseCasePatients = async (token: string): Promise<CasePatient[]> => {
+  const data = await fetchSupabaseCasePortalData(token);
+  return data.cases;
+};
+
+export const fetchSupabaseCasePortalData = async (token: string): Promise<{
+  client?: {
+    id?: number;
+    name?: string;
+    portal_type?: string | null;
+    portalType?: string | null;
+  };
+  cases: CasePatient[];
+}> => {
   const response = await fetch(`/api/cases?token=${encodeURIComponent(token)}`);
   const data = await readApiResponse(response, 'Falha ao buscar casos.');
-  return (data.cases || []).map(mapCasePatient);
+  return {
+    client: data.client,
+    cases: (data.cases || []).map(mapCasePatient),
+  };
 };
 
 export const createSupabaseCasePatient = async (token: string, payload: NewCasePatientPayload): Promise<string> => {
