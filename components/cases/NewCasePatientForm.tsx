@@ -72,7 +72,7 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
         birthDate: formData.birthDate,
         gender: formData.gender,
         procedure: formData.procedures.join(', '),
-        dentistResponsible: formData.dentistResponsible.trim(),
+        dentistResponsible: isMedicalPortal ? '' : formData.dentistResponsible.trim(),
         notes: formData.notes.trim(),
       });
     } catch (err) {
@@ -175,7 +175,9 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
 
           {/* Procedures */}
           <div>
-            <label className="section-label block mb-2">Procedimentos</label>
+            <label className="section-label block mb-2">
+              {isMedicalPortal ? 'Tipo de atendimento' : 'Procedimentos'}
+            </label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {procedureOptions.map(option => {
                 const checked = formData.procedures.includes(option);
@@ -211,21 +213,20 @@ const NewCasePatientForm: React.FC<NewCasePatientFormProps> = ({
             </div>
           </div>
 
-          {/* Dentist */}
-          <div>
-            <label htmlFor="dentist-responsible" className="section-label block mb-1.5">
-              {isMedicalPortal ? 'Cirurgião responsável' : 'Dentista responsável'}
-            </label>
-            <input
-              id="dentist-responsible"
-              name="dentist-responsible"
-              value={formData.dentistResponsible}
-              onChange={set('dentistResponsible')}
-              autoComplete="off"
-              placeholder={isMedicalPortal ? 'Ex: Dr. Carlos Silva...' : 'Ex: Dra. Ana Silva...'}
-              className="input-field"
-            />
-          </div>
+          {!isMedicalPortal && (
+            <div>
+              <label htmlFor="dentist-responsible" className="section-label block mb-1.5">Dentista responsável</label>
+              <input
+                id="dentist-responsible"
+                name="dentist-responsible"
+                value={formData.dentistResponsible}
+                onChange={set('dentistResponsible')}
+                autoComplete="off"
+                placeholder="Ex: Dra. Ana Silva..."
+                className="input-field"
+              />
+            </div>
+          )}
 
           {/* Notes */}
           <div>
