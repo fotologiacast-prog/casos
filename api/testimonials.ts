@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { fetchMondayItemsInBatches } from "./_mondayBatching.ts";
 
 type MondayAsset = {
   id: string;
@@ -249,8 +250,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }`;
 
-    const mondayData = await mondayFetch(query, { itemIds: mondayItemIds });
-    const items: MondayItem[] = mondayData?.data?.items || [];
+    const items = await fetchMondayItemsInBatches<MondayItem>(mondayItemIds, async itemIds => {
+      const mondayData = await mondayFetch(query, { itemIds });
+      return mondayData?.data?.items || [];
+    });
     const casesByMondayItemId = new Map(caseRows.map((item: any) => [String(item.monday_item_id), item]));
 
     const editedRequestsToSync: { mondaySubitemId: string; creativeType?: string | null; assetCount: number }[] = [];
