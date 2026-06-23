@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { fetchMondayItemsInBatches } from "./_mondayBatching.ts";
 
 type MondayAsset = {
   id: string;
@@ -231,8 +230,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ testimonials: [] });
     }
 
-    const query = `query ($itemIds: [ID!]) {
-      items(ids: $itemIds) {
+    const query = `query ($itemIds: [ID!], $limit: Int!) {
+      items(ids: $itemIds, limit: $limit) {
         id
         name
         subitems {
@@ -250,8 +249,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }`;
 
+    const { fetchMondayItemsInBatches, MONDAY_ITEMS_BATCH_SIZE } = await import("./_mondayBatching.js");
     const items = await fetchMondayItemsInBatches<MondayItem>(mondayItemIds, async itemIds => {
-      const mondayData = await mondayFetch(query, { itemIds });
+      const mondayData = await mondayFetch(query, {
+        itemIds,
+        limit: MONDAY_ITEMS_BATCH_SIZE,
+      });
       return mondayData?.data?.items || [];
     });
     const casesByMondayItemId = new Map(caseRows.map((item: any) => [String(item.monday_item_id), item]));

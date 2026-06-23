@@ -1,4 +1,4 @@
-export const MONDAY_ITEMS_BATCH_SIZE = 25;
+export const MONDAY_ITEMS_BATCH_SIZE = 100;
 
 export const fetchMondayItemsInBatches = async <T>(
   itemIds: string[],

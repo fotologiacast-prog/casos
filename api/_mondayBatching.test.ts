@@ -3,8 +3,8 @@ import test from "node:test";
 
 import { fetchMondayItemsInBatches } from "./_mondayBatching.ts";
 
-test("busca todos os itens do Monday quando a lista ultrapassa 25 IDs", async () => {
-  const itemIds = Array.from({ length: 37 }, (_, index) => String(index + 1));
+test("busca todos os itens do Monday quando a lista ultrapassa 100 IDs", async () => {
+  const itemIds = Array.from({ length: 137 }, (_, index) => String(index + 1));
   const requestedBatches: string[][] = [];
 
   const items = await fetchMondayItemsInBatches(itemIds, async batch => {
@@ -12,6 +12,6 @@ test("busca todos os itens do Monday quando a lista ultrapassa 25 IDs", async ()
     return batch.map(id => ({ id }));
   });
 
-  assert.deepEqual(requestedBatches.map(batch => batch.length), [25, 12]);
+  assert.deepEqual(requestedBatches.map(batch => batch.length), [100, 37]);
   assert.deepEqual(items.map(item => item.id), itemIds);
 });
