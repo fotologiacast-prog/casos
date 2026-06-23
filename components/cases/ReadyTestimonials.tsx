@@ -816,7 +816,7 @@ const ReadyAssetModal: React.FC<{
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-[73px] z-[90] overflow-y-auto overscroll-contain bg-[#f4faff] px-3 py-4 sm:px-6"
+      className="fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-[#f4faff] px-3 py-4 sm:px-6"
       role="dialog"
       aria-modal="true"
       aria-label={`Visualizar ${testimonial.title}`}
