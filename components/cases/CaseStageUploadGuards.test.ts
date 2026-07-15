@@ -10,4 +10,6 @@ test("upload em etapa ainda nao sincronizada nao e ignorado silenciosamente", as
   assert.doesNotMatch(cardSource, /files\.length === 0 \|\| isPlaceholder/);
   assert.match(detailSource, /Upload solicitado antes da etapa existir/);
   assert.match(detailSource, /sincronizada/);
+  assert.match(detailSource, /onRefreshPatient\(patient\.id, \{ updateState: false \}\)/);
+  assert.doesNotMatch(detailSource, /const refreshedPatient = await onRefreshPatient\(patient\.id\);/);
 });

@@ -15,7 +15,7 @@ import EditingReviewModal from './EditingReviewModal';
 interface CasePatientDetailProps {
   patient: CasePatient;
   onBack: () => void;
-  onRefreshPatient: (patientId: string) => Promise<CasePatient | void>;
+  onRefreshPatient: (patientId: string, options?: { updateState?: boolean }) => Promise<CasePatient | void>;
   onDeletePatient: (patient: CasePatient) => Promise<void>;
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   readyTestimonialCount?: number;
@@ -198,7 +198,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
       patientName: patient.name,
       missingStages: missingStageTitles,
     });
-    void onRefreshPatient(patient.id);
+    void onRefreshPatient(patient.id, { updateState: false });
   }, [missingStageKey, patient.id, patient.name, onRefreshPatient]);
 
   const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => {
@@ -218,7 +218,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
         patientName: patient.name,
         stageTitle: stage.title,
       });
-      const refreshedPatient = await onRefreshPatient(patient.id);
+      const refreshedPatient = await onRefreshPatient(patient.id, { updateState: false });
       const syncedStage = refreshedPatient?.stages.find(item => getCanonicalCaseStageTitle(item.title) === stage.title);
       if (!syncedStage || syncedStage.id.startsWith('missing-')) {
         throw new Error(`A etapa "${stage.title}" ainda nao estava sincronizada. Atualizei o caso; tente enviar novamente em alguns segundos.`);

@@ -612,8 +612,12 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setSelectedPatientId(caseId);
   };
 
-  const handleRefreshPatient = async (patientId: string) => {
+  const handleRefreshPatient = async (patientId: string, options?: { updateState?: boolean }) => {
     if (!portalClient || portalClient.isDemo) return;
+    if (options?.updateState === false) {
+      const data = await fetchSupabaseCasePortalData(token);
+      return data.cases.find(patient => patient.id === patientId);
+    }
     const loadedPatients = await loadPatients(portalClient, true);
     return loadedPatients?.find(patient => patient.id === patientId);
   };
