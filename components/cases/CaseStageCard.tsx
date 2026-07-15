@@ -429,7 +429,7 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   const moment = (stage.moment || stage.title) as CaseStageMoment;
   const capturedTheme = momentCapturedTheme[moment] || momentCapturedTheme.Planejamento;
   const handleFiles = async (files: File[]) => {
-    if (files.length === 0 || isPlaceholder) return;
+    if (files.length === 0) return;
     if (isUsageLocked) {
       setError('Este material ja foi utilizado pela edicao e nao aceita novos uploads.');
       return;
@@ -454,7 +454,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
   };
 
   const handleDragOver = (event: React.DragEvent) => {
-    if (isPlaceholder) return;
     event.preventDefault();
     event.stopPropagation();
     if (!isUsageLocked) setIsDragging(true);
@@ -469,7 +468,6 @@ const CaseStageCard: React.FC<CaseStageCardProps> = ({ index, stage, onUpload, i
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
-    if (isPlaceholder) return;
     if (isUsageLocked) {
       setError('Este material ja foi utilizado pela edicao e nao aceita novos uploads.');
       return;

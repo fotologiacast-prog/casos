@@ -411,7 +411,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     try {
       if (client.isDemo) {
         setPatients(MOCK_CASE_PATIENTS);
-        return;
+        return MOCK_CASE_PATIENTS;
       }
       const data = await fetchSupabaseCasePortalData(token);
       const apiPortalType = normalizeClientPortalType(data.client?.portal_type || data.client?.portalType);
@@ -420,6 +420,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
         return { ...previous, portalType: apiPortalType };
       });
       setPatients(data.cases);
+      return data.cases;
     } finally {
       if (refreshing) setIsRefreshing(false);
     }
@@ -613,7 +614,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
 
   const handleRefreshPatient = async (patientId: string) => {
     if (!portalClient || portalClient.isDemo) return;
-    await loadPatients(portalClient, true);
+    const loadedPatients = await loadPatients(portalClient, true);
+    return loadedPatients?.find(patient => patient.id === patientId);
   };
 
   const handleCreatePatient = async (payload: NewCasePatientPayload) => {

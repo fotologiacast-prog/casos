@@ -15,7 +15,7 @@ import EditingReviewModal from './EditingReviewModal';
 interface CasePatientDetailProps {
   patient: CasePatient;
   onBack: () => void;
-  onRefreshPatient: (patientId: string) => Promise<void>;
+  onRefreshPatient: (patientId: string) => Promise<CasePatient | void>;
   onDeletePatient: (patient: CasePatient) => Promise<void>;
   onUploadStageFiles?: (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => Promise<void>;
   readyTestimonialCount?: number;
@@ -167,6 +167,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
     if (typeof window === 'undefined') return 0;
     return Number(window.localStorage.getItem(editingStorageKey) || 0);
   });
+  const requestedStageSyncRef = React.useRef<string | null>(null);
 
   const orderedStages = stageDefinitions.map(definition => {
     return patient.stages.find(stage => getCanonicalCaseStageTitle(stage.title) === definition.title) || {
@@ -182,13 +183,52 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
       files: [],
     };
   });
+  const missingStageTitles = orderedStages
+    .filter(stage => stage.id.startsWith('missing-'))
+    .map(stage => stage.title);
+  const missingStageKey = missingStageTitles.join('|');
+
+  React.useEffect(() => {
+    if (!missingStageKey) return;
+    const syncKey = `${patient.id}:${missingStageKey}`;
+    if (requestedStageSyncRef.current === syncKey) return;
+    requestedStageSyncRef.current = syncKey;
+    console.warn('[Cases] Upload solicitado antes da etapa existir: sincronizando etapas faltantes.', {
+      caseId: patient.id,
+      patientName: patient.name,
+      missingStages: missingStageTitles,
+    });
+    void onRefreshPatient(patient.id);
+  }, [missingStageKey, patient.id, patient.name, onRefreshPatient]);
 
   const handleUpload = async (stage: CaseStage, files: File[], onProgress?: (info: UploadProgressInfo) => void) => {
-    if (stage.id.startsWith('missing-')) return;
+    let uploadStage = stage;
+    if (stage.id.startsWith('missing-')) {
+      onProgress?.({
+        percentage: 0,
+        loaded: 0,
+        total: files[0]?.size || 0,
+        fileName: files[0]?.name,
+        fileIndex: files.length > 0 ? 1 : undefined,
+        fileCount: files.length || undefined,
+        phase: 'preparing',
+      });
+      console.warn('[Cases] Upload solicitado antes da etapa existir.', {
+        caseId: patient.id,
+        patientName: patient.name,
+        stageTitle: stage.title,
+      });
+      const refreshedPatient = await onRefreshPatient(patient.id);
+      const syncedStage = refreshedPatient?.stages.find(item => getCanonicalCaseStageTitle(item.title) === stage.title);
+      if (!syncedStage || syncedStage.id.startsWith('missing-')) {
+        throw new Error(`A etapa "${stage.title}" ainda nao estava sincronizada. Atualizei o caso; tente enviar novamente em alguns segundos.`);
+      }
+      uploadStage = syncedStage;
+    }
     if (onUploadStageFiles) {
-      await onUploadStageFiles(stage, files, onProgress);
+      await onUploadStageFiles(uploadStage, files, onProgress);
     } else {
-      await uploadStageFilesToDrive(stage, files, onProgress);
+      await uploadStageFilesToDrive(uploadStage, files, onProgress);
     }
     await onRefreshPatient(patient.id);
   };
