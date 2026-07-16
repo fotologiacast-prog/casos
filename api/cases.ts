@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { fetchAllSupabaseRows } from "./_supabasePagination.js";
 
 const DEFAULT_MONDAY_CASE_BOARD_ID = "18054403734";
 const MONDAY_CASES_GROUP_TITLE = "##CASOS ACOMPANHADOS NAS CLÍNICAS";
@@ -198,12 +199,12 @@ const ensureCaseStages = async (supabase: any, caseRows: any[], existingStages: 
   if (error) throw error;
 
   const caseIds = caseRows.map(caseRow => caseRow.id);
-  const { data, error: reloadError } = await supabase
-    .from("case_stages")
-    .select("*")
-    .in("case_id", caseIds);
-  if (reloadError) throw reloadError;
-  return data || [];
+  return fetchAllSupabaseRows(() =>
+    supabase
+      .from("case_stages")
+      .select("*")
+      .in("case_id", caseIds)
+  );
 };
 
 const normalizeCasePayload = (body: any) => ({
@@ -426,31 +427,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const client = await getClientByToken(supabase, token);
 
     if (req.method === "GET") {
-      const { data: cases, error: casesError } = await supabase
-        .from("cases")
-        .select("*, clients(name, portal_type)")
-        .eq("client_id", client.id)
-        .order("created_at", { ascending: false });
-      if (casesError) throw casesError;
+      const cases = await fetchAllSupabaseRows<any>(() =>
+        supabase
+          .from("cases")
+          .select("*, clients(name, portal_type)")
+          .eq("client_id", client.id)
+          .order("created_at", { ascending: false })
+      );
 
       const syncedCases = await syncMondayCaseTextFields(supabase, cases || []);
       const caseIds = syncedCases.map(item => item.id);
-      let { data: stages, error: stagesError } = caseIds.length
-        ? await supabase.from("case_stages").select("*").in("case_id", caseIds)
-        : { data: [], error: null };
-      if (stagesError) throw stagesError;
+      let stages = caseIds.length
+        ? await fetchAllSupabaseRows<any>(() => supabase.from("case_stages").select("*").in("case_id", caseIds))
+        : [];
       if (syncedCases.length > 0) {
         stages = await ensureCaseStages(supabase, syncedCases, stages || [], client.portal_type);
       }
 
-      const { data: files, error: filesError } = caseIds.length
-        ? await supabase.from("case_files").select("*").in("case_id", caseIds)
-        : { data: [], error: null };
-      if (filesError) throw filesError;
+      const files = caseIds.length
+        ? await fetchAllSupabaseRows<any>(() => supabase.from("case_files").select("*").in("case_id", caseIds))
+        : [];
 
-      const { data: usageLocks, error: usageLocksError } = caseIds.length
-        ? await supabase.from("case_stage_usage_locks").select("*").in("case_id", caseIds)
-        : { data: [], error: null };
+      let usageLocks: any[] = [];
+      let usageLocksError: any = null;
+      if (caseIds.length) {
+        try {
+          usageLocks = await fetchAllSupabaseRows<any>(() => supabase.from("case_stage_usage_locks").select("*").in("case_id", caseIds));
+        } catch (error) {
+          usageLocksError = error;
+        }
+      }
       if (usageLocksError && !isMissingSupabaseSchema(usageLocksError)) throw usageLocksError;
 
       const { data: editingRequests, error: editingReqError } = caseIds.length
