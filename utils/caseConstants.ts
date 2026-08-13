@@ -125,8 +125,12 @@ export const CASE_PROCEDURES: CaseProcedure[] = [
   'Facetas / Porcelana',
   'Facetas / Resina',
   'Próteses',
-  'Orto',
-  'Harmonização Facial',
+  'Ortodontia',
+  'Cirurgia Geral',
+  'Periodontia',
+  'Odontopediatria',
+  'Reabilitação Oral',
+  'Harmonização Orofacial',
 ];
 
 export const HEAD_NECK_CASE_PROCEDURES: CaseProcedure[] = [

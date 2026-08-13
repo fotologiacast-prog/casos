@@ -969,7 +969,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             // Always update remaining columns regardless of client column result
-            await updateMondayColumns(otherColumnUpdates, false);
+            // Procedures are dropdown labels too, so allow Monday to create new
+            // normalized labels the first time they are selected.
+            await updateMondayColumns(otherColumnUpdates, true);
             mondayResult.clientColumnFinalVerification = await verifyClientColumn("verify_client_column_after_other_updates");
 
             if (clientColumnUpdates.length > 0) {
@@ -1215,7 +1217,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               },
               body: JSON.stringify({
                 query: `mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
-                  change_multiple_column_values(board_id: $boardId, item_id: $itemId, column_values: $columnValues) { id }
+                  change_multiple_column_values(
+                    board_id: $boardId,
+                    item_id: $itemId,
+                    column_values: $columnValues,
+                    create_labels_if_missing: true
+                  ) { id }
                 }`,
                 variables: {
                   boardId: String(mondayBoardId),
