@@ -161,6 +161,7 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
   const [editingError, setEditingError] = React.useState<string | null>(null);
   const [editingSuccessVisible, setEditingSuccessVisible] = React.useState(false);
   const [editingReviewOpen, setEditingReviewOpen] = React.useState(false);
+  const [linkCopied, setLinkCopied] = React.useState(false);
   const [now, setNow] = React.useState(() => Date.now());
   const editingStorageKey = `case_patient_editing_requested_at_${patient.id}`;
   const [lastEditingRequestAt, setLastEditingRequestAt] = React.useState(() => {
@@ -259,6 +260,16 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
 
   const thumbnail = getCaseThumbnail(patient);
 
+  const handleCopyPatientLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      window.prompt('Copie o link do paciente:', window.location.href);
+    }
+  };
+
   const handleDelete = async () => {
     if (deleteConfirm !== 'Certeza') return;
     setIsDeleting(true);
@@ -343,18 +354,31 @@ const CasePatientDetail: React.FC<CasePatientDetailProps> = ({
             Casos
           </button>
 
-          {readyTestimonialCount > 0 && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => onOpenTestimonials?.(patient)}
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-50 px-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition-colors hover:bg-emerald-100"
+              onClick={handleCopyPatientLink}
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-sky-50 px-3 text-xs font-black text-sky-700 ring-1 ring-sky-100 transition-colors hover:bg-sky-100"
+              aria-live="polite"
             >
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] text-white">
-                {readyTestimonialCount}
-              </span>
-              Prontos
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12.5l5-5m-7.25 8.25-1 .999a3.182 3.182 0 0 1-4.5-4.5l3-3a3.182 3.182 0 0 1 4.5 0m5.5 2.5a3.182 3.182 0 0 1 0-4.5l3-3a3.182 3.182 0 1 1 4.5 4.5l-1 1" />
+              </svg>
+              {linkCopied ? 'Link copiado' : 'Copiar link'}
             </button>
-          )}
+            {readyTestimonialCount > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenTestimonials?.(patient)}
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-50 px-3 text-xs font-black text-emerald-700 ring-1 ring-emerald-100 transition-colors hover:bg-emerald-100"
+              >
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] text-white">
+                  {readyTestimonialCount}
+                </span>
+                Prontos
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

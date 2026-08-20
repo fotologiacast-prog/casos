@@ -11,11 +11,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => setHash(getCurrentHash());
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
   }, []);
 
   const route = hash.split('?')[0];
-  const caseRouteMatch = route.match(/^#\/casos\/([^/?]+)/);
+  const caseRouteMatch = route.match(/^#\/casos\/([^/?]+)(?:\/([^/?]+))?\/?$/);
 
   if (route === '#/admin' || route === '#/admin/') {
     return <AdminClients initialTab="home" />;
@@ -38,7 +42,12 @@ const App: React.FC = () => {
   }
 
   if (caseRouteMatch) {
-    return <CasePortal token={decodeURIComponent(caseRouteMatch[1])} />;
+    return (
+      <CasePortal
+        token={decodeURIComponent(caseRouteMatch[1])}
+        patientSlug={caseRouteMatch[2] ? decodeURIComponent(caseRouteMatch[2]) : null}
+      />
+    );
   }
 
   return (

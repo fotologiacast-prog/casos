@@ -16,9 +16,11 @@ import ReadyTestimonials from './ReadyTestimonials';
 import { prefetchReadyTestimonials, useReadyTestimonials } from './useReadyTestimonials';
 import { fetchPortalNotifications, markPortalNotificationsRead, PortalNotification } from '../../services/portalNotificationService';
 import { getProductionSignals, getProductionStatus, getCaseThumbnail } from './caseUiUtils';
+import { buildPatientHash, findPatientBySlug } from '../../utils/caseSlug';
 
 interface CasePortalProps {
   token: string;
+  patientSlug?: string | null;
 }
 
 type PortalClient = {
@@ -144,7 +146,7 @@ const NotificationAvatar: React.FC<{ src: string | null; name: string; type?: st
   );
 };
 
-const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
+const CasePortal: React.FC<CasePortalProps> = ({ token, patientSlug }) => {
   const [portalClient, setPortalClient] = useState<PortalClient | null>(null);
   const [patients, setPatients] = useState<CasePatient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -164,6 +166,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [manualNotifications, setManualNotifications] = useState<PortalNotification[]>([]);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const automaticRefreshInFlightRef = useRef(false);
+  const lastAutomaticRefreshRef = useRef(0);
 
   const selectedPatient = useMemo(
     () => patients.find(patient => patient.id === selectedPatientId) || null,
@@ -426,6 +430,64 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     }
   }, [token]);
 
+  const openPatient = useCallback((patient: CasePatient, replaceHistory = false, patientCollection = patients) => {
+    setActiveTab('cases');
+    setMode('list');
+    setSelectedPatientId(patient.id);
+    const nextHash = buildPatientHash(token, patient, patientCollection);
+    window.history[replaceHistory ? 'replaceState' : 'pushState'](null, '', nextHash);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, [patients, token]);
+
+  const closePatient = useCallback(() => {
+    setSelectedPatientId(null);
+    window.history.pushState(null, '', buildPatientHash(token));
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, [token]);
+
+  useEffect(() => {
+    if (!patientSlug || patients.length === 0) {
+      if (!patientSlug) setSelectedPatientId(null);
+      return;
+    }
+    const linkedPatient = findPatientBySlug(patientSlug, patients);
+    setActiveTab('cases');
+    setMode('list');
+    setSelectedPatientId(linkedPatient?.id || null);
+  }, [patientSlug, patients]);
+
+  useEffect(() => {
+    if (!portalClient || portalClient.isDemo || !sessionPwOk) return;
+
+    const refreshAutomatically = async () => {
+      if (document.visibilityState !== 'visible' || automaticRefreshInFlightRef.current) return;
+      if (Date.now() - lastAutomaticRefreshRef.current < 15_000) return;
+      automaticRefreshInFlightRef.current = true;
+      try {
+        await loadPatients(portalClient);
+        lastAutomaticRefreshRef.current = Date.now();
+      } catch (error) {
+        console.warn('[Cases] Não foi possível atualizar os casos automaticamente.', error);
+      } finally {
+        automaticRefreshInFlightRef.current = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshAutomatically();
+    };
+    const handleFocus = () => void refreshAutomatically();
+    const interval = window.setInterval(() => void refreshAutomatically(), 60_000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadPatients, portalClient, sessionPwOk]);
+
   const loadManualNotifications = useCallback(async (client: PortalClient | null = portalClient) => {
     if (!client || client.isDemo) {
       setManualNotifications([]);
@@ -559,6 +621,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     setProductionFilters([]);
     setMode('list');
     setSelectedPatientId(null);
+    window.history.pushState(null, '', buildPatientHash(token));
+    window.dispatchEvent(new PopStateEvent('popstate'));
     setComingFromTracking(false);
   };
 
@@ -607,9 +671,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
   };
 
   const handleOpenCaseFromTestimonial = (caseId: string) => {
-    setActiveTab('cases');
-    setMode('list');
-    setSelectedPatientId(caseId);
+    const patient = patients.find(item => item.id === caseId);
+    if (patient) openPatient(patient);
   };
 
   const handleRefreshPatient = async (patientId: string, options?: { updateState?: boolean }) => {
@@ -661,8 +724,9 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       return;
     }
     const patientId = await createSupabaseCasePatient(token, payload);
-    await loadPatients(portalClient, true);
-    setSelectedPatientId(patientId);
+    const loadedPatients = await loadPatients(portalClient, true);
+    const createdPatient = loadedPatients?.find(patient => patient.id === patientId);
+    if (createdPatient) openPatient(createdPatient, true, loadedPatients);
     setMode('list');
   };
 
@@ -697,15 +761,19 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
       }));
       setMode('list');
       if (!editFromDetail) {
-        setSelectedPatientId(null);
+        closePatient();
       }
       return;
     }
-    await updateSupabaseCasePatient(token, selectedPatientId, payload);
-    await loadPatients(portalClient, true);
+    const updatedPatientId = selectedPatientId;
+    await updateSupabaseCasePatient(token, updatedPatientId, payload);
+    const loadedPatients = await loadPatients(portalClient, true);
     setMode('list');
-    if (!editFromDetail) {
-      setSelectedPatientId(null);
+    if (editFromDetail) {
+      const updatedPatient = loadedPatients?.find(patient => patient.id === updatedPatientId);
+      if (updatedPatient) openPatient(updatedPatient, true, loadedPatients);
+    } else {
+      closePatient();
     }
   };
 
@@ -738,11 +806,11 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
     if (!portalClient) return;
     if (portalClient.isDemo) {
       setPatients(prev => prev.filter(item => item.id !== patient.id));
-      setSelectedPatientId(null);
+      closePatient();
       return;
     }
     await deleteSupabaseCasePatient(token, patient.id);
-    setSelectedPatientId(null);
+    closePatient();
     await loadPatients(portalClient, true);
     void refreshReadyTestimonials();
   };
@@ -1066,7 +1134,8 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                                     setNotificationsOpen(false);
                                     setActiveTab('cases');
                                     setMode('list');
-                                    if (item.patientId) setSelectedPatientId(item.patientId);
+                                    const patient = patients.find(candidate => candidate.id === item.patientId);
+                                    if (patient) openPatient(patient);
                                   }}
                                   className="absolute inset-0 z-10 w-full h-full cursor-pointer focus:outline-none"
                                   aria-label="Abrir detalhes da notificação"
@@ -1110,9 +1179,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             patients={patients}
             readyTestimonialCounts={readyTestimonialCounts}
             onOpenPatient={(patient) => {
-              setActiveTab('cases');
-              setSelectedPatientId(patient.id);
-              setMode('list');
+              openPatient(patient);
               setComingFromTracking(true);
             }}
             onBack={() => handleSetTab('cases')}
@@ -1141,7 +1208,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
             onCancel={() => {
               setMode('list');
               if (!editFromDetail) {
-                setSelectedPatientId(null);
+                closePatient();
               }
             }}
             onSubmit={handleUpdatePatient}
@@ -1154,7 +1221,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
                 setActiveTab('tracking');
                 setComingFromTracking(false);
               }
-              setSelectedPatientId(null);
+              closePatient();
             }}
             onRefreshPatient={handleRefreshPatient}
             onDeletePatient={handleDeletePatient}
@@ -1184,7 +1251,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               patients={patients}
               clientName={portalClient.displayName}
               onCreate={() => setMode('create')}
-              onOpen={patient => setSelectedPatientId(patient.id)}
+              onOpen={openPatient}
               onOpenTestimonials={handleOpenTestimonialsForPatient}
               readyTestimonialCounts={readyTestimonialCounts}
               onRefresh={handleRefresh}
@@ -1198,7 +1265,7 @@ const CasePortal: React.FC<CasePortalProps> = ({ token }) => {
               onClearProductionFilters={() => setProductionFilters([])}
               procedureOptions={procedureOptions}
               onEdit={patient => {
-                setSelectedPatientId(patient.id);
+                openPatient(patient);
                 setEditFromDetail(false);
                 setMode('edit');
               }}
