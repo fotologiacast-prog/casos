@@ -26,7 +26,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
   if (!authorized(req.headers["x-impact-migration-key"]))
     return res.status(401).json({ error: "Unauthorized" });
 
-  const id = new URL(req.url || "", "https://casos-lilac.vercel.app").searchParams.get("id") || "";
+  const id = typeof req.headers["x-impact-file-id"] === "string" ? req.headers["x-impact-file-id"] : "";
   if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID" });
 
   try {
