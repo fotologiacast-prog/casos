@@ -9,7 +9,7 @@ const KEY_SHA256 = "cf360efaa688837b80f77ebe75c5b38c6bcafb9ef63db7d511805d6f0e88
 const CLIENT_ID = 1;
 const CLIENT_NAME = "Eleve Farroupilha";
 const MAX_RANGE_BYTES = 4_000_000;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function authorized(value: string | string[] | undefined) {
   if (typeof value !== "string") return false;
@@ -27,7 +27,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
     return res.status(401).json({ error: "Unauthorized" });
 
   const id = typeof req.headers["x-impact-file-id"] === "string" ? req.headers["x-impact-file-id"] : "";
-  if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID", received_length: id.length, route_version: 4 });
+  if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID" });
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
