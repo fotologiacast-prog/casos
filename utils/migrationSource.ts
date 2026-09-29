@@ -51,7 +51,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
         return res.status(400).json({ error: "Invalid Monday subitem" });
       const { data: editingRequest, error: editingError } = await db
         .from("case_editing_requests")
-        .select("id,case_id,monday_subitem_id")
+        .select("id,case_id,monday_item_id,monday_subitem_id")
         .eq("client_id", CLIENT_ID)
         .eq("monday_subitem_id", mondaySubitemId)
         .maybeSingle();
@@ -67,7 +67,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
           "API-Version": "2024-10",
         },
         body: JSON.stringify({
-          query: "query ($ids: [ID!]) { items(ids: $ids, exclude_nonactive: false) { id assets { id name file_extension file_size public_url created_at } } }",
+          query: "query ($ids: [ID!]) { items(ids: $ids, exclude_nonactive: false) { id assets { id name file_extension file_size public_url url_thumbnail created_at } } }",
           variables: { ids: [mondaySubitemId] },
         }),
         signal: AbortSignal.timeout(25000),
@@ -76,9 +76,35 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
       const mondayData = await mondayResponse.json();
       if (mondayData.errors?.length) throw new Error("Monday query failed");
       const item = mondayData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
-      if (!item || !Array.isArray(item.assets))
+      if (!item || !Array.isArray(item.assets)) {
+        let parentStatus = "not_checked";
+        let siblingSubitems: { id: string; assets: number }[] = [];
+        if (!item && /^\d{1,20}$/.test(String(editingRequest.monday_item_id || ""))) {
+          const parentResponse = await fetch("https://api.monday.com/v2", {
+            method: "POST",
+            headers: { Authorization: mondayToken.trim(), "Content-Type": "application/json",
+              "API-Version": "2024-10" },
+            body: JSON.stringify({
+              query: "query ($ids: [ID!]) { items(ids: $ids, exclude_nonactive: false) { id subitems { id assets { id } } } }",
+              variables: { ids: [String(editingRequest.monday_item_id)] },
+            }),
+            signal: AbortSignal.timeout(25000),
+          });
+          if (parentResponse.ok) {
+            const parentData = await parentResponse.json();
+            const parent = parentData.errors?.length ? null :
+              parentData.data?.items?.find((value: any) => String(value.id) === String(editingRequest.monday_item_id));
+            parentStatus = parent ? "found" : "missing";
+            if (parent && Array.isArray(parent.subitems))
+              siblingSubitems = parent.subitems.slice(0, 100).map((value: any) => ({
+                id: String(value.id || ""), assets: Array.isArray(value.assets) ? value.assets.length : -1,
+              })).filter((value: any) => /^\d{1,20}$/.test(value.id));
+          } else parentStatus = "query_unavailable";
+        }
         return res.status(200).json({ request_id: editingRequest.id, case_id: editingRequest.case_id,
-          subitem_id: mondaySubitemId, assets: [], source_status: !item ? "item_missing" : "assets_unavailable" });
+          subitem_id: mondaySubitemId, assets: [], source_status: !item ? "item_missing" : "assets_unavailable",
+          parent_status: parentStatus, sibling_subitems: siblingSubitems });
+      }
       if (item.assets.length > 200) return res.status(502).json({ error: "Too many Monday assets" });
       const assets = item.assets.map((asset: any) => ({
         id: String(asset.id || ""),
@@ -86,6 +112,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
         extension: String(asset.file_extension || "").toLowerCase(),
         bytes: Number(asset.file_size),
         public_url: String(asset.public_url || ""),
+        thumbnail_url: String(asset.url_thumbnail || ""),
         created_at: asset.created_at || null,
       })).filter((asset: any) => /^\d{1,20}$/.test(asset.id) && asset.name &&
         Number.isSafeInteger(asset.bytes) && asset.bytes > 0 && asset.public_url.startsWith("https://"));
