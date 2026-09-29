@@ -58,10 +58,33 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
       await import("../api/_googleDrive.js");
     const token = await getGoogleAccessToken({ preferOAuth: true });
     const size = Number(file.size_bytes);
+    if (req.headers["x-impact-preview"] === "1") {
+      if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+      const remote = await getDriveFile(token, file.drive_file_id);
+      if (!remote.thumbnailLink) return res.status(404).json({ error: "Preview unavailable" });
+      const host = new URL(remote.thumbnailLink).hostname;
+      if (host !== "googleusercontent.com" && !host.endsWith(".googleusercontent.com") && host !== "drive.google.com")
+        return res.status(502).json({ error: "Invalid preview host" });
+      const thumb = await fetch(remote.thumbnailLink, {
+        headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(25000),
+      });
+      if (!thumb.ok) return res.status(502).json({ error: "Preview source unavailable" });
+      const mime = (thumb.headers.get("content-type") || "").split(";")[0];
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mime))
+        return res.status(502).json({ error: "Invalid preview type" });
+      const image = Buffer.from(await thumb.arrayBuffer());
+      if (image.length < 1 || image.length > 2_000_000)
+        return res.status(413).json({ error: "Preview too large" });
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Content-Length", String(image.length));
+      return res.status(200).end(image);
+    }
     if (req.method === "HEAD") {
       const remote = await getDriveFile(token, file.drive_file_id);
       if (Number(remote.size) !== size)
         return res.status(409).json({ error: "Source size mismatch" });
+      if (/^[0-9a-f]{64}$/i.test(remote.sha256Checksum || ""))
+        res.setHeader("X-Source-SHA256", remote.sha256Checksum.toLowerCase());
       res.setHeader("Content-Length", String(size));
       res.setHeader("Content-Type", file.mime_type || "application/octet-stream");
       return res.status(200).end();
