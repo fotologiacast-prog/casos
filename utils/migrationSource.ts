@@ -65,7 +65,8 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
       const host = new URL(remote.thumbnailLink).hostname;
       if (host !== "googleusercontent.com" && !host.endsWith(".googleusercontent.com") && host !== "drive.google.com")
         return res.status(502).json({ error: "Invalid preview host" });
-      const thumb = await fetch(remote.thumbnailLink, {
+      const previewUrl = remote.thumbnailLink.replace(/=s\d+$/, "=s800");
+      const thumb = await fetch(previewUrl, {
         headers: { Authorization: "Bearer " + token }, signal: AbortSignal.timeout(25000),
       });
       if (!thumb.ok) return res.status(502).json({ error: "Preview source unavailable" });
