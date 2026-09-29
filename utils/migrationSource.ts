@@ -27,7 +27,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
     return res.status(401).json({ error: "Unauthorized" });
 
   const id = typeof req.headers["x-impact-file-id"] === "string" ? req.headers["x-impact-file-id"] : "";
-  if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID" });
+  if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID", received_length: id.length, route_version: 4 });
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
