@@ -27,7 +27,8 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
     return res.status(401).json({ error: "Unauthorized" });
 
   const id = typeof req.headers["x-impact-file-id"] === "string" ? req.headers["x-impact-file-id"] : "";
-  if (!UUID.test(id)) return res.status(400).json({ error: "Invalid file ID" });
+  const mondaySubitemId = typeof req.headers["x-impact-monday-subitem-id"] === "string" ? req.headers["x-impact-monday-subitem-id"] : "";
+  if (!mondaySubitemId && !UUID.test(id)) return res.status(400).json({ error: "Invalid file ID" });
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -43,6 +44,52 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
     if (clientError) throw clientError;
     if (!client || client.name !== CLIENT_NAME || !client.active)
       return res.status(403).json({ error: "Migration source unavailable" });
+
+    // Temporary metadata bridge for Monday assets linked to Eleve editing requests.
+    if (mondaySubitemId) {
+      if (req.method !== "GET" || !/^\d{1,20}$/.test(mondaySubitemId))
+        return res.status(400).json({ error: "Invalid Monday subitem" });
+      const { data: editingRequest, error: editingError } = await db
+        .from("case_editing_requests")
+        .select("id,case_id,monday_subitem_id")
+        .eq("client_id", CLIENT_ID)
+        .eq("monday_subitem_id", mondaySubitemId)
+        .maybeSingle();
+      if (editingError) throw editingError;
+      if (!editingRequest) return res.status(404).json({ error: "Request unavailable" });
+      const mondayToken = process.env.MONDAY_TOKEN;
+      if (!mondayToken) throw new Error("Monday configuration missing");
+      const mondayResponse = await fetch("https://api.monday.com/v2", {
+        method: "POST",
+        headers: {
+          Authorization: mondayToken.trim(),
+          "Content-Type": "application/json",
+          "API-Version": "2024-10",
+        },
+        body: JSON.stringify({
+          query: "query ($ids: [ID!]) { items(ids: $ids) { id assets { id name file_extension file_size public_url created_at } } }",
+          variables: { ids: [mondaySubitemId] },
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+      if (!mondayResponse.ok) throw new Error("Monday metadata unavailable");
+      const mondayData = await mondayResponse.json();
+      if (mondayData.errors?.length) throw new Error("Monday query failed");
+      const item = mondayData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
+      if (!item || !Array.isArray(item.assets) || item.assets.length > 200)
+        return res.status(502).json({ error: "Monday assets unavailable" });
+      const assets = item.assets.map((asset: any) => ({
+        id: String(asset.id || ""),
+        name: String(asset.name || ""),
+        extension: String(asset.file_extension || "").toLowerCase(),
+        bytes: Number(asset.file_size),
+        public_url: String(asset.public_url || ""),
+        created_at: asset.created_at || null,
+      })).filter((asset: any) => /^\d{1,20}$/.test(asset.id) && asset.name &&
+        Number.isSafeInteger(asset.bytes) && asset.bytes > 0 && asset.public_url.startsWith("https://"));
+      return res.status(200).json({ request_id: editingRequest.id, case_id: editingRequest.case_id,
+        subitem_id: mondaySubitemId, assets });
+    }
 
     const { data: file, error: fileError } = await db
       .from("case_files")
