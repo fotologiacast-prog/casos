@@ -67,7 +67,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
           "API-Version": "2024-10",
         },
         body: JSON.stringify({
-          query: "query ($ids: [ID!]) { items(ids: $ids) { id assets { id name file_extension file_size public_url created_at } } }",
+          query: "query ($ids: [ID!]) { items(ids: $ids, exclude_nonactive: false) { id assets { id name file_extension file_size public_url created_at } } }",
           variables: { ids: [mondaySubitemId] },
         }),
         signal: AbortSignal.timeout(25000),
@@ -76,8 +76,10 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
       const mondayData = await mondayResponse.json();
       if (mondayData.errors?.length) throw new Error("Monday query failed");
       const item = mondayData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
-      if (!item || !Array.isArray(item.assets) || item.assets.length > 200)
-        return res.status(502).json({ error: "Monday assets unavailable" });
+      if (!item || !Array.isArray(item.assets))
+        return res.status(200).json({ request_id: editingRequest.id, case_id: editingRequest.case_id,
+          subitem_id: mondaySubitemId, assets: [], source_status: !item ? "item_missing" : "assets_unavailable" });
+      if (item.assets.length > 200) return res.status(502).json({ error: "Too many Monday assets" });
       const assets = item.assets.map((asset: any) => ({
         id: String(asset.id || ""),
         name: String(asset.name || ""),
