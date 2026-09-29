@@ -1095,9 +1095,117 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let mondayResult: any = { success: false, skipped: true };
       const mondayToken = process.env.MONDAY_TOKEN;
       const mondayBoardId = DEFAULT_MONDAY_CASE_BOARD_ID;
-      if (mondayToken && mondayBoardId && existingCase.monday_item_id) {
+      if (mondayToken && mondayBoardId) {
         mondayResult.skipped = false;
         try {
+          let mondayItemId = String(existingCase.monday_item_id || '').trim();
+          const mondayHeaders = {
+            Authorization: mondayToken.trim(),
+            "Content-Type": "application/json",
+            "API-Version": "2024-10",
+          };
+
+          // Older cases may not have the Monday item id persisted. Re-link an
+          // existing item first, and only create a row when no safe match exists.
+          if (mondayItemId) {
+            const linkedItemResponse = await fetch("https://api.monday.com/v2", {
+              method: "POST",
+              headers: mondayHeaders,
+              body: JSON.stringify({
+                query: `query ($itemIds: [ID!]) { items(ids: $itemIds) { id } }`,
+                variables: { itemIds: [mondayItemId] },
+              }),
+            });
+            const linkedItemData = await linkedItemResponse.json().catch(() => ({}));
+            if (!linkedItemData?.data?.items?.[0]?.id) {
+              mondayItemId = '';
+              mondayResult.relinked = true;
+            }
+          }
+
+          if (!mondayItemId) {
+            const itemsResponse = await fetch("https://api.monday.com/v2", {
+              method: "POST",
+              headers: mondayHeaders,
+              body: JSON.stringify({
+                query: `query ($boardId: ID!) {
+                  boards(ids: [$boardId]) {
+                    items_page(limit: 500) {
+                      items { id name column_values { text column { title } } }
+                    }
+                  }
+                }`,
+                variables: { boardId: String(mondayBoardId) },
+              }),
+            });
+            const itemsData = await itemsResponse.json().catch(() => ({}));
+            const items = itemsData?.data?.boards?.[0]?.items_page?.items || [];
+            const normalizeMondayText = (value: unknown) => String(value || '')
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              .trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+            const targetName = normalizeMondayText(payload.patient_name);
+            const targetClient = normalizeMondayText(client.monday_client_label || client.case_client_label || client.name);
+            const candidates = items.filter((item: any) => normalizeMondayText(item.name) === targetName);
+            const clientMatches = candidates.filter((item: any) => {
+              const clientColumn = (item.column_values || []).find((column: any) => {
+                const title = normalizeMondayText(column.column?.title);
+                return ['cliente', 'clinica', 'cliente clinica'].includes(title);
+              });
+              return clientColumn && normalizeMondayText(clientColumn.text) === targetClient;
+            });
+            const matchedItem = clientMatches.length === 1
+              ? clientMatches[0]
+              : candidates.length === 1 && clientMatches.length === 0
+                ? candidates[0]
+                : null;
+
+            if (matchedItem?.id) {
+              mondayItemId = String(matchedItem.id);
+              mondayResult.relinked = true;
+            } else {
+              const groupsResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: mondayHeaders,
+                body: JSON.stringify({
+                  query: `query ($boardId: ID!) { boards(ids: [$boardId]) { groups { id title } } }`,
+                  variables: { boardId: String(mondayBoardId) },
+                }),
+              });
+              const groupsData = await groupsResponse.json().catch(() => ({}));
+              const groups = groupsData?.data?.boards?.[0]?.groups || [];
+              const targetGroup = groups.find((group: any) => normalizeMondayText(group.title) === normalizeMondayText(MONDAY_CASES_GROUP_TITLE));
+              if (!targetGroup) throw new Error(`Grupo de casos não encontrado no board ${mondayBoardId}.`);
+
+              const createResponse = await fetch("https://api.monday.com/v2", {
+                method: "POST",
+                headers: mondayHeaders,
+                body: JSON.stringify({
+                  query: `mutation ($boardId: ID!, $groupId: String!, $itemName: String!) {
+                    create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName) { id }
+                  }`,
+                  variables: {
+                    boardId: String(mondayBoardId),
+                    groupId: targetGroup.id,
+                    itemName: payload.patient_name,
+                  },
+                }),
+              });
+              const createData = await createResponse.json().catch(() => ({}));
+              if (!createResponse.ok || createData.errors) throw new Error(createData.errors?.map((error: any) => error.message).join(' ') || 'Falha ao criar linha no Monday.');
+              mondayItemId = String(createData?.data?.create_item?.id || '');
+              mondayResult.created = true;
+            }
+
+            if (!mondayItemId) throw new Error('Monday não retornou o ID da linha.');
+            const { error: relinkError } = await supabase
+              .from('cases')
+              .update({ monday_item_id: mondayItemId })
+              .eq('id', caseId)
+              .eq('client_id', client.id);
+            if (relinkError) throw relinkError;
+            existingCase.monday_item_id = mondayItemId;
+          }
+
           // 1. Rename item in Monday if name changed
           if (existingCase.patient_name !== payload.patient_name) {
             await fetch("https://api.monday.com/v2", {
