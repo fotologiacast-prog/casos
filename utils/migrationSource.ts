@@ -90,7 +90,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
         });
         if (archivedResponse.ok) {
           const archivedData = await archivedResponse.json();
-          if (archivedData.errors?.length) archiveQueryStatus = "query_unavailable";
+          if (archivedData.errors?.length) archiveQueryStatus = "query_unavailable: " + String(archivedData.errors[0]?.message || "").slice(0, 120);
           else {
             item = archivedData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
             archiveQueryStatus = item ? "found" : "missing";
