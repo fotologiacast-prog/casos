@@ -75,7 +75,28 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
       if (!mondayResponse.ok) throw new Error("Monday metadata unavailable");
       const mondayData = await mondayResponse.json();
       if (mondayData.errors?.length) throw new Error("Monday query failed");
-      const item = mondayData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
+      let item = mondayData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
+      let archiveQueryStatus = "not_checked";
+      if (!item) {
+        const archivedResponse = await fetch("https://api.monday.com/v2", {
+          method: "POST",
+          headers: { Authorization: mondayToken.trim(), "Content-Type": "application/json",
+            "API-Version": "2026-07" },
+          body: JSON.stringify({
+            query: "query ($ids: [ID!]) { items(ids: $ids, state: all) { id assets { id name file_extension file_size public_url url_thumbnail created_at } } }",
+            variables: { ids: [mondaySubitemId] },
+          }),
+          signal: AbortSignal.timeout(25000),
+        });
+        if (archivedResponse.ok) {
+          const archivedData = await archivedResponse.json();
+          if (archivedData.errors?.length) archiveQueryStatus = "query_unavailable";
+          else {
+            item = archivedData.data?.items?.find((value: any) => String(value.id) === mondaySubitemId);
+            archiveQueryStatus = item ? "found" : "missing";
+          }
+        } else archiveQueryStatus = "query_unavailable";
+      }
       if (!item || !Array.isArray(item.assets)) {
         let parentStatus = "not_checked";
         let siblingSubitems: { id: string; assets: number }[] = [];
@@ -103,7 +124,7 @@ export async function migrationSourceHandler(req: VercelRequest, res: VercelResp
         }
         return res.status(200).json({ request_id: editingRequest.id, case_id: editingRequest.case_id,
           subitem_id: mondaySubitemId, assets: [], source_status: !item ? "item_missing" : "assets_unavailable",
-          parent_status: parentStatus, sibling_subitems: siblingSubitems });
+          parent_status: parentStatus, sibling_subitems: siblingSubitems, archive_query_status: archiveQueryStatus });
       }
       if (item.assets.length > 200) return res.status(502).json({ error: "Too many Monday assets" });
       const assets = item.assets.map((asset: any) => ({
