@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { migrationSourceHandler } from "../utils/migrationSource.js";
 
 const getSupabaseAdmin = async () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -61,6 +62,7 @@ const getStageUsageLock = async (supabase: any, stageId: string) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.query.action === "migration-source") return migrationSourceHandler(req, res);
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
