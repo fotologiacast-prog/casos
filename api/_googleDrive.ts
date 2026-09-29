@@ -199,7 +199,7 @@ export const startDriveResumableUpload = async (input: {
 };
 
 export const getDriveFile = async (accessToken: string, fileId: string) =>
-  driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,iconLink&supportsAllDrives=true`);
+  driveRequest(accessToken, `/files/${fileId}?fields=id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,iconLink,sha256Checksum&supportsAllDrives=true`);
 
 export const getDirectDriveFileUrl = (fileId: string) =>
   `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
